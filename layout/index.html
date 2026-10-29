@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>IT会社経営シミュレーター(仮)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DotGothic16&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="app">
+
+  <!-- 上部ステータス -->
+  <header class="hud">
+    <div class="hud-title">株式会社サンプル <span class="tag" id="h-level">会社Lv.1</span></div>
+    <div class="hud-items">
+      <span>資金 <b id="h-money"></b> <span class="small muted" id="h-cost"></span></span>
+      <span>評判 <b id="h-rep"></b></span>
+      <span>従業員 <b id="h-staff"></b></span>
+      <span id="h-date"></span>
+    </div>
+  </header>
+
+  <!-- 時間バー -->
+  <div class="timebar">
+    <button id="play-btn" class="btn-small" data-act="play">▶ 再生</button>
+    <div class="timeline">
+      <div class="track" id="track">
+        <div class="track-fill" id="track-fill"></div>
+        <div id="track-marks"></div>
+      </div>
+      <div class="years"><span>1年目</span><span>2年目</span><span>3年目</span><span>4年目</span><span>5年目</span></div>
+    </div>
+    <button id="speed-btn" class="btn-small" data-act="speed">x1</button>
+    <button class="btn-small" data-act="reset">最初から</button>
+  </div>
+
+  <main class="main">
+
+    <!-- ホーム -->
+    <section class="page" id="page-home">
+      <div id="home-alerts"></div>
+      <div class="home-grid">
+        <div>
+          <h2>オフィス</h2>
+          <div class="seats" id="home-seats"></div>
+          <div class="row gap-top">
+            <h2>進行中の案件</h2>
+            <button class="btn-small" data-act="auto">おまかせ配置</button>
+          </div>
+          <div id="home-projects"></div>
+        </div>
+        <div class="side" id="home-side"></div>
+      </div>
+    </section>
+
+    <!-- 案件選択 -->
+    <section class="page hidden" id="page-jobs"><div id="jobs-body"></div></section>
+
+    <!-- 採用選択 -->
+    <section class="page hidden" id="page-hire"><div id="hire-body"></div></section>
+
+    <!-- 投資 -->
+    <section class="page hidden" id="page-invest"><div id="invest-body"></div></section>
+
+  </main>
+
+  <!-- 下部メニュー -->
+  <nav class="bottom-nav">
+    <button class="nav active" data-go="home">ホーム</button>
+    <button class="nav" data-go="jobs">案件</button>
+    <button class="nav" data-go="hire">採用</button>
+    <button class="nav" data-go="invest">投資</button>
+  </nav>
+
+</div>
+
+<!-- 決断画面(障害、案件完了など) -->
+<div class="overlay hidden" id="modal"><div class="modal" id="modal-body"></div></div>
+
+<!-- タイトル画面と終了画面 -->
+<div class="overlay hidden" id="screen"><div class="modal modal-wide" id="screen-body"></div></div>
+
+<!-- 通知 -->
+<div class="toasts" id="toasts"></div>
+
+<script src="data.js"></script>
+<script src="game.js"></script>
+<script src="ui.js"></script>
+</body>
+</html>
