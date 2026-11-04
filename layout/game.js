@@ -63,7 +63,7 @@ function newGame() {
     boost: {}, schedule: [], queue: [], pending: null, over: null, dirty: true,
     nextIncidentDay: CONFIG.firstIncidentDay, nextOfferDay: 14, nextCandDay: 60,
     nextInvestDay: CONFIG.investmentEventInterval, firstDone: false,
-    log: [], notices: [], marks: [], recruitmentEvent: false, recruiting: false, investmentEvent: false, investing: false, assignmentJobId: null,
+    log: [], notices: [], marks: [], recruitmentEvent: false, recruiting: false, recruitStage: 'confirm', investmentEvent: false, investing: false, assignmentJobId: null,
     tally: { honest: 0, hide: 0, incidents: 0 },
     counts: { accepted: 0, hired: 0, handled: 0 },
     missionRewards: {},
@@ -83,19 +83,12 @@ function addEmployee(name, skill, lv) {
 }
 
 function checkMissionRewards() {
-  const missions = [
-    ['first-accept', S.counts.accepted >= 1, '最初の案件を受注する'],
-    ['first-hire', S.counts.hired >= 1, '社員を1人採用する'],
-    ['first-incident', S.counts.handled >= 1, '障害に対応する'],
-    ['first-complete', S.done >= 1, '案件を1つ完成させる'],
-    ['level-two', S.level >= 2, '会社Lv.2に成長する']
-  ];
-  missions.forEach(([id, met, label]) => {
-    if (!met || S.missionRewards[id]) return;
-    S.missionRewards[id] = true;
+  MISSIONS.forEach((mission) => {
+    if (!mission.met(S) || S.missionRewards[mission.id]) return;
+    S.missionRewards[mission.id] = true;
     S.experience += MISSION_EXPERIENCE;
-    log(`ミッション「${label}」達成。経験値 +${MISSION_EXPERIENCE}`, 'good');
-    notify(`ミッション達成: ${label} (経験値 +${MISSION_EXPERIENCE})`, 'good');
+    log(`ミッション「${mission.label}」達成。経験値 +${MISSION_EXPERIENCE}`, 'good');
+    notify(`ミッション達成: ${mission.label} (経験値 +${MISSION_EXPERIENCE})`, 'good');
   });
 }
 
@@ -209,6 +202,7 @@ function buyInvest(key) {
   if (S.money < cost) return { ok: false, msg: `資金が足りない(${yen(cost)}必要)` };
   S.money -= cost;
   S.invest[key]++;
+  checkMissionRewards();
   log(`${inv.name}を強化した(Lv.${S.invest[key]})`);
   S.dirty = true;
   return { ok: true, msg: `${inv.name}が Lv.${S.invest[key]} になった` };
@@ -293,6 +287,7 @@ function tick() {
     S.nextCandDay = S.day + 60;
     S.recruitmentEvent = true;
     S.recruiting = true;
+    S.recruitStage = 'confirm';
     notify('新しい求職者が来た', 'info');
   }
   if (S.day >= S.nextInvestDay && !S.recruitmentEvent) {
@@ -360,13 +355,13 @@ function completeJob(job) {
   addMoney(pay);
   addRep(rep);
   S.done++;
-  checkMissionRewards();
   const success = lateDays === 0 && q >= 60;
   if (success) {
     S.successes++;
     S.experience += job.diff * 10;
   }
   if (job.diff === 3 && success) S.big++;
+  checkMissionRewards();
 
   staff.forEach((e) => { e.job = null; });
   S.jobs = S.jobs.filter((j) => j.id !== job.id);

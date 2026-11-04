@@ -381,6 +381,16 @@ button:focus-visible {
 .mission li.done::before { content: "■ "; }
 .mission li.done { color: var(--ok); }
 
+.mission-tier {
+  margin-top: 6px;
+  font-weight: bold;
+}
+
+.mission-tier:first-child { margin-top: 0; }
+.mission > .mission-tier::before { content: ""; }
+.mission-tier > ul { padding-left: 12px; font-weight: normal; }
+.mission-exp { float: right; color: var(--muted); font-size: 11px; }
+
 /* ===== 案件・採用・投資 ===== */
 .job { margin-bottom: 10px; }
 .job .small { display: block; margin-top: 4px; }

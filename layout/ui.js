@@ -95,7 +95,10 @@ function projectCard(job) {
 
 function levelPanel() {
   const next = LEVELS[S.level];
-  if (!next) return '<div class="panel"><div class="panel-title">会社Lv.3 に成長した</div><div class="small">席が9つ、案件は同時に4件まで受けられる。</div></div>';
+  if (!next) {
+    const current = levelInfo();
+    return `<div class="panel"><div class="panel-title">会社Lv.${current.lv} に成長した</div><div class="small">席が${current.slots}つ、案件は同時に${current.jobs}件まで受けられる。</div></div>`;
+  }
   return `<div class="panel"><div class="panel-title">次の会社Lv.${next.lv}まで(席${next.slots}つ、案件${next.jobs}件)</div>
     <div class="goal-row"><span>案件成功</span><span>${S.successes} / ${next.needSuccess}</span></div>${seg(S.successes, next.needSuccess, next.needSuccess)}
     <div class="goal-row"><span>経験値</span><span>${S.experience} / ${next.needExp}</span></div>${seg(S.experience, next.needExp, 10)}</div>`;
@@ -107,14 +110,20 @@ function goalPanel() {
 }
 
 function missionPanel() {
-  const m = [
-    ['最初の案件を受注する', S.counts.accepted >= 1],
-    ['社員を1人採用する', S.counts.hired >= 1],
-    ['障害に対応する', S.counts.handled >= 1],
-    ['案件を1つ完成させる', S.done >= 1],
-    ['会社Lv.2に成長する', S.level >= 2]
-  ];
-  return `<div class="panel panel-hl"><div class="panel-title">ミッション</div><ul class="mission">${m.map(([t, d]) => `<li class="${d ? 'done' : ''}">${t}</li>`).join('')}</ul></div>`;
+  const tierNames = ['初級', '中級', '上級'];
+  const tiers = tierNames.filter((tier, index) =>
+    index === 0 || MISSIONS
+      .filter((mission) => mission.tier === tierNames[index - 1])
+      .every((mission) => mission.met(S))
+  );
+  const lists = tiers.map((tier) => {
+    const missions = MISSIONS.filter((mission) => mission.tier === tier);
+    return `<li class="mission-tier">${tier}<ul>${missions.map((mission) => {
+      const done = mission.met(S);
+      return `<li class="${done ? 'done' : ''}">${mission.label}<span class="mission-exp">+${MISSION_EXPERIENCE}EXP</span></li>`;
+    }).join('')}</ul></li>`;
+  }).join('');
+  return `<div class="panel panel-hl"><div class="panel-title">ミッション(1項目 ${MISSION_EXPERIENCE}EXP)</div><ul class="mission">${lists}</ul></div>`;
 }
 
 // ----- 案件 -----
@@ -178,6 +187,18 @@ function renderEmployees() {
 
 // ----- 採用イベント -----
 function renderRecruit() {
+  if (S.recruitStage === 'confirm') {
+    $('recruit-body').innerHTML = `<h2>採用イベント</h2>
+      <div class="card">
+        <p>新しい求職者が来ました。候補者を確認して、採用活動を行いますか?</p>
+        <p class="small muted">採用しない場合でも、あとで別の採用イベントが発生します。</p>
+        <div class="row gap-top">
+          <button class="btn-main" data-act="open-recruit">候補者を見る</button>
+          <button class="btn-small" data-act="finish-recruit">今回は見送る</button>
+        </div>
+      </div>`;
+    return;
+  }
   const slots = levelInfo().slots;
   const free = slots - S.employees.length;
   const cards = S.candidates.map((c) => `<div class="card job">
@@ -431,8 +452,10 @@ document.addEventListener('click', (ev) => {
   }
   else if (a === 'finish-assignment') { S.assignmentJobId = null; showPage('home'); render(); }
   else if (a === 'hire') { done(hire(Number(el.dataset.id))); }
+  else if (a === 'open-recruit') { S.recruitStage = 'candidates'; render(); }
   else if (a === 'finish-recruit') { showPage('home'); render(); }
   else if (a === 'upgrade-employee') { done(strengthenEmployee(Number(el.dataset.id))); }
+  else if (a === 'invest') { done(buyInvest(el.dataset.key)); }
   else if (a === 'finish-invest') { showPage('home'); render(); }
   else if (a === 'choice') { onChoice(Number(el.dataset.i)); }
   else if (a === 'continue') { nextPending(); }
