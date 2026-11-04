@@ -52,6 +52,7 @@ function notify(text, kind) { S.notices.push({ text, kind: kind || 'info' }); }
 function raise(p) { S.queue.push(p); }
 function advance() { S.pending = S.queue.length ? S.queue.shift() : null; S.dirty = true; return S.pending; }
 
+
 // ----- ゲーム開始 -----
 function newGame() {
   S = {
