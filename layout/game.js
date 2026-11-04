@@ -57,14 +57,16 @@ function advance() { S.pending = S.queue.length ? S.queue.shift() : null; S.dirt
 function newGame() {
   S = {
     day: 0, money: CONFIG.startMoney, rep: CONFIG.startRep, level: 1,
-    done: 0, big: 0,
+    done: 0, successes: 0, experience: 0, big: 0,
     employees: [], jobs: [], offers: [], candidates: [],
     invest: { backup: 0, security: 0, qa: 0 },
     boost: {}, schedule: [], queue: [], pending: null, over: null, dirty: true,
-    nextIncidentDay: CONFIG.firstIncidentDay, nextOfferDay: 14, nextCandDay: 60, firstDone: false,
-    log: [], notices: [], marks: [], recruitmentEvent: false, recruiting: false, assignmentJobId: null,
+    nextIncidentDay: CONFIG.firstIncidentDay, nextOfferDay: 14, nextCandDay: 60,
+    nextInvestDay: CONFIG.investmentEventInterval, firstDone: false,
+    log: [], notices: [], marks: [], recruitmentEvent: false, recruiting: false, investmentEvent: false, investing: false, assignmentJobId: null,
     tally: { honest: 0, hide: 0, incidents: 0 },
-    counts: { accepted: 0, hired: 0, handled: 0 },
+    counts: { accepted: 0, hired: 0, handled: 0, upgrades: 0, investments: 0 },
+    missionRewards: {},
     nextId: 1, playing: false, speedIdx: CONFIG.defaultSpeed
   };
   START_STAFF.forEach((s) => addEmployee(s.name, s.skill, s.lv));
@@ -78,6 +80,40 @@ function addEmployee(name, skill, lv) {
   const e = { id: newId(), name, skill, lv, salary: SALARY[lv], job: null, absentUntil: 0, coveredUntil: 0 };
   S.employees.push(e);
   return e;
+}
+
+function missionList() {
+  return [
+    { id: 'first-accept', tier: '初級', label: '最初の案件を受注する', met: S.counts.accepted >= 1 },
+    { id: 'first-hire', tier: '初級', label: '社員を1人採用する', met: S.counts.hired >= 1 },
+    { id: 'first-incident', tier: '初級', label: '障害に対応する', met: S.counts.handled >= 1 },
+    { id: 'first-complete', tier: '初級', label: '案件を1つ完成させる', met: S.done >= 1 },
+    { id: 'first-upgrade', tier: '初級', label: '社員を1回強化する', met: S.counts.upgrades >= 1 },
+    { id: 'three-successes', tier: '中級', label: '案件を3件成功させる', met: S.successes >= 3 },
+    { id: 'three-hires', tier: '中級', label: '社員を3人採用する', met: S.counts.hired >= 3 },
+    { id: 'first-investment', tier: '中級', label: '投資を1回実行する', met: S.counts.investments >= 1 },
+    { id: 'level-two', tier: '中級', label: '会社Lv.2に成長する', met: S.level >= 2 },
+    { id: 'five-successes', tier: '上級', label: '案件を5件成功させる', met: S.successes >= 5 },
+    { id: 'big-success', tier: '上級', label: '大規模案件を成功させる', met: S.big >= 1 },
+    { id: 'level-three', tier: '上級', label: '会社Lv.3に成長する', met: S.level >= 3 }
+  ];
+}
+
+function missionTierUnlocked(tier) {
+  if (tier === '初級') return true;
+  const previous = tier === '中級' ? '初級' : '中級';
+  return missionList().filter((mission) => mission.tier === previous).every((mission) => mission.met);
+}
+
+function checkMissionRewards() {
+  missionList().forEach((mission) => {
+    if (!missionTierUnlocked(mission.tier) || !mission.met || S.missionRewards[mission.id]) return;
+    S.missionRewards[mission.id] = true;
+    const reward = MISSION_TIER_EXPERIENCE[mission.tier];
+    S.experience += reward;
+    log(`ミッション「${mission.label}」達成。経験値 +${reward}`, 'good');
+    notify(`${mission.tier}ミッション達成: ${mission.label} (経験値 +${reward})`, 'good');
+  });
 }
 
 // ----- 案件の募集 -----
@@ -112,6 +148,7 @@ function acceptOffer(id) {
   };
   S.jobs.push(job);
   S.counts.accepted++;
+  checkMissionRewards();
   log(`「${job.name}」を受注した`);
   S.dirty = true;
   return { ok: true, msg: `「${job.name}」を受注した。納期は${job.deadline - S.day}日後` };
@@ -174,6 +211,7 @@ function hire(id) {
   S.candidates = S.candidates.filter((x) => x.id !== id);
   addEmployee(c.name, c.skill, c.lv);
   S.counts.hired++;
+  checkMissionRewards();
   log(`${c.name}(${SKILLS[c.skill]})を採用した`);
   autoAssign();
   S.dirty = true;
@@ -188,9 +226,33 @@ function buyInvest(key) {
   if (S.money < cost) return { ok: false, msg: `資金が足りない(${yen(cost)}必要)` };
   S.money -= cost;
   S.invest[key]++;
+  S.counts.investments++;
+  checkMissionRewards();
   log(`${inv.name}を強化した(Lv.${S.invest[key]})`);
   S.dirty = true;
   return { ok: true, msg: `${inv.name}が Lv.${S.invest[key]} になった` };
+}
+
+function strengthenEmployee(id) {
+  const e = empById(id);
+  if (!e) return { ok: false, msg: 'この社員は見つからない' };
+  if (e.lv >= 3) return { ok: false, msg: 'この社員は最大レベルになっている' };
+  const cost = EMPLOYEE_UPGRADE_COST[e.lv];
+  if (S.money < cost) return { ok: false, msg: `資金が足りない(${yen(cost)}必要)` };
+  S.money -= cost;
+  const chance = EMPLOYEE_UPGRADE_CHANCE[e.lv];
+  if (rand() >= chance) {
+    log(`${e.name}の強化に失敗した`, 'bad');
+    S.dirty = true;
+    return { ok: false, msg: `${e.name}の強化に失敗した(成功率${Math.round(chance * 100)}%)` };
+  }
+  e.lv++;
+  e.salary = SALARY[e.lv];
+  S.counts.upgrades++;
+  checkMissionRewards();
+  log(`${e.name}をLv.${e.lv}に強化した`, 'good');
+  S.dirty = true;
+  return { ok: true, msg: `${e.name}がLv.${e.lv}になった` };
 }
 
 // ----- 1日ぶんの進行 -----
@@ -254,6 +316,12 @@ function tick() {
     S.recruiting = true;
     notify('新しい求職者が来た', 'info');
   }
+  if (S.day >= S.nextInvestDay && !S.recruitmentEvent) {
+    S.nextInvestDay = S.day + CONFIG.investmentEventInterval;
+    S.investmentEvent = true;
+    S.investing = true;
+    notify('投資イベントが始まった', 'info');
+  }
 
   // 隠していたことの発覚
   const due = S.schedule.filter((s) => s.day <= S.day);
@@ -313,8 +381,14 @@ function completeJob(job) {
   addMoney(pay);
   addRep(rep);
   S.done++;
+  checkMissionRewards();
   const success = lateDays === 0 && q >= 60;
+  if (success) {
+    S.successes++;
+    S.experience += job.diff * 10;
+  }
   if (job.diff === 3 && success) S.big++;
+  checkMissionRewards();
 
   staff.forEach((e) => { e.job = null; });
   S.jobs = S.jobs.filter((j) => j.id !== job.id);
@@ -326,7 +400,8 @@ function completeJob(job) {
     lateDays === 0 ? `納期: 間に合った(${job.deadline - S.day}日前)` : `納期: ${lateDays}日遅れた(報酬が${Math.round((1 - rf) * 100)}%減った)`,
     `品質: ${q}点(${label})${qf < 1 ? ` 報酬が${Math.round((1 - qf) * 100)}%減った` : ''}`,
     `報酬: ${yen(pay)}`,
-    `評判: ${rep >= 0 ? '+' : ''}${rep}`
+    `評判: ${rep >= 0 ? '+' : ''}${rep}`,
+    success ? `案件成功: 経験値 +${job.diff * 10}` : '案件成功にならなかった'
   ];
   if (missing.length) lines.push(`スキル不足: ${missing.map((sk) => SKILLS[sk]).join('、')}の担当がいなかったため、品質が下がった`);
   if (job.qDebt > 0) lines.push('バグを残したまま納品したため、品質が下がった');
@@ -339,13 +414,14 @@ function completeJob(job) {
 // ----- 会社レベル -----
 function checkLevel() {
   const next = LEVELS[S.level];
-  if (next && S.rep >= next.needRep && S.done >= next.needDone) {
+  if (next && S.successes >= next.needSuccess && S.experience >= next.needExp) {
     S.level++;
+    checkMissionRewards();
     S.dirty = true;
     log(`会社が Lv.${S.level} になった`, 'good');
     raise({
       kind: 'notice', badge: 'レベルアップ', title: `会社が Lv.${S.level} に成長した`,
-      body: `評判と実績が認められた。社員の席が${next.slots}つに、同時に受けられる案件が${next.jobs}件に増えた。`,
+      body: `案件の成功と経験が認められた。社員の席が${next.slots}つに、同時に受けられる案件が${next.jobs}件に増えた。`,
       choices: [{ label: 'やった', tag: 'other', apply() { return ''; } }]
     });
   }
@@ -386,6 +462,7 @@ function resolve(idx) {
     if (c.tag === 'hide') S.tally.hide++;
     if (c.tag === 'honest') S.tally.honest++;
   }
+  checkMissionRewards();
   S.dirty = true;
   checkEnd();
   return { text, lesson: p.lesson || '', title: p.title, kind: p.kind };

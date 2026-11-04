@@ -30,7 +30,8 @@ const progressPct = (job) => Math.min(100, Math.floor(job.progress / job.work * 
 // ----- 画面の切り替え -----
 function showPage(name) {
   if (name !== 'recruit') S.recruiting = false;
-  ['home', 'jobs', 'assignment', 'employees', 'recruit', 'invest'].forEach((p) => $('page-' + p).classList.toggle('hidden', p !== name));
+  if (name !== 'invest-event') S.investing = false;
+  ['home', 'jobs', 'assignment', 'employees', 'recruit', 'upgrades', 'invest-event'].forEach((p) => $('page-' + p).classList.toggle('hidden', p !== name));
   document.querySelectorAll('.nav').forEach((b) => b.classList.toggle('active', b.dataset.go === name));
 }
 
@@ -94,10 +95,10 @@ function projectCard(job) {
 
 function levelPanel() {
   const next = LEVELS[S.level];
-  if (!next) return '<div class="panel"><div class="panel-title">会社Lv.3 に成長した</div><div class="small">席が8つ、案件は同時に4件まで受けられる。</div></div>';
+  if (!next) return '<div class="panel"><div class="panel-title">会社Lv.3 に成長した</div><div class="small">席が9つ、案件は同時に4件まで受けられる。</div></div>';
   return `<div class="panel"><div class="panel-title">次の会社Lv.${next.lv}まで(席${next.slots}つ、案件${next.jobs}件)</div>
-    <div class="goal-row"><span>評判</span><span>${S.rep} / ${next.needRep}</span></div>${seg(S.rep, next.needRep, 10)}
-    <div class="goal-row"><span>案件の完了</span><span>${Math.min(S.done, next.needDone)} / ${next.needDone}</span></div>${seg(S.done, next.needDone, next.needDone)}</div>`;
+    <div class="goal-row"><span>案件成功</span><span>${S.successes} / ${next.needSuccess}</span></div>${seg(S.successes, next.needSuccess, next.needSuccess)}
+    <div class="goal-row"><span>経験値</span><span>${S.experience} / ${next.needExp}</span></div>${seg(S.experience, next.needExp, 10)}</div>`;
 }
 
 function goalPanel() {
@@ -106,14 +107,17 @@ function goalPanel() {
 }
 
 function missionPanel() {
-  const m = [
-    ['最初の案件を受注する', S.counts.accepted >= 1],
-    ['社員を1人採用する', S.counts.hired >= 1],
-    ['障害に対応する', S.counts.handled >= 1],
-    ['案件を1つ完成させる', S.done >= 1],
-    ['会社Lv.2に成長する', S.level >= 2]
-  ];
-  return `<div class="panel panel-hl"><div class="panel-title">ミッション</div><ul class="mission">${m.map(([t, d]) => `<li class="${d ? 'done' : ''}">${t}</li>`).join('')}</ul></div>`;
+  const groups = ['初級', '中級', '上級'].map((tier) => {
+    if (!missionTierUnlocked(tier)) return '';
+    const missions = missionList().filter((m) => m.tier === tier && !m.met);
+    if (!missions.length) return '';
+    const reward = MISSION_TIER_EXPERIENCE[tier];
+    return `<h3>${tier}ミッション</h3><ul class="mission">${missions.map((m) =>
+      `<li class="${m.met ? 'done' : ''}">${m.label} <span class="small muted">(+${reward} EXP)</span></li>`
+    ).join('')}</ul>`;
+  }).join('');
+  if (!groups) return '';
+  return `<div class="panel panel-hl"><div class="panel-title">ミッション(達成ごとに経験値を獲得)</div>${groups}</div>`;
 }
 
 // ----- 案件 -----
@@ -188,16 +192,31 @@ function renderRecruit() {
     <button class="btn-main" data-act="finish-recruit">採用を終える</button>`;
 }
 
-// ----- 投資 -----
-function renderInvest() {
+// ----- 社員強化一覧 -----
+function renderUpgrades() {
+  const cards = S.employees.map((e) => {
+    const maxed = e.lv >= 3;
+    const cost = EMPLOYEE_UPGRADE_COST[e.lv];
+    const chance = Math.round(EMPLOYEE_UPGRADE_CHANCE[e.lv] * 100);
+    const button = maxed ? '<span class="small">最大Lv.3</span>' : `<button class="act" data-act="upgrade-employee" data-id="${e.id}">強化する ${yen(cost)}</button>`;
+    return `<div class="card job"><div class="row"><div class="who">${avatar(e.skill, e.name + 'のドット絵')}<div><strong>${e.name}</strong> <span class="small muted">${SKILLS[e.skill]} Lv.${e.lv}</span></div></div>${button}</div>
+      <div class="small">月給 ${yen(e.salary)}${maxed ? '' : ` → ${yen(SALARY[e.lv + 1])} / 成功率 ${chance}%`}</div></div>`;
+  }).join('') || '<div class="card muted">社員がいません。</div>';
+  $('upgrades-body').innerHTML = `<h2>社員強化</h2>
+    <p class="small muted legend">資金を使って社員のレベルを上げられます。レベルが上がると仕事の力が強くなり、月給も増えます。</p>${cards}`;
+}
+
+// ----- 投資イベント -----
+function renderInvestEvent() {
   const cards = Object.keys(INVEST).map((k) => {
     const inv = INVEST[k], lv = S.invest[k], max = inv.costs.length;
     const btn = lv >= max ? '<span class="small">最大</span>' : `<button class="act" data-act="invest" data-key="${k}">強化する ${yen(inv.costs[lv])}</button>`;
     return `<div class="card job"><div class="row"><div><strong>${inv.name}</strong> ${pips(lv, max)}</div>${btn}</div>
       <div class="small">${inv.help}</div><div class="small muted">いまの効果: ${inv.now(lv)}</div></div>`;
   }).join('');
-  $('invest-body').innerHTML = `<h2>投資する <span class="muted small">資金 ${yen(S.money)}</span></h2>
-    <p class="small muted legend">投資すると、障害が起きにくくなり、起きたときの被害も小さくなる。すぐには儲からないが、長く経営するほど効いてくる。</p>${cards}`;
+  $('invest-event-body').innerHTML = `<h2>投資イベント <span class="muted small">資金 ${yen(S.money)}</span></h2>
+    <p class="small muted legend">投資イベントが発生しました。障害への備えを強化できます。</p>${cards}
+    <button class="btn-main" data-act="finish-invest">投資を終える</button>`;
 }
 
 // ----- 時間バーとHUD -----
@@ -214,8 +233,9 @@ function updateLive() {
   $('h-level').textContent = `会社Lv.${S.level}`;
   $('h-date').textContent = dateLabel(S.day);
   $('track-fill').style.width = (S.day / CONFIG.totalDays * 100) + '%';
-  $('play-btn').textContent = S.recruiting ? '採用中' : S.playing && !S.pending ? '❚❚ 一時停止' : '▶ 再生';
-  $('play-btn').disabled = S.recruiting;
+  const eventActive = S.recruiting || S.investing;
+  $('play-btn').textContent = eventActive ? 'イベント中' : S.playing && !S.pending ? '❚❚ 一時停止' : '▶ 再生';
+  $('play-btn').disabled = eventActive;
   $('speed-btn').textContent = CONFIG.speeds[S.speedIdx].label;
 
   S.jobs.forEach((job) => {
@@ -237,7 +257,8 @@ function render() {
   renderAssignment();
   renderEmployees();
   renderRecruit();
-  renderInvest();
+  renderUpgrades();
+  renderInvestEvent();
   renderTrack();
   updateLive();
   renderModal();
@@ -351,7 +372,7 @@ function restart() {
 // ----- 時間を進める -----
 function loop() {
   clearTimeout(timer);
-  if (!S.playing || S.pending || S.over || S.recruiting || screenMode !== null) return;
+  if (!S.playing || S.pending || S.over || S.recruiting || S.investing || screenMode !== null) return;
   timer = setTimeout(() => { tick(); afterTick(); loop(); }, CONFIG.speeds[S.speedIdx].ms);
 }
 
@@ -362,6 +383,11 @@ function afterTick() {
     S.recruitmentEvent = false;
     S.playing = false;
     showPage('recruit');
+  }
+  if (S.investmentEvent) {
+    S.investmentEvent = false;
+    S.playing = false;
+    showPage('invest-event');
   }
   if (S.dirty) render(); else updateLive();
 }
@@ -409,7 +435,8 @@ document.addEventListener('click', (ev) => {
   else if (a === 'finish-assignment') { S.assignmentJobId = null; showPage('home'); render(); }
   else if (a === 'hire') { done(hire(Number(el.dataset.id))); }
   else if (a === 'finish-recruit') { showPage('home'); render(); }
-  else if (a === 'invest') { done(buyInvest(el.dataset.key)); }
+  else if (a === 'upgrade-employee') { done(strengthenEmployee(Number(el.dataset.id))); }
+  else if (a === 'finish-invest') { showPage('home'); render(); }
   else if (a === 'choice') { onChoice(Number(el.dataset.i)); }
   else if (a === 'continue') { nextPending(); }
 });
