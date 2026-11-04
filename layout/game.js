@@ -15,6 +15,7 @@ function setSeed(seed) {
   };
 }
 
+
 const ri = (a, b) => a + Math.floor(rand() * (b - a + 1));
 const pick = (arr) => arr[Math.floor(rand() * arr.length)];
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
@@ -50,6 +51,7 @@ function log(text, kind) {
 function notify(text, kind) { S.notices.push({ text, kind: kind || 'info' }); }
 function raise(p) { S.queue.push(p); }
 function advance() { S.pending = S.queue.length ? S.queue.shift() : null; S.dirty = true; return S.pending; }
+
 
 // ----- ゲーム開始 -----
 function newGame() {
