@@ -15,6 +15,7 @@ function setSeed(seed) {
   };
 }
 
+
 const ri = (a, b) => a + Math.floor(rand() * (b - a + 1));
 const pick = (arr) => arr[Math.floor(rand() * arr.length)];
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
