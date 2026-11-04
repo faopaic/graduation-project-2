@@ -390,6 +390,20 @@ button:focus-visible {
 .mission > .mission-tier::before { content: ""; }
 .mission-tier > ul { padding-left: 12px; font-weight: normal; }
 .mission-exp { float: right; color: var(--muted); font-size: 11px; }
+.mission-tier-title { display: flex; justify-content: space-between; align-items: center; }
+.mission-unlocked { color: var(--ok); font-size: 11px; }
+
+.mission-toggle {
+  width: 100%;
+  margin-top: 10px;
+}
+
+.recruit-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 12px;
+}
 
 /* ===== 案件・採用・投資 ===== */
 .job { margin-bottom: 10px; }

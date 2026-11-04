@@ -42,6 +42,9 @@ function toast(text, kind) {
   $('toasts').appendChild(el);
   setTimeout(() => el.remove(), 3800);
 }
+function flushNotices() {
+  S.notices.splice(0).forEach((n) => toast(n.text, n.kind));
+}
 
 // ----- ホーム -----
 function renderHome() {
@@ -64,7 +67,8 @@ function renderHome() {
     '<div class="card muted">まだ案件がありません。「案件」ページから受注しよう。</div>';
 
   // 右パネル
-  $('home-side').innerHTML = levelPanel() + goalPanel() + missionPanel();
+  $('home-side').innerHTML = levelPanel() + goalPanel()
+    + '<button class="btn-small mission-toggle" data-act="toggle-missions">ミッションを見る</button>';
 }
 
 function hintText() {
@@ -112,18 +116,29 @@ function goalPanel() {
 function missionPanel() {
   const tierNames = ['初級', '中級', '上級'];
   const tiers = tierNames.filter((tier, index) =>
-    index === 0 || MISSIONS
-      .filter((mission) => mission.tier === tierNames[index - 1])
-      .every((mission) => mission.met(S))
+    !MISSIONS.filter((mission) => mission.tier === tier).every((mission) => mission.met(S))
+      && (index === 0 || MISSIONS
+        .filter((mission) => mission.tier === tierNames[index - 1])
+        .every((mission) => mission.met(S)))
   );
-  const lists = tiers.map((tier) => {
+  const challengeMissions = MISSIONS.filter((mission) => mission.tier === 'チャレンジ')
+    .filter((mission) => !mission.met(S));
+  let lists = tiers.map((tier) => {
     const missions = MISSIONS.filter((mission) => mission.tier === tier);
-    return `<li class="mission-tier">${tier}<ul>${missions.map((mission) => {
+    const unlockedLabel = tier === '中級' || tier === '上級'
+      ? '<span class="mission-unlocked">解放済み</span>' : '';
+    return `<li class="mission-tier"><div class="mission-tier-title">${tier}${unlockedLabel}</div><ul>${missions.map((mission) => {
       const done = mission.met(S);
-      return `<li class="${done ? 'done' : ''}">${mission.label}<span class="mission-exp">+${MISSION_EXPERIENCE}EXP</span></li>`;
+      return `<li class="${done ? 'done' : ''}">${mission.label}<span class="mission-exp">+${mission.reward || MISSION_EXPERIENCE}EXP</span></li>`;
     }).join('')}</ul></li>`;
   }).join('');
-  return `<div class="panel panel-hl"><div class="panel-title">ミッション(1項目 ${MISSION_EXPERIENCE}EXP)</div><ul class="mission">${lists}</ul></div>`;
+  if (challengeMissions.length) {
+    lists += `<li class="mission-tier">チャレンジ<ul>${challengeMissions.map((mission) =>
+      `<li>${mission.label}<span class="mission-exp">+${mission.reward || MISSION_EXPERIENCE}EXP</span></li>`
+    ).join('')}</ul></li>`;
+  }
+  if (!lists) return '<div class="panel panel-hl"><div class="panel-title">ミッション</div><div class="small">すべてのミッションを達成しました。</div></div>';
+  return `<div class="panel panel-hl"><div class="panel-title">ミッション(初級・中級 ${MISSION_EXPERIENCE}EXP / 上級 10EXP / チャレンジ 15EXP)</div><ul class="mission">${lists}</ul></div>`;
 }
 
 // ----- 案件 -----
@@ -201,13 +216,29 @@ function renderRecruit() {
   }
   const slots = levelInfo().slots;
   const free = slots - S.employees.length;
+  const staff = S.employees.map((e) => {
+    const job = e.job ? jobById(e.job) : null;
+    const status = isAbsent(e) ? `休職中(あと${e.absentUntil - S.day}日)` : job ? `「${job.name}」を担当中` : '待機中';
+    return `<div class="card job"><div class="row"><div class="who">${avatar(e.skill, e.name + 'のドット絵')}<div><strong>${e.name}</strong> <span class="small muted">${SKILLS[e.skill]} Lv.${e.lv}</span><div class="small muted">${SKILL_HELP[e.skill]}</div></div></div><span class="small">${status}</span></div>
+      <div class="small">月給 ${yen(e.salary)}</div></div>`;
+  }).join('');
+  if (S.recruitStage === 'staff') {
+    $('recruit-body').innerHTML = `<h2>在籍社員 <span class="muted small">${S.employees.length} / ${slots}人</span></h2>
+      <p class="small muted legend">現在在籍している社員を確認できます。</p>${staff || '<div class="card muted">社員がいません。</div>'}
+      <div class="recruit-actions"><button class="btn-small" data-act="back-recruit">求職者一覧に戻る</button></div>`;
+    return;
+  }
   const cards = S.candidates.map((c) => `<div class="card job">
     <div class="row"><div class="who">${avatar(c.skill, c.name + 'のドット絵')}<div><strong>${c.name}</strong> <span class="small muted">${SKILLS[c.skill]} Lv.${c.lv}</span><div class="small muted">${SKILL_HELP[c.skill]}</div></div></div>
     <button class="act" data-act="hire" data-id="${c.id}">採用する</button></div>
     <div class="small">月給 ${yen(c.salary)} / 採用すると、月の支出が ${yen(monthlyCost())} → ${yen(monthlyCost() + c.salary)} に増える</div></div>`).join('') || '<div class="card muted">いまは求職者がいない。しばらく待とう。</div>';
   $('recruit-body').innerHTML = `<h2>採用イベント <span class="muted small">空席 ${free} / 席 ${slots}</span></h2>
-    <p class="small muted legend">新しい求職者が来ました。採用すると、毎月の支出が増えます。席がいっぱいのときは、会社Lvを上げると席が増えます。</p>${cards}
-    <button class="btn-main" data-act="finish-recruit">採用を終える</button>`;
+    <p class="small muted legend">新しい求職者が来ました。採用すると、毎月の支出が増えます。席がいっぱいのときは、会社Lvを上げると席が増えます。</p>
+    <h3>求職者</h3>${cards}
+    <div class="recruit-actions">
+      <button class="btn-small" data-act="open-staff">在籍社員を見る</button>
+      <button class="btn-main" data-act="finish-recruit">採用を終える</button>
+    </div>`;
 }
 
 // ----- 社員強化一覧 -----
@@ -286,7 +317,12 @@ function render() {
 // ----- 決断画面 -----
 function renderModal() {
   const p = S && S.pending;
-  $('modal').classList.toggle('hidden', !p || screenMode !== null);
+  const showMission = S && S.missionsOpen && !p && screenMode === null;
+  $('modal').classList.toggle('hidden', (!p && !showMission) || screenMode !== null);
+  if (showMission) {
+    $('modal-body').innerHTML = `<div class="modal-head"><span class="badge badge-low">ミッション</span><button class="btn-small" data-act="toggle-missions">閉じる</button></div>${missionPanel()}`;
+    return;
+  }
   if (!p || screenMode !== null) return;
   const body = $('modal-body');
 
@@ -309,6 +345,7 @@ function renderModal() {
 function onChoice(i) {
   const res = resolve(i);
   if (!res) return;
+  flushNotices();
   if (S.over) { render(); afterTick(); return; }
   if (res.text || res.lesson) { lastResult = res; stage = 2; renderModal(); updateLive(); render(); return; }
   nextPending();
@@ -328,10 +365,9 @@ function showTitle() {
   $('screen-body').innerHTML = `<h1 class="big-title">IT会社経営シミュレーター(仮)</h1>
     <p>あなたは、できたばかりのIT会社の社長。5年のあいだに、会社を大きく育てよう。</p>
     <div class="panel"><div class="panel-title">クリア条件(5年以内に、すべて達成)</div>
-      <div class="goal-row"><span>資金</span><span>${yen(g.money)}</span></div>
-      <div class="goal-row"><span>評判</span><span>${g.rep}</span></div>
-      <div class="goal-row"><span>従業員</span><span>${g.staff}人</span></div>
-      <div class="goal-row"><span>大規模案件(難易度 高)の成功</span><span>${g.big}件</span></div></div>
+    <div class="goal-row"><span>資金</span><span>${yen(g.money)}</span></div>
+    <div class="goal-row"><span>評判</span><span>${g.rep}</span></div>
+    <div class="goal-row"><span>大規模案件(難易度 高)の成功</span><span>${g.big}件</span></div></div>
     <ol class="steps"><li>「案件」で仕事を受注する</li><li>社員を割り振って、「再生」で時間を進める</li><li>起きた障害に、どう対応するか決める</li><li>お金がたまったら、「採用」と「投資」で会社を強くする</li></ol>
     <p class="small muted">資金が0を下回るとゲームオーバー。障害への対応しだいで、評判も資金も変わる。</p>
     <button class="btn-main" data-act="start">ゲームスタート</button>`;
@@ -395,7 +431,7 @@ function loop() {
 }
 
 function afterTick() {
-  S.notices.splice(0).forEach((n) => toast(n.text, n.kind));
+  flushNotices();
   if (S.over) { S.playing = false; render(); showEnd(); return; }
   if (S.recruitmentEvent) {
     S.recruitmentEvent = false;
@@ -416,7 +452,11 @@ document.addEventListener('click', (ev) => {
   if (!el || !S) return;
   if (el.dataset.go) { showPage(el.dataset.go); return; }
   const a = el.dataset.act;
-  const done = (r) => { if (r) toast(r.msg, r.ok ? 'good' : 'bad'); render(); };
+  const done = (r) => {
+    if (r) toast(r.msg, r.ok ? 'good' : 'bad');
+    flushNotices();
+    render();
+  };
 
   if (a === 'start') { startGame(); return; }
   if (a === 'restart') { restart(); return; }
@@ -439,6 +479,7 @@ document.addEventListener('click', (ev) => {
       render();
     }
   }
+  else if (a === 'toggle-missions') { S.missionsOpen = !S.missionsOpen; render(); }
   else if (a === 'assign') { toggleAssign(Number(el.dataset.job), Number(el.dataset.emp)); render(); }
   else if (a === 'accept') {
     const r = acceptOffer(Number(el.dataset.id));
@@ -453,6 +494,8 @@ document.addEventListener('click', (ev) => {
   else if (a === 'finish-assignment') { S.assignmentJobId = null; showPage('home'); render(); }
   else if (a === 'hire') { done(hire(Number(el.dataset.id))); }
   else if (a === 'open-recruit') { S.recruitStage = 'candidates'; render(); }
+  else if (a === 'open-staff') { S.recruitStage = 'staff'; render(); }
+  else if (a === 'back-recruit') { S.recruitStage = 'candidates'; render(); }
   else if (a === 'finish-recruit') { showPage('home'); render(); }
   else if (a === 'upgrade-employee') { done(strengthenEmployee(Number(el.dataset.id))); }
   else if (a === 'invest') { done(buyInvest(el.dataset.key)); }

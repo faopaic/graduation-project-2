@@ -15,7 +15,7 @@ const CONFIG = {
     { label: 'x4', ms: 100 }
   ],
   defaultSpeed: 0,
-  goals: { money: 70000000, rep: 100, staff: 7, big: 3 },   // クリア条件
+  goals: { money: 70000000, rep: 100, big: 3 },   // クリア条件
   incidentGap: [35, 60],    // 障害が起きる間隔(日)
   firstIncidentDay: 12,      // 最初の障害は、案件があればこの日以降に起きる
   investmentEventInterval: 90
@@ -52,10 +52,12 @@ const MISSIONS = [
   { id: 'success-three', tier: '中級', label: '案件を3件成功させる', met: (s) => s.successes >= 3 },
   { id: 'invest-three', tier: '中級', label: '投資を3回行う', met: (s) => Object.values(s.invest).reduce((sum, lv) => sum + lv, 0) >= 3 },
   { id: 'staff-five', tier: '中級', label: '社員を5人に増やす', met: (s) => s.employees.length >= 5 },
-  { id: 'success-five', tier: '上級', label: '案件を5件成功させる', met: (s) => s.successes >= 5 },
-  { id: 'big-success', tier: '上級', label: '大規模案件を1件成功させる', met: (s) => s.big >= 1 },
-  { id: 'level-three', tier: '上級', label: '会社Lv.3に成長する', met: (s) => s.level >= 3 },
-  { id: 'staff-seven', tier: '上級', label: '社員を7人に増やす', met: (s) => s.employees.length >= 7 }
+  { id: 'success-five', tier: '上級', label: '案件を5件成功させる', reward: 10, met: (s) => s.successes >= 5 },
+  { id: 'big-success', tier: '上級', label: '大規模案件を1件成功させる', reward: 10, met: (s) => s.big >= 1 },
+  { id: 'level-three', tier: '上級', label: '会社Lv.3に成長する', reward: 10, met: (s) => s.level >= 3 },
+  { id: 'staff-seven', tier: '上級', label: '社員を7人に増やす', reward: 10, met: (s) => s.employees.length >= 7 },
+  { id: 'success-ten', tier: 'チャレンジ', label: '星2以上の案件を10件成功させる', reward: 15, met: (s) => s.advancedSuccesses >= 10 },
+  { id: 'max-investments', tier: 'チャレンジ', label: 'すべての投資を最大まで強化する', reward: 15, met: (s) => Object.keys(INVEST).every((key) => s.invest[key] >= INVEST[key].costs.length) }
 ];
 
 // 会社のレベル。slots = 社員の席の数、jobs = 同時に受けられる案件の数

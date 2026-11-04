@@ -57,7 +57,7 @@ function advance() { S.pending = S.queue.length ? S.queue.shift() : null; S.dirt
 function newGame() {
   S = {
     day: 0, money: CONFIG.startMoney, rep: CONFIG.startRep, level: 1,
-    done: 0, successes: 0, experience: 0, big: 0,
+    done: 0, successes: 0, advancedSuccesses: 0, experience: 0, big: 0,
     employees: [], jobs: [], offers: [], candidates: [],
     invest: { backup: 0, security: 0, qa: 0 },
     boost: {}, schedule: [], queue: [], pending: null, over: null, dirty: true,
@@ -67,7 +67,7 @@ function newGame() {
     tally: { honest: 0, hide: 0, incidents: 0 },
     counts: { accepted: 0, hired: 0, handled: 0 },
     missionRewards: {},
-    nextId: 1, playing: false, speedIdx: CONFIG.defaultSpeed
+    nextId: 1, playing: false, speedIdx: CONFIG.defaultSpeed, missionsOpen: false, missionUnlockNotices: {}
   };
   START_STAFF.forEach((s) => addEmployee(s.name, s.skill, s.lv));
   ['web', 'lp', 'inv'].forEach((id) => newOffer(id));
@@ -86,9 +86,21 @@ function checkMissionRewards() {
   MISSIONS.forEach((mission) => {
     if (!mission.met(S) || S.missionRewards[mission.id]) return;
     S.missionRewards[mission.id] = true;
-    S.experience += MISSION_EXPERIENCE;
-    log(`ミッション「${mission.label}」達成。経験値 +${MISSION_EXPERIENCE}`, 'good');
-    notify(`ミッション達成: ${mission.label} (経験値 +${MISSION_EXPERIENCE})`, 'good');
+    const reward = mission.reward || MISSION_EXPERIENCE;
+    S.experience += reward;
+    log(`ミッション「${mission.label}」達成。経験値 +${reward}`, 'good');
+    notify(`ミッション達成: ${mission.label} (経験値 +${reward})`, 'good');
+  });
+  const tiers = ['初級', '中級', '上級'];
+  tiers.slice(0, -1).forEach((tier, index) => {
+    const nextTier = tiers[index + 1];
+    const complete = MISSIONS
+      .filter((mission) => mission.tier === tier)
+      .every((mission) => mission.met(S));
+    if (complete && !S.missionUnlockNotices[nextTier]) {
+      S.missionUnlockNotices[nextTier] = true;
+      notify(`${nextTier}ミッションが解放されました`, 'good');
+    }
   });
 }
 
@@ -358,6 +370,7 @@ function completeJob(job) {
   const success = lateDays === 0 && q >= 60;
   if (success) {
     S.successes++;
+    if (job.diff >= 2) S.advancedSuccesses++;
     S.experience += job.diff * 10;
   }
   if (job.diff === 3 && success) S.big++;
@@ -388,6 +401,7 @@ function completeJob(job) {
 function checkLevel() {
   const next = LEVELS[S.level];
   if (next && S.successes >= next.needSuccess && S.experience >= next.needExp) {
+    S.experience -= next.needExp;
     S.level++;
     checkMissionRewards();
     S.dirty = true;
@@ -406,7 +420,6 @@ function goalList() {
   const list = [
     { key: 'money', label: '資金', cur: S.money, target: g.money, fmt: yen },
     { key: 'rep', label: '評判', cur: S.rep, target: g.rep, fmt: (n) => String(n) },
-    { key: 'staff', label: '従業員', cur: S.employees.length, target: g.staff, fmt: (n) => n + '人' },
     { key: 'big', label: '大規模案件の成功', cur: S.big, target: g.big, fmt: (n) => n + '件' }
   ];
   list.forEach((x) => { x.met = x.cur >= x.target; x.ratio = clamp(x.cur / x.target, 0, 1); });
