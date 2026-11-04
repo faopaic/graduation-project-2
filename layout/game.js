@@ -65,7 +65,7 @@ function newGame() {
     nextInvestDay: CONFIG.investmentEventInterval, firstDone: false,
     log: [], notices: [], marks: [], recruitmentEvent: false, recruiting: false, investmentEvent: false, investing: false, assignmentJobId: null,
     tally: { honest: 0, hide: 0, incidents: 0 },
-    counts: { accepted: 0, hired: 0, handled: 0, upgrades: 0, investments: 0 },
+    counts: { accepted: 0, hired: 0, handled: 0 },
     missionRewards: {},
     nextId: 1, playing: false, speedIdx: CONFIG.defaultSpeed
   };
@@ -82,37 +82,20 @@ function addEmployee(name, skill, lv) {
   return e;
 }
 
-function missionList() {
-  return [
-    { id: 'first-accept', tier: '初級', label: '最初の案件を受注する', met: S.counts.accepted >= 1 },
-    { id: 'first-hire', tier: '初級', label: '社員を1人採用する', met: S.counts.hired >= 1 },
-    { id: 'first-incident', tier: '初級', label: '障害に対応する', met: S.counts.handled >= 1 },
-    { id: 'first-complete', tier: '初級', label: '案件を1つ完成させる', met: S.done >= 1 },
-    { id: 'first-upgrade', tier: '初級', label: '社員を1回強化する', met: S.counts.upgrades >= 1 },
-    { id: 'three-successes', tier: '中級', label: '案件を3件成功させる', met: S.successes >= 3 },
-    { id: 'three-hires', tier: '中級', label: '社員を3人採用する', met: S.counts.hired >= 3 },
-    { id: 'first-investment', tier: '中級', label: '投資を1回実行する', met: S.counts.investments >= 1 },
-    { id: 'level-two', tier: '中級', label: '会社Lv.2に成長する', met: S.level >= 2 },
-    { id: 'five-successes', tier: '上級', label: '案件を5件成功させる', met: S.successes >= 5 },
-    { id: 'big-success', tier: '上級', label: '大規模案件を成功させる', met: S.big >= 1 },
-    { id: 'level-three', tier: '上級', label: '会社Lv.3に成長する', met: S.level >= 3 }
-  ];
-}
-
-function missionTierUnlocked(tier) {
-  if (tier === '初級') return true;
-  const previous = tier === '中級' ? '初級' : '中級';
-  return missionList().filter((mission) => mission.tier === previous).every((mission) => mission.met);
-}
-
 function checkMissionRewards() {
-  missionList().forEach((mission) => {
-    if (!missionTierUnlocked(mission.tier) || !mission.met || S.missionRewards[mission.id]) return;
-    S.missionRewards[mission.id] = true;
-    const reward = MISSION_TIER_EXPERIENCE[mission.tier];
-    S.experience += reward;
-    log(`ミッション「${mission.label}」達成。経験値 +${reward}`, 'good');
-    notify(`${mission.tier}ミッション達成: ${mission.label} (経験値 +${reward})`, 'good');
+  const missions = [
+    ['first-accept', S.counts.accepted >= 1, '最初の案件を受注する'],
+    ['first-hire', S.counts.hired >= 1, '社員を1人採用する'],
+    ['first-incident', S.counts.handled >= 1, '障害に対応する'],
+    ['first-complete', S.done >= 1, '案件を1つ完成させる'],
+    ['level-two', S.level >= 2, '会社Lv.2に成長する']
+  ];
+  missions.forEach(([id, met, label]) => {
+    if (!met || S.missionRewards[id]) return;
+    S.missionRewards[id] = true;
+    S.experience += MISSION_EXPERIENCE;
+    log(`ミッション「${label}」達成。経験値 +${MISSION_EXPERIENCE}`, 'good');
+    notify(`ミッション達成: ${label} (経験値 +${MISSION_EXPERIENCE})`, 'good');
   });
 }
 
@@ -226,8 +209,6 @@ function buyInvest(key) {
   if (S.money < cost) return { ok: false, msg: `資金が足りない(${yen(cost)}必要)` };
   S.money -= cost;
   S.invest[key]++;
-  S.counts.investments++;
-  checkMissionRewards();
   log(`${inv.name}を強化した(Lv.${S.invest[key]})`);
   S.dirty = true;
   return { ok: true, msg: `${inv.name}が Lv.${S.invest[key]} になった` };
@@ -248,8 +229,6 @@ function strengthenEmployee(id) {
   }
   e.lv++;
   e.salary = SALARY[e.lv];
-  S.counts.upgrades++;
-  checkMissionRewards();
   log(`${e.name}をLv.${e.lv}に強化した`, 'good');
   S.dirty = true;
   return { ok: true, msg: `${e.name}がLv.${e.lv}になった` };
@@ -388,7 +367,6 @@ function completeJob(job) {
     S.experience += job.diff * 10;
   }
   if (job.diff === 3 && success) S.big++;
-  checkMissionRewards();
 
   staff.forEach((e) => { e.job = null; });
   S.jobs = S.jobs.filter((j) => j.id !== job.id);

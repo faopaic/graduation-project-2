@@ -107,17 +107,14 @@ function goalPanel() {
 }
 
 function missionPanel() {
-  const groups = ['初級', '中級', '上級'].map((tier) => {
-    if (!missionTierUnlocked(tier)) return '';
-    const missions = missionList().filter((m) => m.tier === tier && !m.met);
-    if (!missions.length) return '';
-    const reward = MISSION_TIER_EXPERIENCE[tier];
-    return `<h3>${tier}ミッション</h3><ul class="mission">${missions.map((m) =>
-      `<li class="${m.met ? 'done' : ''}">${m.label} <span class="small muted">(+${reward} EXP)</span></li>`
-    ).join('')}</ul>`;
-  }).join('');
-  if (!groups) return '';
-  return `<div class="panel panel-hl"><div class="panel-title">ミッション(達成ごとに経験値を獲得)</div>${groups}</div>`;
+  const m = [
+    ['最初の案件を受注する', S.counts.accepted >= 1],
+    ['社員を1人採用する', S.counts.hired >= 1],
+    ['障害に対応する', S.counts.handled >= 1],
+    ['案件を1つ完成させる', S.done >= 1],
+    ['会社Lv.2に成長する', S.level >= 2]
+  ];
+  return `<div class="panel panel-hl"><div class="panel-title">ミッション</div><ul class="mission">${m.map(([t, d]) => `<li class="${d ? 'done' : ''}">${t}</li>`).join('')}</ul></div>`;
 }
 
 // ----- 案件 -----

@@ -40,12 +40,12 @@ const SKILL_HELP = {
 const SALARY = { 1: 220000, 2: 300000, 3: 400000 };   // レベル別の月給
 const EMPLOYEE_UPGRADE_COST = { 1: 250000, 2: 500000 };
 const EMPLOYEE_UPGRADE_CHANCE = { 1: 0.7, 2: 0.4 };
-const MISSION_TIER_EXPERIENCE = { 初級: 5, 中級: 5, 上級: 10 };
+const MISSION_EXPERIENCE = 5;
 
 // 会社のレベル。slots = 社員の席の数、jobs = 同時に受けられる案件の数
 const LEVELS = [
   { lv: 1, slots: 5, jobs: 2 },
-  { lv: 2, slots: 7, jobs: 3, needSuccess: 2, needExp: 40 },
+  { lv: 2, slots: 7, jobs: 3, needSuccess: 2, needExp: 20 },
   { lv: 3, slots: 9, jobs: 4, needSuccess: 5, needExp: 60 }
 ];
 
