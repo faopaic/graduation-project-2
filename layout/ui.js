@@ -29,7 +29,8 @@ const progressPct = (job) => Math.min(100, Math.floor(job.progress / job.work * 
 
 // ----- 画面の切り替え -----
 function showPage(name) {
-  ['home', 'jobs', 'hire', 'invest'].forEach((p) => $('page-' + p).classList.toggle('hidden', p !== name));
+  if (name !== 'recruit') S.recruiting = false;
+  ['home', 'jobs', 'assignment', 'employees', 'recruit', 'invest'].forEach((p) => $('page-' + p).classList.toggle('hidden', p !== name));
   document.querySelectorAll('.nav').forEach((b) => b.classList.toggle('active', b.dataset.go === name));
 }
 
@@ -51,18 +52,11 @@ function renderHome() {
   S.jobs.filter((j) => j.late).forEach((j) => alerts.push(`<div class="alert"><span>「${j.name}」が納期を過ぎている。早く完成させよう。</span></div>`));
   $('home-alerts').innerHTML = alerts.join('');
 
-  // 社員の席
-  const seats = S.employees.map((e) => {
-    const job = e.job ? jobById(e.job) : null;
-    const away = isAbsent(e);
-    let status;
-    if (away) status = `<div class="small neg" data-away="${e.absentUntil}">欠勤中 あと${e.absentUntil - S.day}日</div>`;
-    else if (job) status = `<div class="small">${job.name} / 作業中</div>`;
-    else status = '<div class="small muted">待機中(案件を割り振ろう)</div>';
-    return `<div class="seat ${away ? 'seat-away' : ''}">${avatar(e.skill, e.name + 'のドット絵')}<div><strong>${e.name}</strong> <span class="small muted">${SKILLS[e.skill]} Lv.${e.lv}</span>${status}</div></div>`;
-  });
-  for (let i = S.employees.length; i < levelInfo().slots; i++) seats.push('<div class="seat seat-empty" data-go="hire">空席(採用できます)</div>');
-  $('home-seats').innerHTML = seats.join('');
+  // 休職者のみ表示
+  const seats = S.employees.filter(isAbsent).map((e) =>
+    `<div class="seat seat-away">${avatar(e.skill, e.name + 'のドット絵')}<div><strong>${e.name}</strong> <span class="small muted">${SKILLS[e.skill]} Lv.${e.lv}</span><div class="small neg" data-away="${e.absentUntil}">休職中 あと${e.absentUntil - S.day}日</div></div></div>`
+  );
+  $('home-seats').innerHTML = seats.join('') || '<div class="card muted">現在、休職者はいません。</div>';
 
   // 進行中の案件
   $('home-projects').innerHTML = S.jobs.length ? S.jobs.map(projectCard).join('') :
@@ -142,16 +136,56 @@ function offerCard(o) {
   </div>`;
 }
 
-// ----- 採用 -----
-function renderHire() {
+// ----- 案件の担当決定 -----
+function renderAssignment() {
+  const job = S.assignmentJobId ? jobById(S.assignmentJobId) : null;
+  if (!job) {
+    $('assignment-body').innerHTML = '<div class="card muted">担当を決める案件がありません。</div>';
+    return;
+  }
+  const covered = new Set(job.staff.map(empById).filter(Boolean).map((e) => e.skill));
+  const chips = S.employees.map((e) => {
+    const mine = e.job === job.id;
+    const busy = e.job && !mine;
+    const away = isAbsent(e);
+    return `<button class="chip ${mine ? 'on' : ''} ${busy ? 'busy' : ''} ${away ? 'away' : ''}" data-act="assign" data-job="${job.id}" data-emp="${e.id}" title="${SKILLS[e.skill]} Lv.${e.lv}">${e.name}<span class="small">${SKILLS[e.skill]}</span></button>`;
+  }).join('');
+  const req = job.skills.map((sk) => skillTag(sk, covered.has(sk) ? 'ok' : 'ng')).join('');
+  $('assignment-body').innerHTML = `<h2>担当を決める</h2>
+    <div class="card job"><strong>${job.name}</strong>
+      <div class="small">報酬 ${yen(job.reward)} / 納期 ${job.deadline - S.day}日 / 仕事量 ${job.work}</div>
+      <div class="req small">必要なスキル: ${req}</div>
+      <div class="chips">担当: ${chips || '<span class="muted">社員がいません</span>'}</div>
+    </div>
+    <p class="small muted legend">社員を選ぶと、この案件の担当になります。担当中の社員を選ぶと、担当を外します。</p>
+    <button class="btn-small" data-act="auto-assignment">おまかせ配置</button>
+    <button class="btn-main" data-act="finish-assignment">担当を決め終える</button>`;
+}
+
+// ----- 社員一覧 -----
+function renderEmployees() {
+  const slots = levelInfo().slots;
+  const cards = S.employees.map((e) => {
+    const job = e.job ? jobById(e.job) : null;
+    const status = isAbsent(e) ? `欠勤中(あと${e.absentUntil - S.day}日)` : job ? `「${job.name}」を担当中` : '待機中';
+    return `<div class="card job"><div class="row"><div class="who">${avatar(e.skill, e.name + 'のドット絵')}<div><strong>${e.name}</strong> <span class="small muted">${SKILLS[e.skill]} Lv.${e.lv}</span><div class="small muted">${SKILL_HELP[e.skill]}</div></div></div><span class="small">${status}</span></div>
+      <div class="small">月給 ${yen(e.salary)}</div></div>`;
+  }).join('') || '<div class="card muted">社員がいません。</div>';
+  $('employees-body').innerHTML = `<h2>社員一覧 <span class="muted small">${S.employees.length} / ${slots}人</span></h2>
+    <p class="small muted legend">社員のスキルや担当案件を確認できます。新しい求職者が来たときだけ、採用イベントが発生します。</p>${cards}`;
+}
+
+// ----- 採用イベント -----
+function renderRecruit() {
   const slots = levelInfo().slots;
   const free = slots - S.employees.length;
   const cards = S.candidates.map((c) => `<div class="card job">
     <div class="row"><div class="who">${avatar(c.skill, c.name + 'のドット絵')}<div><strong>${c.name}</strong> <span class="small muted">${SKILLS[c.skill]} Lv.${c.lv}</span><div class="small muted">${SKILL_HELP[c.skill]}</div></div></div>
     <button class="act" data-act="hire" data-id="${c.id}">採用する</button></div>
     <div class="small">月給 ${yen(c.salary)} / 採用すると、月の支出が ${yen(monthlyCost())} → ${yen(monthlyCost() + c.salary)} に増える</div></div>`).join('') || '<div class="card muted">いまは求職者がいない。しばらく待とう。</div>';
-  $('hire-body').innerHTML = `<h2>人材を採用する <span class="muted small">空席 ${free} / 席 ${slots}</span></h2>
-    <p class="small muted legend">採用すると、毎月の支出が増える。席がいっぱいのときは、会社Lvを上げると席が増える。求職者は、約2か月ごとに入れ替わる。</p>${cards}`;
+  $('recruit-body').innerHTML = `<h2>採用イベント <span class="muted small">空席 ${free} / 席 ${slots}</span></h2>
+    <p class="small muted legend">新しい求職者が来ました。採用すると、毎月の支出が増えます。席がいっぱいのときは、会社Lvを上げると席が増えます。</p>${cards}
+    <button class="btn-main" data-act="finish-recruit">採用を終える</button>`;
 }
 
 // ----- 投資 -----
@@ -180,7 +214,8 @@ function updateLive() {
   $('h-level').textContent = `会社Lv.${S.level}`;
   $('h-date').textContent = dateLabel(S.day);
   $('track-fill').style.width = (S.day / CONFIG.totalDays * 100) + '%';
-  $('play-btn').textContent = S.playing && !S.pending ? '❚❚ 一時停止' : '▶ 再生';
+  $('play-btn').textContent = S.recruiting ? '採用中' : S.playing && !S.pending ? '❚❚ 一時停止' : '▶ 再生';
+  $('play-btn').disabled = S.recruiting;
   $('speed-btn').textContent = CONFIG.speeds[S.speedIdx].label;
 
   S.jobs.forEach((job) => {
@@ -199,7 +234,9 @@ function updateLive() {
 function render() {
   renderHome();
   renderJobs();
-  renderHire();
+  renderAssignment();
+  renderEmployees();
+  renderRecruit();
   renderInvest();
   renderTrack();
   updateLive();
@@ -314,13 +351,18 @@ function restart() {
 // ----- 時間を進める -----
 function loop() {
   clearTimeout(timer);
-  if (!S.playing || S.pending || S.over || screenMode !== null) return;
+  if (!S.playing || S.pending || S.over || S.recruiting || screenMode !== null) return;
   timer = setTimeout(() => { tick(); afterTick(); loop(); }, CONFIG.speeds[S.speedIdx].ms);
 }
 
 function afterTick() {
   S.notices.splice(0).forEach((n) => toast(n.text, n.kind));
   if (S.over) { S.playing = false; render(); showEnd(); return; }
+  if (S.recruitmentEvent) {
+    S.recruitmentEvent = false;
+    S.playing = false;
+    showPage('recruit');
+  }
   if (S.dirty) render(); else updateLive();
 }
 
@@ -345,10 +387,28 @@ document.addEventListener('click', (ev) => {
 
   if (a === 'play') { S.playing = !S.playing; updateLive(); loop(); }
   else if (a === 'speed') { S.speedIdx = (S.speedIdx + 1) % CONFIG.speeds.length; updateLive(); loop(); }
-  else if (a === 'auto') { autoAssign(); toast('手が空いている社員を、案件に割り振った', 'good'); render(); }
+  else if (a === 'auto-assignment') {
+    const job = S.assignmentJobId ? jobById(S.assignmentJobId) : null;
+    if (job) {
+      autoAssign(job);
+      toast('手が空いている社員を、この案件に割り振った', 'good');
+      render();
+    }
+  }
   else if (a === 'assign') { toggleAssign(Number(el.dataset.job), Number(el.dataset.emp)); render(); }
-  else if (a === 'accept') { const r = acceptOffer(Number(el.dataset.id)); done(r); if (r.ok) showPage('home'); }
+  else if (a === 'accept') {
+    const r = acceptOffer(Number(el.dataset.id));
+    done(r);
+    if (r.ok) {
+      S.assignmentJobId = S.jobs[S.jobs.length - 1].id;
+      S.playing = false;
+      showPage('assignment');
+      render();
+    }
+  }
+  else if (a === 'finish-assignment') { S.assignmentJobId = null; showPage('home'); render(); }
   else if (a === 'hire') { done(hire(Number(el.dataset.id))); }
+  else if (a === 'finish-recruit') { showPage('home'); render(); }
   else if (a === 'invest') { done(buyInvest(el.dataset.key)); }
   else if (a === 'choice') { onChoice(Number(el.dataset.i)); }
   else if (a === 'continue') { nextPending(); }

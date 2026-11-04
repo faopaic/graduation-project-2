@@ -60,7 +60,7 @@ function newGame() {
     invest: { backup: 0, security: 0, qa: 0 },
     boost: {}, schedule: [], queue: [], pending: null, over: null, dirty: true,
     nextIncidentDay: CONFIG.firstIncidentDay, nextOfferDay: 14, nextCandDay: 60, firstDone: false,
-    log: [], notices: [], marks: [],
+    log: [], notices: [], marks: [], recruitmentEvent: false, recruiting: false, assignmentJobId: null,
     tally: { honest: 0, hide: 0, incidents: 0 },
     counts: { accepted: 0, hired: 0, handled: 0 },
     nextId: 1, playing: false, speedIdx: CONFIG.defaultSpeed
@@ -111,7 +111,6 @@ function acceptOffer(id) {
   S.jobs.push(job);
   S.counts.accepted++;
   log(`「${job.name}」を受注した`);
-  autoAssign();
   S.dirty = true;
   return { ok: true, msg: `「${job.name}」を受注した。納期は${job.deadline - S.day}日後` };
 }
@@ -136,16 +135,17 @@ function toggleAssign(jobId, empId) {
 }
 
 // 手が空いている社員を、スキルが合う案件に割り振る
-function autoAssign() {
+function autoAssign(targetJob) {
   const idle = S.employees.filter((e) => !e.job).sort((a, b) => b.lv - a.lv);
   idle.forEach((e) => {
     const covered = (job, sk) => job.staff.some((id) => empById(id).skill === sk);
-    const needing = S.jobs.filter((j) => j.skills.includes(e.skill) && !covered(j, e.skill));
-    const fitting = S.jobs.filter((j) => j.skills.includes(e.skill));
+    const jobs = targetJob ? [targetJob] : S.jobs;
+    const needing = jobs.filter((j) => j.skills.includes(e.skill) && !covered(j, e.skill));
+    const fitting = jobs.filter((j) => j.skills.includes(e.skill));
     // 合う案件がなければ、人手が少ない案件を手伝う(スキルが合わないので、力は半分)
     const target = needing[0]
       || fitting.sort((a, b) => a.staff.length - b.staff.length)[0]
-      || S.jobs.slice().sort((a, b) => a.staff.length - b.staff.length)[0];
+      || jobs.slice().sort((a, b) => a.staff.length - b.staff.length)[0];
     if (target) assign(target, e);
   });
   S.dirty = true;
@@ -245,7 +245,13 @@ function tick() {
   S.offers = S.offers.filter((o) => o.expires > S.day);
   if (S.offers.length !== before) S.dirty = true;
   if (S.day >= S.nextOfferDay) { newOffer(); S.nextOfferDay = S.day + ri(14, 24); }
-  if (S.day >= S.nextCandDay) { refreshCandidates(); S.nextCandDay = S.day + 60; notify('新しい求職者が来た', 'info'); }
+  if (S.day >= S.nextCandDay) {
+    refreshCandidates();
+    S.nextCandDay = S.day + 60;
+    S.recruitmentEvent = true;
+    S.recruiting = true;
+    notify('新しい求職者が来た', 'info');
+  }
 
   // 隠していたことの発覚
   const due = S.schedule.filter((s) => s.day <= S.day);
