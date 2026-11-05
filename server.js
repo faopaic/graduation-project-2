@@ -5,7 +5,7 @@ const supabase = require('./supabaseClient');
 const path = require('path');
 
 const app = express();
-const PORT = 3000;
+const PORT = Number(process.env.PORT) || 3000;
 
 app.use(express.static(path.join(__dirname, 'layout')));
 app.use('/api', (req, res, next) => {

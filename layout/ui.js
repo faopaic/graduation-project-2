@@ -343,16 +343,14 @@ function render() {
 
 async function loadEmployeeDatabase() {
   try {
-    const apiUrl = window.location.protocol === 'file:'
-      ? 'http://localhost:3000/api/employees'
-      : '/api/employees';
+    const apiUrl = '/api/employees';
     const response = await fetch(apiUrl, { cache: 'no-store' });
     if (!response.ok) throw new Error(`${apiUrl} の読み込みに失敗しました (${response.status})`);
     const records = await response.json();
     if (!Array.isArray(records)) throw new Error('社員データの形式が配列ではありません');
     return records;
   } catch (error) {
-    console.warn('Supabaseの社員データを読み込めないため、組み込みデータを使用します。', error);
+    console.warn('Express APIから社員データを読み込めないため、組み込みデータを使用します。', error);
     return [];
   }
 }
