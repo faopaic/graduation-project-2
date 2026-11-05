@@ -72,7 +72,7 @@ function newGame() {
   START_STAFF.forEach((s) => addEmployee(s.name, s.skill, s.lv));
   ['web', 'lp', 'inv'].forEach((id) => newOffer(id));
   refreshCandidates();
-  log('株式会社サンプルを設立した。まずは案件を受注しよう。');
+  log('PEACE株式会社を設立した。まずは案件を受注しよう。');
   return S;
 }
 

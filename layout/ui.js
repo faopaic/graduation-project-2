@@ -103,7 +103,7 @@ function levelPanel() {
     const current = levelInfo();
     return `<div class="panel"><div class="panel-title">会社Lv.${current.lv} に成長した</div><div class="small">席が${current.slots}つ、案件は同時に${current.jobs}件まで受けられる。</div></div>`;
   }
-  return `<div class="panel"><div class="panel-title">次の会社Lv.${next.lv}まで(席${next.slots}つ、案件${next.jobs}件)</div>
+  return `<div class="panel"><div class="panel-title">会社Lv.${next.lv}までの条件</div>
     <div class="goal-row"><span>案件成功</span><span>${S.successes} / ${next.needSuccess}</span></div>${seg(S.successes, next.needSuccess, next.needSuccess)}
     <div class="goal-row"><span>経験値</span><span>${S.experience} / ${next.needExp}</span></div>${seg(S.experience, next.needExp, 10)}</div>`;
 }
