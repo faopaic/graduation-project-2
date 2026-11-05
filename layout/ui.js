@@ -26,6 +26,8 @@ const seg = (cur, max, cells) => {
 };
 const leftText = (job) => { const l = remainDays(job); return l >= 0 ? `残り${l}日` : `${-l}日遅れ`; };
 const progressPct = (job) => Math.min(100, Math.floor(job.progress / job.work * 100));
+const employeeStats = (e) => Object.entries(EMPLOYEE_STAT_LABELS)
+  .map(([key, label]) => `${label} ${e.stats?.[key] ?? 0}/100`).join(' / ');
 
 // ----- 画面の切り替え -----
 function showPage(name) {
@@ -85,7 +87,8 @@ function projectCard(job) {
   const covered = new Set(job.staff.map(empById).filter(Boolean).map((e) => e.skill));
   const req = job.skills.map((sk) => skillTag(sk, covered.has(sk) ? 'ok' : 'ng')).join('');
   const chips = S.employees.map((e) => {
-    const mine = e.job === job.id, busy = e.job && !mine, away = isAbsent(e);
+    const mine = e.job === job.id, busy = e.sales || (e.job && !mine), away = isAbsent(e);
+    if (e.sales) return `<span class="chip busy" title="営業担当中">${e.name}<span class="small">営業担当</span></span>`;
     return `<button class="chip ${mine ? 'on' : ''} ${busy ? 'busy' : ''} ${away ? 'away' : ''}" data-act="assign" data-job="${job.id}" data-emp="${e.id}" title="${SKILLS[e.skill]} Lv.${e.lv}">${e.name}<span class="small">${SKILLS[e.skill]}</span></button>`;
   }).join('');
   return `<div class="card proj">
@@ -171,8 +174,9 @@ function renderAssignment() {
   const covered = new Set(job.staff.map(empById).filter(Boolean).map((e) => e.skill));
   const chips = S.employees.map((e) => {
     const mine = e.job === job.id;
-    const busy = e.job && !mine;
+    const busy = e.sales || (e.job && !mine);
     const away = isAbsent(e);
+    if (e.sales) return `<span class="chip busy" title="営業担当中">${e.name}<span class="small">営業担当</span></span>`;
     return `<button class="chip ${mine ? 'on' : ''} ${busy ? 'busy' : ''} ${away ? 'away' : ''}" data-act="assign" data-job="${job.id}" data-emp="${e.id}" title="${SKILLS[e.skill]} Lv.${e.lv}">${e.name}<span class="small">${SKILLS[e.skill]}</span></button>`;
   }).join('');
   const req = job.skills.map((sk) => skillTag(sk, covered.has(sk) ? 'ok' : 'ng')).join('');
@@ -190,14 +194,32 @@ function renderAssignment() {
 // ----- 社員一覧 -----
 function renderEmployees() {
   const slots = levelInfo().slots;
+  const salesButton = (e) => e.sales
+    ? `<button class="btn-small" data-act="toggle-sales" data-id="${e.id}">営業担当を外す</button>`
+    : `<button class="btn-small" data-act="toggle-sales" data-id="${e.id}">営業担当にする</button>`;
+  const viewButton = (view) => `<button class="btn-small" data-act="employee-view" data-view="${view}">${view === 'sales' ? '営業担当を見る' : '社員一覧に戻る'}</button>`;
+  if (S.employeeView === 'sales') {
+    const sales = S.employees.filter((e) => e.sales).map((e) => {
+      const resting = e.salesCooldownUntil > S.day;
+      const status = resting ? `営業休止中（あと${e.salesCooldownUntil - S.day}日）` : '営業活動中';
+      return `<div class="card job"><div class="row"><div class="who">${avatar(e.skill, e.name + 'のドット絵')}<div><strong>${e.name}</strong><div class="small muted">営業担当 / 営業力 ${e.salesSkill}/100</div></div></div><span class="small">${status}</span></div>
+        <div class="small">${employeeStats(e)}</div>
+        <div class="small">案件獲得率 ${salesSuccessRate(e.salesSkill)}%（基礎30%） / 獲得後1〜3か月休止</div><div class="gap-top">${salesButton(e)}</div></div>`;
+    }).join('') || '<div class="card muted">営業担当がいません。社員一覧から担当者を設定してください。</div>';
+    $('employees-body').innerHTML = `<div class="row"><h2>社員一覧 <span class="muted small">${S.employees.length} / ${slots}人</span></h2>${viewButton('staff')}</div>
+      <p class="small muted legend">営業担当は毎月、基礎30%に営業力を加味した確率で案件を獲得します。営業力は将来データベースの値に差し替えられます。</p>
+      <h3>営業担当</h3>${sales}`;
+    return;
+  }
   const cards = S.employees.map((e) => {
     const job = e.job ? jobById(e.job) : null;
-    const status = isAbsent(e) ? `欠勤中(あと${e.absentUntil - S.day}日)` : job ? `「${job.name}」を担当中` : '待機中';
+    const salesRest = e.sales && e.salesCooldownUntil > S.day ? `（休止中 あと${e.salesCooldownUntil - S.day}日）` : '';
+    const status = isAbsent(e) ? `欠勤中(あと${e.absentUntil - S.day}日)` : e.sales ? `営業担当${salesRest}` : job ? `「${job.name}」を担当中` : '待機中';
     return `<div class="card job"><div class="row"><div class="who">${avatar(e.skill, e.name + 'のドット絵')}<div><strong>${e.name}</strong> <span class="small muted">${SKILLS[e.skill]} Lv.${e.lv}</span><div class="small muted">${SKILL_HELP[e.skill]}</div></div></div><span class="small">${status}</span></div>
-      <div class="small">月給 ${yen(e.salary)}</div></div>`;
+      <div class="small">月給 ${yen(e.salary)} / 営業力 ${e.salesSkill}/100</div><div class="small">${employeeStats(e)}</div><div class="gap-top">${salesButton(e)}</div></div>`;
   }).join('') || '<div class="card muted">社員がいません。</div>';
-  $('employees-body').innerHTML = `<h2>社員一覧 <span class="muted small">${S.employees.length} / ${slots}人</span></h2>
-    <p class="small muted legend">社員のスキルや担当案件を確認できます。新しい求職者が来たときだけ、採用イベントが発生します。</p>${cards}`;
+  $('employees-body').innerHTML = `<div class="row"><h2>社員一覧 <span class="muted small">${S.employees.length} / ${slots}人</span></h2>${viewButton('sales')}</div>
+    <p class="small muted legend">社員のスキルや担当案件を確認できます。営業担当は毎月、基礎30%に営業力を加味した確率で1〜3件の案件を獲得し、獲得後1〜3か月休みます。</p>${cards}`;
 }
 
 // ----- 採用イベント -----
@@ -312,6 +334,20 @@ function render() {
   updateLive();
   renderModal();
   S.dirty = false;
+}
+
+async function loadEmployeeDatabase() {
+  try {
+    const response = await fetch('employee-data.json', { cache: 'no-store' });
+    if (!response.ok) throw new Error(`employee-data.json の読み込みに失敗しました (${response.status})`);
+    const records = await response.json();
+    if (!Array.isArray(records)) throw new Error('社員データの形式が配列ではありません');
+    S.employeeDatabase = records;
+    refreshCandidates();
+    render();
+  } catch (error) {
+    console.warn('社員データベースを読み込めないため、組み込みデータを使用します。', error);
+  }
 }
 
 // ----- 決断画面 -----
@@ -480,7 +516,9 @@ document.addEventListener('click', (ev) => {
     }
   }
   else if (a === 'toggle-missions') { S.missionsOpen = !S.missionsOpen; render(); }
+  else if (a === 'employee-view') { S.employeeView = el.dataset.view; render(); }
   else if (a === 'assign') { toggleAssign(Number(el.dataset.job), Number(el.dataset.emp)); render(); }
+  else if (a === 'toggle-sales') { toggleSales(Number(el.dataset.id)); render(); }
   else if (a === 'accept') {
     const r = acceptOffer(Number(el.dataset.id));
     done(r);
@@ -508,3 +546,4 @@ document.addEventListener('click', (ev) => {
 newGame();
 render();
 showTitle();
+loadEmployeeDatabase();

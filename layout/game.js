@@ -67,17 +67,26 @@ function newGame() {
     tally: { honest: 0, hide: 0, incidents: 0 },
     counts: { accepted: 0, hired: 0, handled: 0 },
     missionRewards: {},
-    nextId: 1, playing: false, speedIdx: CONFIG.defaultSpeed, missionsOpen: false, missionUnlockNotices: {}
+    nextId: 1, playing: false, speedIdx: CONFIG.defaultSpeed, missionsOpen: false, missionUnlockNotices: {},
+    employeeView: 'staff', employeeDatabase: EMPLOYEE_DATABASE_FALLBACK
   };
-  START_STAFF.forEach((s) => addEmployee(s.name, s.skill, s.lv));
+  START_STAFF.forEach((s) => addEmployee(s.name, s.skill, s.lv, s.salesSkill, s.stats));
   ['web', 'lp', 'inv'].forEach((id) => newOffer(id));
   refreshCandidates();
   log('PEACE株式会社を設立した。まずは案件を受注しよう。');
   return S;
 }
 
-function addEmployee(name, skill, lv) {
-  const e = { id: newId(), name, skill, lv, salary: SALARY[lv], job: null, absentUntil: 0, coveredUntil: 0 };
+function addEmployee(name, skill, lv, salesSkill, stats, sourceId, salary) {
+  const rawStats = { ...DEFAULT_EMPLOYEE_STATS, ...(stats || {}) };
+  const e = {
+    id: newId(), sourceId, name, skill, lv, salary: salary ?? SALARY[lv], job: null, sales: false,
+    salesSkill: salesSkill ?? DEFAULT_SALES_SKILL, salesCooldownUntil: 0,
+    stats: Object.fromEntries(Object.keys(DEFAULT_EMPLOYEE_STATS).map((key) => [
+      key, clamp(Number(rawStats[key]) || 0, 0, 100)
+    ])),
+    absentUntil: 0, coveredUntil: 0
+  };
   S.employees.push(e);
   return e;
 }
@@ -144,6 +153,7 @@ function acceptOffer(id) {
 
 // ----- 担当の割り振り -----
 function assign(job, e) {
+  if (e.sales) return;
   unassign(e);
   e.job = job.id;
   job.staff.push(e.id);
@@ -161,9 +171,30 @@ function toggleAssign(jobId, empId) {
   S.dirty = true;
 }
 
+function toggleSales(empId) {
+  const e = empById(empId);
+  if (!e) return;
+  if (e.sales) {
+    e.sales = false;
+  } else {
+    unassign(e);
+    e.sales = true;
+  }
+  S.dirty = true;
+}
+
+function salesSuccessRate(salesSkill) {
+  const skill = clamp(salesSkill, 0, 100);
+  return clamp(
+    SALES_BASE_SUCCESS_RATE + (skill - SALES_SKILL_REFERENCE) * SALES_SKILL_RATE_PER_POINT,
+    0,
+    100
+  );
+}
+
 // 手が空いている社員を、スキルが合う案件に割り振る
 function autoAssign(targetJob) {
-  const idle = S.employees.filter((e) => !e.job).sort((a, b) => b.lv - a.lv);
+  const idle = S.employees.filter((e) => !e.job && !e.sales).sort((a, b) => b.lv - a.lv);
   idle.forEach((e) => {
     const covered = (job, sk) => job.staff.some((id) => empById(id).skill === sk);
     const jobs = targetJob ? [targetJob] : S.jobs;
@@ -185,25 +216,59 @@ function refreshCandidates() {
   S.dirty = true;
 }
 function makeCandidate() {
+  const available = S.employeeDatabase.filter((candidate) =>
+    !S.employees.some((e) => e.sourceId === candidate.id)
+    && !S.candidates.some((c) => c.sourceId === candidate.id)
+  );
+  const record = pick(available.length ? available : S.employeeDatabase);
+  if (record) {
+    return {
+      id: newId(), sourceId: record.id, name: record.name, skill: record.skill,
+      lv: record.lv, salary: record.salary, salesSkill: record.salesSkill,
+      stats: { ...DEFAULT_EMPLOYEE_STATS, ...(record.stats || {}) }
+    };
+  }
   const used = S.employees.map((e) => e.name).concat(S.candidates.map((c) => c.name));
   const names = CANDIDATE_NAMES.filter((n) => !used.includes(n));
   const skills = ['dev', 'dev', 'dev', 'design', 'design', 'test', 'test', 'infra', 'infra', 'security'];
   const r = rand();
   const lv = r < 0.5 ? 1 : r < 0.85 ? 2 : 3;
-  return { id: newId(), name: pick(names.length ? names : CANDIDATE_NAMES), skill: pick(skills), lv, salary: SALARY[lv] };
+  return {
+    id: newId(), name: pick(names.length ? names : CANDIDATE_NAMES), skill: pick(skills),
+    lv, salary: SALARY[lv], salesSkill: DEFAULT_SALES_SKILL, stats: { ...DEFAULT_EMPLOYEE_STATS }
+  };
 }
 function hire(id) {
   const c = S.candidates.find((x) => x.id === id);
   if (!c) return { ok: false, msg: 'この人は、ほかの会社に決まった' };
   if (S.employees.length >= levelInfo().slots) return { ok: false, msg: '席がいっぱい。会社Lvが上がると、席が増える' };
   S.candidates = S.candidates.filter((x) => x.id !== id);
-  addEmployee(c.name, c.skill, c.lv);
+  addEmployee(c.name, c.skill, c.lv, c.salesSkill, c.stats, c.sourceId, c.salary);
   S.counts.hired++;
   checkMissionRewards();
   log(`${c.name}(${SKILLS[c.skill]})を採用した`);
   autoAssign();
   S.dirty = true;
   return { ok: true, msg: `${c.name}が入社した。月の支出が${yen(c.salary)}増える` };
+}
+
+function runSales() {
+  S.employees.filter((e) => e.sales && S.day >= e.salesCooldownUntil).forEach((e) => {
+    if (rand() * 100 >= salesSuccessRate(e.salesSkill)) return;
+    const count = ri(1, 3);
+    let added = 0;
+    for (let i = 0; i < count; i++) {
+      const before = S.offers.length;
+      newOffer();
+      if (S.offers.length > before) added++;
+    }
+    e.salesCooldownUntil = S.day + ri(30, 90);
+    if (added) {
+      log(`${e.name}が営業で案件を${added}件獲得した`, 'good');
+      notify(`${e.name}が営業で案件を${added}件獲得した`, 'good');
+      S.dirty = true;
+    }
+  });
 }
 
 // ----- 投資 -----
@@ -287,6 +352,7 @@ function tick() {
     const c = monthlyCost();
     S.money -= c;
     log(`給料と運営費 ${yen(c)} を支払った`);
+    runSales();
   }
 
   // 案件の募集と求職者

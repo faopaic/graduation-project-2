@@ -1,0 +1,54 @@
+[
+  {
+    "id": "employee-001",
+    "name": "中村",
+    "skill": "dev",
+    "lv": 2,
+    "salary": 300000,
+    "salesSkill": 60,
+    "stats": {
+      "development": 70,
+      "security": 40,
+      "operations": 50
+    }
+  },
+  {
+    "id": "employee-002",
+    "name": "小林",
+    "skill": "test",
+    "lv": 1,
+    "salary": 220000,
+    "salesSkill": 40,
+    "stats": {
+      "development": 45,
+      "security": 65,
+      "operations": 55
+    }
+  },
+  {
+    "id": "employee-003",
+    "name": "加藤",
+    "skill": "infra",
+    "lv": 2,
+    "salary": 300000,
+    "salesSkill": 50,
+    "stats": {
+      "development": 40,
+      "security": 60,
+      "operations": 80
+    }
+  },
+  {
+    "id": "employee-004",
+    "name": "吉田",
+    "skill": "security",
+    "lv": 3,
+    "salary": 400000,
+    "salesSkill": 70,
+    "stats": {
+      "development": 55,
+      "security": 90,
+      "operations": 70
+    }
+  }
+]

@@ -21,6 +21,28 @@ const CONFIG = {
   investmentEventInterval: 90
 };
 
+// 営業力は将来データベースの0〜100の値に置き換えられる
+const DEFAULT_SALES_SKILL = 50;
+const SALES_BASE_SUCCESS_RATE = 30;
+const SALES_SKILL_REFERENCE = 50;
+const SALES_SKILL_RATE_PER_POINT = 1.1;
+const DEFAULT_EMPLOYEE_STATS = {
+  development: 50,
+  security: 50,
+  operations: 50
+};
+const EMPLOYEE_STAT_LABELS = {
+  development: '開発力',
+  security: 'セキュリティ力',
+  operations: '運用保守力'
+};
+const EMPLOYEE_DATABASE_FALLBACK = [
+  { id: 'employee-001', name: '中村', skill: 'dev', lv: 2, salary: 300000, salesSkill: 60, stats: { development: 70, security: 40, operations: 50 } },
+  { id: 'employee-002', name: '小林', skill: 'test', lv: 1, salary: 220000, salesSkill: 40, stats: { development: 45, security: 65, operations: 55 } },
+  { id: 'employee-003', name: '加藤', skill: 'infra', lv: 2, salary: 300000, salesSkill: 50, stats: { development: 40, security: 60, operations: 80 } },
+  { id: 'employee-004', name: '吉田', skill: 'security', lv: 3, salary: 400000, salesSkill: 70, stats: { development: 55, security: 90, operations: 70 } }
+];
+
 const SKILLS = {
   design: '設計',
   dev: '開発',
@@ -70,9 +92,9 @@ const LEVELS = [
 ];
 
 const START_STAFF = [
-  { name: '佐藤', skill: 'design', lv: 2 },
-  { name: '鈴木', skill: 'dev', lv: 1 },
-  { name: '伊藤', skill: 'infra', lv: 2 }
+  { name: '佐藤', skill: 'design', lv: 2, salesSkill: DEFAULT_SALES_SKILL, stats: { ...DEFAULT_EMPLOYEE_STATS } },
+  { name: '鈴木', skill: 'dev', lv: 1, salesSkill: DEFAULT_SALES_SKILL, stats: { ...DEFAULT_EMPLOYEE_STATS } },
+  { name: '伊藤', skill: 'infra', lv: 2, salesSkill: DEFAULT_SALES_SKILL, stats: { ...DEFAULT_EMPLOYEE_STATS } }
 ];
 
 const CANDIDATE_NAMES = [
