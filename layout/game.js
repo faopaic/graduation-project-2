@@ -54,7 +54,7 @@ function advance() { S.pending = S.queue.length ? S.queue.shift() : null; S.dirt
 
 
 // ----- ゲーム開始 -----
-function newGame() {
+function newGame(employeeDatabase = S?.employeeDatabase || []) {
   S = {
     day: 0, money: CONFIG.startMoney, rep: CONFIG.startRep, level: 1,
     done: 0, successes: 0, advancedSuccesses: 0, experience: 0, big: 0,
@@ -68,19 +68,38 @@ function newGame() {
     counts: { accepted: 0, hired: 0, handled: 0 },
     missionRewards: {},
     nextId: 1, playing: false, speedIdx: CONFIG.defaultSpeed, missionsOpen: false, missionUnlockNotices: {},
-    employeeView: 'staff', employeeDatabase: EMPLOYEE_DATABASE_FALLBACK
+    employeeView: 'staff', employeeDatabase
   };
-  START_STAFF.forEach((s) => addEmployee(s.name, s.skill, s.lv, s.salesSkill, s.stats));
+  const initialStaff = selectInitialStaff(employeeDatabase);
+  initialStaff.forEach((s) => addEmployee(s.name, s.skill, s.salesSkill, s.stats, s.id || s.sourceId, s.salary));
   ['web', 'lp', 'inv'].forEach((id) => newOffer(id));
   refreshCandidates();
   log('PEACE株式会社を設立した。まずは案件を受注しよう。');
   return S;
 }
 
-function addEmployee(name, skill, lv, salesSkill, stats, sourceId, salary) {
+function selectInitialStaff(employeeDatabase) {
+  const available = employeeDatabase.slice();
+  const takeBySkill = (skill) => {
+    const matches = available.filter((employee) => employee.skill === skill);
+    if (!matches.length) return null;
+    const employee = pick(matches);
+    available.splice(available.indexOf(employee), 1);
+    return employee;
+  };
+  const initial = [takeBySkill('dev'), takeBySkill('design')].filter(Boolean);
+  while (initial.length < 3 && available.length) {
+    const employee = pick(available);
+    available.splice(available.indexOf(employee), 1);
+    initial.push(employee);
+  }
+  return initial;
+}
+
+function addEmployee(name, skill, salesSkill, stats, sourceId, salary) {
   const rawStats = { ...DEFAULT_EMPLOYEE_STATS, ...(stats || {}) };
   const e = {
-    id: newId(), sourceId, name, skill, lv, salary: salary ?? SALARY[lv], job: null, sales: false,
+    id: newId(), sourceId, name, skill, salary: salary ?? SALARY[1], job: null, sales: false,
     salesSkill: salesSkill ?? DEFAULT_SALES_SKILL, salesCooldownUntil: 0,
     stats: Object.fromEntries(Object.keys(DEFAULT_EMPLOYEE_STATS).map((key) => [
       key, clamp(Number(rawStats[key]) || 0, 0, 100)
@@ -224,18 +243,16 @@ function makeCandidate() {
   if (record) {
     return {
       id: newId(), sourceId: record.id, name: record.name, skill: record.skill,
-      lv: record.lv, salary: record.salary, salesSkill: record.salesSkill,
+      salary: record.salary, salesSkill: record.salesSkill,
       stats: { ...DEFAULT_EMPLOYEE_STATS, ...(record.stats || {}) }
     };
   }
   const used = S.employees.map((e) => e.name).concat(S.candidates.map((c) => c.name));
   const names = CANDIDATE_NAMES.filter((n) => !used.includes(n));
   const skills = ['dev', 'dev', 'dev', 'design', 'design', 'test', 'test', 'infra', 'infra', 'security'];
-  const r = rand();
-  const lv = r < 0.5 ? 1 : r < 0.85 ? 2 : 3;
   return {
     id: newId(), name: pick(names.length ? names : CANDIDATE_NAMES), skill: pick(skills),
-    lv, salary: SALARY[lv], salesSkill: DEFAULT_SALES_SKILL, stats: { ...DEFAULT_EMPLOYEE_STATS }
+    salary: SALARY[1], salesSkill: DEFAULT_SALES_SKILL, stats: { ...DEFAULT_EMPLOYEE_STATS }
   };
 }
 function hire(id) {
@@ -243,7 +260,7 @@ function hire(id) {
   if (!c) return { ok: false, msg: 'この人は、ほかの会社に決まった' };
   if (S.employees.length >= levelInfo().slots) return { ok: false, msg: '席がいっぱい。会社Lvが上がると、席が増える' };
   S.candidates = S.candidates.filter((x) => x.id !== id);
-  addEmployee(c.name, c.skill, c.lv, c.salesSkill, c.stats, c.sourceId, c.salary);
+  addEmployee(c.name, c.skill, c.salesSkill, c.stats, c.sourceId, c.salary);
   S.counts.hired++;
   checkMissionRewards();
   log(`${c.name}(${SKILLS[c.skill]})を採用した`);
@@ -288,21 +305,46 @@ function buyInvest(key) {
 function strengthenEmployee(id) {
   const e = empById(id);
   if (!e) return { ok: false, msg: 'この社員は見つからない' };
-  if (e.lv >= 3) return { ok: false, msg: 'この社員は最大レベルになっている' };
-  const cost = EMPLOYEE_UPGRADE_COST[e.lv];
+  const statKey = EMPLOYEE_SPECIALTY_STATS[e.skill];
+  if (!statKey) return { ok: false, msg: 'この社員の得意ステータスが設定されていない' };
+  const currentStat = e.stats[statKey];
+  if (currentStat >= 100) return { ok: false, msg: 'この社員の得意ステータスは最大になっている' };
+  const cost = EMPLOYEE_STAT_UPGRADE_COST;
   if (S.money < cost) return { ok: false, msg: `資金が足りない(${yen(cost)}必要)` };
   S.money -= cost;
-  const chance = EMPLOYEE_UPGRADE_CHANCE[e.lv];
+  const chance = employeeUpgradeChance(currentStat);
   if (rand() >= chance) {
     log(`${e.name}の強化に失敗した`, 'bad');
     S.dirty = true;
     return { ok: false, msg: `${e.name}の強化に失敗した(成功率${Math.round(chance * 100)}%)` };
   }
-  e.lv++;
-  e.salary = SALARY[e.lv];
-  log(`${e.name}をLv.${e.lv}に強化した`, 'good');
+  const beforeStat = statKey ? e.stats[statKey] : null;
+  if (statKey) e.stats[statKey] = clamp(e.stats[statKey] + EMPLOYEE_STAT_UPGRADE_AMOUNT, 0, 100);
+  const statMessage = statKey ? `、${EMPLOYEE_STAT_LABELS[statKey]} ${beforeStat}→${e.stats[statKey]}` : '';
+  const otherMessages = Object.keys(e.stats)
+    .filter((key) => key !== statKey && rand() < EMPLOYEE_OTHER_STAT_UPGRADE_CHANCE)
+    .map((key) => {
+      const before = e.stats[key];
+      e.stats[key] = clamp(before + EMPLOYEE_OTHER_STAT_UPGRADE_AMOUNT, 0, 100);
+      return `${EMPLOYEE_STAT_LABELS[key]} ${before}→${e.stats[key]}`;
+    });
+  const otherStatMessage = otherMessages.length ? `（低確率成長: ${otherMessages.join('、')}）` : '';
+  log(`${e.name}を強化した${statMessage}${otherStatMessage}`, 'good');
   S.dirty = true;
-  return { ok: true, msg: `${e.name}がLv.${e.lv}になった` };
+  return { ok: true, msg: `${e.name}の${EMPLOYEE_STAT_LABELS[statKey]}が上がった${statMessage}${otherStatMessage}` };
+}
+
+function employeeUpgradeChance(stat) {
+  const value = clamp(stat, 0, 100);
+  for (let i = 1; i < EMPLOYEE_STAT_UPGRADE_RATE_POINTS.length; i++) {
+    const upper = EMPLOYEE_STAT_UPGRADE_RATE_POINTS[i];
+    if (value <= upper.stat) {
+      const lower = EMPLOYEE_STAT_UPGRADE_RATE_POINTS[i - 1];
+      const ratio = (value - lower.stat) / (upper.stat - lower.stat);
+      return lower.rate + (upper.rate - lower.rate) * ratio;
+    }
+  }
+  return EMPLOYEE_STAT_UPGRADE_RATE_POINTS[EMPLOYEE_STAT_UPGRADE_RATE_POINTS.length - 1].rate;
 }
 
 // ----- 1日ぶんの進行 -----
@@ -310,7 +352,14 @@ function jobPower(job) {
   let p = 0;
   job.staff.forEach((id) => {
     const e = empById(id);
-    if (e && isWorking(e)) p += e.lv * (job.skills.includes(e.skill) ? 1 : 0.5);
+    if (!e || !isWorking(e)) return;
+    if (!job.skills.includes(e.skill)) {
+      p += 0.5;
+      return;
+    }
+    const statKey = EMPLOYEE_SPECIALTY_STATS[e.skill];
+    const stat = statKey ? clamp(Number(e.stats?.[statKey]) || 0, 0, 100) : 50;
+    p += 0.5 + stat / 100;
   });
   if (S.boost[job.id] && S.day < S.boost[job.id]) p *= 1.4;
   return p;

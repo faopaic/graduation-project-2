@@ -1,4 +1,8 @@
 {
+  "scripts": {
+    "start": "node server.js",
+    "test:supabase": "node test-supabase.js"
+  },
   "dependencies": {
     "@supabase/supabase-js": "^2.119.0",
     "dotenv": "^18.0.9",

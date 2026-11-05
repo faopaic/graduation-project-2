@@ -60,7 +60,7 @@ function renderHome() {
 
   // 休職者のみ表示
   const seats = S.employees.filter(isAbsent).map((e) =>
-    `<div class="seat seat-away">${avatar(e.skill, e.name + 'のドット絵')}<div><strong>${e.name}</strong> <span class="small muted">${SKILLS[e.skill]} Lv.${e.lv}</span><div class="small neg" data-away="${e.absentUntil}">休職中 あと${e.absentUntil - S.day}日</div></div></div>`
+    `<div class="seat seat-away">${avatar(e.skill, e.name + 'のドット絵')}<div><strong>${e.name}</strong> <span class="small muted">${SKILLS[e.skill]}</span><div class="small neg" data-away="${e.absentUntil}">休職中 あと${e.absentUntil - S.day}日</div></div></div>`
   );
   $('home-seats').innerHTML = seats.join('') || '<div class="card muted">現在、休職者はいません。</div>';
 
@@ -89,7 +89,7 @@ function projectCard(job) {
   const chips = S.employees.map((e) => {
     const mine = e.job === job.id, busy = e.sales || (e.job && !mine), away = isAbsent(e);
     if (e.sales) return `<span class="chip busy" title="営業担当中">${e.name}<span class="small">営業担当</span></span>`;
-    return `<button class="chip ${mine ? 'on' : ''} ${busy ? 'busy' : ''} ${away ? 'away' : ''}" data-act="assign" data-job="${job.id}" data-emp="${e.id}" title="${SKILLS[e.skill]} Lv.${e.lv}">${e.name}<span class="small">${SKILLS[e.skill]}</span></button>`;
+    return `<button class="chip ${mine ? 'on' : ''} ${busy ? 'busy' : ''} ${away ? 'away' : ''}" data-act="assign" data-job="${job.id}" data-emp="${e.id}" title="${SKILLS[e.skill]}">${e.name}<span class="small">${SKILLS[e.skill]}</span></button>`;
   }).join('');
   return `<div class="card proj">
     <div class="row"><strong>${job.name}</strong><span class="small ${left <= 7 ? 'neg' : 'muted'}" data-left="${job.id}">${leftText(job)}</span></div>
@@ -177,7 +177,7 @@ function renderAssignment() {
     const busy = e.sales || (e.job && !mine);
     const away = isAbsent(e);
     if (e.sales) return `<span class="chip busy" title="営業担当中">${e.name}<span class="small">営業担当</span></span>`;
-    return `<button class="chip ${mine ? 'on' : ''} ${busy ? 'busy' : ''} ${away ? 'away' : ''}" data-act="assign" data-job="${job.id}" data-emp="${e.id}" title="${SKILLS[e.skill]} Lv.${e.lv}">${e.name}<span class="small">${SKILLS[e.skill]}</span></button>`;
+    return `<button class="chip ${mine ? 'on' : ''} ${busy ? 'busy' : ''} ${away ? 'away' : ''}" data-act="assign" data-job="${job.id}" data-emp="${e.id}" title="${SKILLS[e.skill]}">${e.name}<span class="small">${SKILLS[e.skill]}</span></button>`;
   }).join('');
   const req = job.skills.map((sk) => skillTag(sk, covered.has(sk) ? 'ok' : 'ng')).join('');
   $('assignment-body').innerHTML = `<h2>担当を決める</h2>
@@ -215,7 +215,7 @@ function renderEmployees() {
     const job = e.job ? jobById(e.job) : null;
     const salesRest = e.sales && e.salesCooldownUntil > S.day ? `（休止中 あと${e.salesCooldownUntil - S.day}日）` : '';
     const status = isAbsent(e) ? `欠勤中(あと${e.absentUntil - S.day}日)` : e.sales ? `営業担当${salesRest}` : job ? `「${job.name}」を担当中` : '待機中';
-    return `<div class="card job"><div class="row"><div class="who">${avatar(e.skill, e.name + 'のドット絵')}<div><strong>${e.name}</strong> <span class="small muted">${SKILLS[e.skill]} Lv.${e.lv}</span><div class="small muted">${SKILL_HELP[e.skill]}</div></div></div><span class="small">${status}</span></div>
+    return `<div class="card job"><div class="row"><div class="who">${avatar(e.skill, e.name + 'のドット絵')}<div><strong>${e.name}</strong> <span class="small muted">${SKILLS[e.skill]}</span><div class="small muted">${SKILL_HELP[e.skill]}</div></div></div><span class="small">${status}</span></div>
       <div class="small">月給 ${yen(e.salary)} / 営業力 ${e.salesSkill}/100</div><div class="small">${employeeStats(e)}</div><div class="gap-top">${salesButton(e)}</div></div>`;
   }).join('') || '<div class="card muted">社員がいません。</div>';
   $('employees-body').innerHTML = `<div class="row"><h2>社員一覧 <span class="muted small">${S.employees.length} / ${slots}人</span></h2>${viewButton('sales')}</div>
@@ -241,7 +241,7 @@ function renderRecruit() {
   const staff = S.employees.map((e) => {
     const job = e.job ? jobById(e.job) : null;
     const status = isAbsent(e) ? `休職中(あと${e.absentUntil - S.day}日)` : job ? `「${job.name}」を担当中` : '待機中';
-    return `<div class="card job"><div class="row"><div class="who">${avatar(e.skill, e.name + 'のドット絵')}<div><strong>${e.name}</strong> <span class="small muted">${SKILLS[e.skill]} Lv.${e.lv}</span><div class="small muted">${SKILL_HELP[e.skill]}</div></div></div><span class="small">${status}</span></div>
+    return `<div class="card job"><div class="row"><div class="who">${avatar(e.skill, e.name + 'のドット絵')}<div><strong>${e.name}</strong> <span class="small muted">${SKILLS[e.skill]}</span><div class="small muted">${SKILL_HELP[e.skill]}</div></div></div><span class="small">${status}</span></div>
       <div class="small">月給 ${yen(e.salary)}</div></div>`;
   }).join('');
   if (S.recruitStage === 'staff') {
@@ -251,7 +251,7 @@ function renderRecruit() {
     return;
   }
   const cards = S.candidates.map((c) => `<div class="card job">
-    <div class="row"><div class="who">${avatar(c.skill, c.name + 'のドット絵')}<div><strong>${c.name}</strong> <span class="small muted">${SKILLS[c.skill]} Lv.${c.lv}</span><div class="small muted">${SKILL_HELP[c.skill]}</div></div></div>
+    <div class="row"><div class="who">${avatar(c.skill, c.name + 'のドット絵')}<div><strong>${c.name}</strong> <span class="small muted">${SKILLS[c.skill]}</span><div class="small muted">${SKILL_HELP[c.skill]}</div></div></div>
     <button class="act" data-act="hire" data-id="${c.id}">採用する</button></div>
     <div class="small">月給 ${yen(c.salary)} / 採用すると、月の支出が ${yen(monthlyCost())} → ${yen(monthlyCost() + c.salary)} に増える</div></div>`).join('') || '<div class="card muted">いまは求職者がいない。しばらく待とう。</div>';
   $('recruit-body').innerHTML = `<h2>採用イベント <span class="muted small">空席 ${free} / 席 ${slots}</span></h2>
@@ -266,15 +266,20 @@ function renderRecruit() {
 // ----- 社員強化一覧 -----
 function renderUpgrades() {
   const cards = S.employees.map((e) => {
-    const maxed = e.lv >= 3;
-    const cost = EMPLOYEE_UPGRADE_COST[e.lv];
-    const chance = Math.round(EMPLOYEE_UPGRADE_CHANCE[e.lv] * 100);
-    const button = maxed ? '<span class="small">最大Lv.3</span>' : `<button class="act" data-act="upgrade-employee" data-id="${e.id}">強化する ${yen(cost)}</button>`;
-    return `<div class="card job"><div class="row"><div class="who">${avatar(e.skill, e.name + 'のドット絵')}<div><strong>${e.name}</strong> <span class="small muted">${SKILLS[e.skill]} Lv.${e.lv}</span></div></div>${button}</div>
-      <div class="small">月給 ${yen(e.salary)}${maxed ? '' : ` → ${yen(SALARY[e.lv + 1])} / 成功率 ${chance}%`}</div></div>`;
+    const statKey = EMPLOYEE_SPECIALTY_STATS[e.skill];
+    const currentStat = statKey ? (e.stats?.[statKey] ?? 0) : 0;
+    const maxed = currentStat >= 100;
+    const chance = Math.round(employeeUpgradeChance(currentStat) * 100);
+    const statText = statKey
+      ? `${EMPLOYEE_STAT_LABELS[statKey]} ${currentStat}${maxed ? '' : ` → ${Math.min(100, currentStat + EMPLOYEE_STAT_UPGRADE_AMOUNT)}`}`
+      : '';
+    const button = maxed ? '<span class="small">最大値</span>' : `<button class="act" data-act="upgrade-employee" data-id="${e.id}">強化する ${yen(EMPLOYEE_STAT_UPGRADE_COST)}</button>`;
+    return `<div class="card job"><div class="row"><div class="who">${avatar(e.skill, e.name + 'のドット絵')}<div><strong>${e.name}</strong> <span class="small muted">${SKILLS[e.skill]}</span></div></div>${button}</div>
+      <div class="small">月給 ${yen(e.salary)} / 強化成功率 ${chance}%</div>
+      ${statText ? `<div class="small">得意分野強化: ${statText}</div>` : ''}</div>`;
   }).join('') || '<div class="card muted">社員がいません。</div>';
   $('upgrades-body').innerHTML = `<h2>社員強化</h2>
-    <p class="small muted legend">資金を使って社員のレベルを上げられます。レベルが上がると仕事の力が強くなり、月給も増えます。</p>${cards}`;
+    <p class="small muted legend">資金を使って社員の得意分野を強化できます。得意分野は大きく伸び、それ以外のステータスも低確率で少し伸びます。</p>${cards}`;
 }
 
 // ----- 投資イベント -----
@@ -338,16 +343,25 @@ function render() {
 
 async function loadEmployeeDatabase() {
   try {
-    const response = await fetch('employee-data.json', { cache: 'no-store' });
-    if (!response.ok) throw new Error(`employee-data.json の読み込みに失敗しました (${response.status})`);
+    const apiUrl = window.location.protocol === 'file:'
+      ? 'http://localhost:3000/api/employees'
+      : '/api/employees';
+    const response = await fetch(apiUrl, { cache: 'no-store' });
+    if (!response.ok) throw new Error(`${apiUrl} の読み込みに失敗しました (${response.status})`);
     const records = await response.json();
     if (!Array.isArray(records)) throw new Error('社員データの形式が配列ではありません');
-    S.employeeDatabase = records;
-    refreshCandidates();
-    render();
+    return records;
   } catch (error) {
-    console.warn('社員データベースを読み込めないため、組み込みデータを使用します。', error);
+    console.warn('Supabaseの社員データを読み込めないため、組み込みデータを使用します。', error);
+    return [];
   }
+}
+
+async function initializeGame() {
+  const employeeDatabase = await loadEmployeeDatabase();
+  newGame(employeeDatabase);
+  render();
+  showTitle();
 }
 
 // ----- 決断画面 -----
@@ -543,7 +557,4 @@ document.addEventListener('click', (ev) => {
 });
 
 // ----- 起動 -----
-newGame();
-render();
-showTitle();
-loadEmployeeDatabase();
+initializeGame();

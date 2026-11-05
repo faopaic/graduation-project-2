@@ -36,11 +36,22 @@ const EMPLOYEE_STAT_LABELS = {
   security: 'セキュリティ力',
   operations: '運用保守力'
 };
-const EMPLOYEE_DATABASE_FALLBACK = [
-  { id: 'employee-001', name: '中村', skill: 'dev', lv: 2, salary: 300000, salesSkill: 60, stats: { development: 70, security: 40, operations: 50 } },
-  { id: 'employee-002', name: '小林', skill: 'test', lv: 1, salary: 220000, salesSkill: 40, stats: { development: 45, security: 65, operations: 55 } },
-  { id: 'employee-003', name: '加藤', skill: 'infra', lv: 2, salary: 300000, salesSkill: 50, stats: { development: 40, security: 60, operations: 80 } },
-  { id: 'employee-004', name: '吉田', skill: 'security', lv: 3, salary: 400000, salesSkill: 70, stats: { development: 55, security: 90, operations: 70 } }
+const EMPLOYEE_SPECIALTY_STATS = {
+  design: 'development',
+  dev: 'development',
+  test: 'security',
+  infra: 'operations',
+  security: 'security'
+};
+const EMPLOYEE_STAT_UPGRADE_AMOUNT = 15;
+const EMPLOYEE_OTHER_STAT_UPGRADE_AMOUNT = 5;
+const EMPLOYEE_OTHER_STAT_UPGRADE_CHANCE = 0.2;
+const EMPLOYEE_STAT_UPGRADE_COST = 250000;
+const EMPLOYEE_STAT_UPGRADE_RATE_POINTS = [
+  { stat: 0, rate: 0.2 },
+  { stat: 20, rate: 0.7 },
+  { stat: 50, rate: 0.6 },
+  { stat: 100, rate: 0.2 }
 ];
 
 const SKILLS = {
@@ -60,8 +71,6 @@ const SKILL_HELP = {
 };
 
 const SALARY = { 1: 220000, 2: 300000, 3: 400000 };   // レベル別の月給
-const EMPLOYEE_UPGRADE_COST = { 1: 250000, 2: 500000 };
-const EMPLOYEE_UPGRADE_CHANCE = { 1: 0.7, 2: 0.4 };
 const MISSION_EXPERIENCE = 5;
 
 const MISSIONS = [
@@ -89,12 +98,6 @@ const LEVELS = [
   { lv: 3, slots: 9, jobs: 4, needSuccess: 5, needExp: 80 },
   { lv: 4, slots: 11, jobs: 5, needSuccess: 8, needExp: 140 },
   { lv: 5, slots: 13, jobs: 6, needSuccess: 12, needExp: 220 }
-];
-
-const START_STAFF = [
-  { name: '佐藤', skill: 'design', lv: 2, salesSkill: DEFAULT_SALES_SKILL, stats: { ...DEFAULT_EMPLOYEE_STATS } },
-  { name: '鈴木', skill: 'dev', lv: 1, salesSkill: DEFAULT_SALES_SKILL, stats: { ...DEFAULT_EMPLOYEE_STATS } },
-  { name: '伊藤', skill: 'infra', lv: 2, salesSkill: DEFAULT_SALES_SKILL, stats: { ...DEFAULT_EMPLOYEE_STATS } }
 ];
 
 const CANDIDATE_NAMES = [
