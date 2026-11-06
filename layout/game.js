@@ -55,9 +55,9 @@ function advance() { S.pending = S.queue.length ? S.queue.shift() : null; S.dirt
 
 // ----- ゲーム開始 -----
 function newGame(
-  employeeDatabase = S?.employeeDatabase || [],
-  eventDatabase = S?.eventDatabase || [],
-  projectDatabase = S?.projectDatabase || []
+  employeeDatabase,
+  eventDatabase,
+  projectDatabase
 ) {
   S = {
     day: 0, money: CONFIG.startMoney, rep: CONFIG.startRep, level: 1,
@@ -76,7 +76,27 @@ function newGame(
   };
   const initialStaff = selectInitialStaff(employeeDatabase);
   initialStaff.forEach((s) => addEmployee(s.name, s.skill, s.salesSkill, s.stats, s.id || s.sourceId, s.salary));
-  getJobTemplates().slice(0, 3).forEach((template) => newOffer(template.id));
+  const developmentProject = projectDatabase.find((template) => template.skills.includes('dev'));
+  const designProject = projectDatabase.find((template) => template.skills.includes('design'));
+  const initialProjects = [];
+  if (developmentProject) initialProjects.push({ template: developmentProject });
+  if (designProject && designProject.id !== developmentProject?.id) {
+    initialProjects.push({ template: designProject });
+  } else {
+    const fallbackDesignProject = projectDatabase.find((template) =>
+      !initialProjects.some((initial) => initial.template.id === template.id)
+    );
+    if (fallbackDesignProject) initialProjects.push({
+      template: fallbackDesignProject,
+      skills: ['design']
+    });
+  }
+  const remainingProjects = projectDatabase.filter((template) =>
+    !initialProjects.some((initial) => initial.template.id === template.id)
+  );
+  const randomProject = remainingProjects.length ? pick(remainingProjects) : null;
+  if (randomProject) initialProjects.push({ template: randomProject });
+  initialProjects.slice(0, 3).forEach(({ template, skills }) => newOffer(template.id, skills));
   refreshCandidates();
   log('PEACE株式会社を設立した。まずは案件を受注しよう。');
   return S;
@@ -137,12 +157,12 @@ function checkMissionRewards() {
 }
 
 // ----- 案件の募集 -----
-function newOffer(tid) {
+function newOffer(tid, skillsOverride) {
   let t;
   if (tid) {
-    t = getJobTemplates().find((x) => x.id === tid);
+    t = S.projectDatabase.find((x) => x.id === tid);
   } else {
-    const ok = getJobTemplates().filter((x) => x.minRep <= S.rep + 30 && S.offers.filter((o) => o.tid === x.id).length < 2);
+    const ok = S.projectDatabase.filter((x) => x.minRep <= S.rep + 30 && S.offers.filter((o) => o.tid === x.id).length < 2);
     if (!ok.length) return;
     t = pick(ok);
   }
@@ -150,7 +170,8 @@ function newOffer(tid) {
   const reward = Math.round(t.reward * (0.9 + rand() * 0.2) / 10000) * 10000;
   S.offers.push({
     id: newId(), tid: t.id, name: t.name, diff: t.diff, reward, days: t.days, work: t.work,
-    skills: t.skills, minRep: t.minRep, risk: t.risk, expires: S.day + 45
+    skills: skillsOverride || t.skills,
+    minRep: t.minRep, risk: t.risk, expires: S.day + 45
   });
   if (S.offers.length > 6) S.offers.shift();
   S.dirty = true;
@@ -245,19 +266,10 @@ function makeCandidate() {
     && !S.candidates.some((c) => c.sourceId === candidate.id)
   );
   const record = pick(available.length ? available : S.employeeDatabase);
-  if (record) {
-    return {
-      id: newId(), sourceId: record.id, name: record.name, skill: record.skill,
-      salary: record.salary, salesSkill: record.salesSkill,
-      stats: { ...DEFAULT_EMPLOYEE_STATS, ...(record.stats || {}) }
-    };
-  }
-  const used = S.employees.map((e) => e.name).concat(S.candidates.map((c) => c.name));
-  const names = CANDIDATE_NAMES.filter((n) => !used.includes(n));
-  const skills = ['dev', 'dev', 'dev', 'design', 'design', 'test', 'test', 'infra', 'infra', 'security'];
   return {
-    id: newId(), name: pick(names.length ? names : CANDIDATE_NAMES), skill: pick(skills),
-    salary: SALARY[1], salesSkill: DEFAULT_SALES_SKILL, stats: { ...DEFAULT_EMPLOYEE_STATS }
+    id: newId(), sourceId: record.id, name: record.name, skill: record.skill,
+    salary: record.salary, salesSkill: record.salesSkill,
+    stats: { ...DEFAULT_EMPLOYEE_STATS, ...(record.stats || {}) }
   };
 }
 function hire(id) {

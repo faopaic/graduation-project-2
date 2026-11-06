@@ -29,6 +29,16 @@ const progressPct = (job) => Math.min(100, Math.floor(job.progress / job.work * 
 const employeeStats = (e) => Object.entries(EMPLOYEE_STAT_LABELS)
   .map(([key, label]) => `${label} ${e.stats?.[key] ?? 0}/100`).join(' / ');
 
+async function fetchJson(url) {
+  const response = await fetch(url, { cache: 'no-store' });
+  if (!response.ok) throw new Error(`${url} の読み込みに失敗しました (${response.status})`);
+  const contentType = response.headers.get('content-type') || '';
+  if (!contentType.includes('application/json')) {
+    throw new Error(`${url} がJSONを返していません。npm startでサーバーを起動してください`);
+  }
+  return response.json();
+}
+
 // ----- 画面の切り替え -----
 function showPage(name) {
   if (name !== 'recruit') S.recruiting = false;
@@ -211,13 +221,13 @@ function renderEmployees() {
       <h3>営業担当</h3>${sales}`;
     return;
   }
-  const cards = S.employees.map((e) => {
+  const cards = S.employees.filter((e) => !e.sales).map((e) => {
     const job = e.job ? jobById(e.job) : null;
     const salesRest = e.sales && e.salesCooldownUntil > S.day ? `（休止中 あと${e.salesCooldownUntil - S.day}日）` : '';
     const status = isAbsent(e) ? `欠勤中(あと${e.absentUntil - S.day}日)` : e.sales ? `営業担当${salesRest}` : job ? `「${job.name}」を担当中` : '待機中';
     return `<div class="card job"><div class="row"><div class="who">${avatar(e.skill, e.name + 'のドット絵')}<div><strong>${e.name}</strong> <span class="small muted">${SKILLS[e.skill]}</span><div class="small muted">${SKILL_HELP[e.skill]}</div></div></div><span class="small">${status}</span></div>
       <div class="small">月給 ${yen(e.salary)} / 営業力 ${e.salesSkill}/100</div><div class="small">${employeeStats(e)}</div><div class="gap-top">${salesButton(e)}</div></div>`;
-  }).join('') || '<div class="card muted">社員がいません。</div>';
+  }).join('') || '<div class="card muted">営業担当以外の社員がいません。営業担当を見るボタンから確認できます。</div>';
   $('employees-body').innerHTML = `<div class="row"><h2>社員一覧 <span class="muted small">${S.employees.length} / ${slots}人</span></h2>${viewButton('sales')}</div>
     <p class="small muted legend">社員のスキルや担当案件を確認できます。営業担当は毎月、基礎30%に営業力を加味した確率で1〜3件の案件を獲得し、獲得後1〜3か月休みます。</p>${cards}`;
 }
@@ -342,24 +352,28 @@ function render() {
 }
 
 async function loadEmployeeDatabase() {
-  try {
-    const apiUrl = '/api/employees';
-    const response = await fetch(apiUrl, { cache: 'no-store' });
-    if (!response.ok) throw new Error(`${apiUrl} の読み込みに失敗しました (${response.status})`);
-    const records = await response.json();
-    if (!Array.isArray(records)) throw new Error('社員データの形式が配列ではありません');
-    return records;
-  } catch (error) {
-    console.warn('Express APIから社員データを読み込めないため、組み込みデータを使用します。', error);
-    return [];
+  const apiUrl = '/api/employees';
+  const records = await fetchJson(apiUrl);
+  if (!Array.isArray(records) || records.length === 0) {
+    throw new Error('社員データが空、または配列ではありません');
   }
+  return records;
+}
+
+async function loadPageTemplates() {
+  const pages = ['home', 'jobs', 'assignment', 'employees', 'recruit', 'upgrades', 'invest-event'];
+  const templates = await Promise.all(pages.map(async (page) => {
+    const url = `pages/${page}.html`;
+    const response = await fetch(url, { cache: 'no-store' });
+    if (!response.ok) throw new Error(`${url} の読み込みに失敗しました (${response.status})`);
+    return response.text();
+  }));
+  $('page-container').innerHTML = templates.join('');
 }
 
 async function loadEventDatabase() {
   const apiUrl = '/api/events';
-  const response = await fetch(apiUrl, { cache: 'no-store' });
-  if (!response.ok) throw new Error(`${apiUrl} の読み込みに失敗しました (${response.status})`);
-  const records = await response.json();
+  const records = await fetchJson(apiUrl);
   if (!Array.isArray(records) || records.length === 0) {
     throw new Error('DBイベントが空、または配列ではありません');
   }
@@ -367,22 +381,21 @@ async function loadEventDatabase() {
 }
 
 async function loadProjectDatabase() {
-  try {
-    const apiUrl = '/api/projects';
-    const response = await fetch(apiUrl, { cache: 'no-store' });
-    if (!response.ok) throw new Error(`${apiUrl} の読み込みに失敗しました (${response.status})`);
-    const records = await response.json();
-    if (!Array.isArray(records)) throw new Error('案件データの形式が配列ではありません');
-    return records;
-  } catch (error) {
-    console.warn('Express APIから案件データを読み込めないため、組み込みデータを使用します。', error);
-    return [];
+  const apiUrl = '/api/projects';
+  const records = await fetchJson(apiUrl);
+  if (!Array.isArray(records) || records.length === 0) {
+    throw new Error('案件データが空、または配列ではありません');
   }
+  return records;
 }
 
 async function initializeGame() {
   try {
-    const [employeeDatabase, eventDatabase, projectDatabase] = await Promise.all([
+    if (location.protocol === 'file:') {
+      throw new Error('index.htmlを直接開かず、ターミナルで「npm start」を実行して http://localhost:3000 を開いてください');
+    }
+    const [, employeeDatabase, eventDatabase, projectDatabase] = await Promise.all([
+      loadPageTemplates(),
       loadEmployeeDatabase(),
       loadEventDatabase(),
       loadProjectDatabase()
@@ -391,8 +404,9 @@ async function initializeGame() {
     render();
     showTitle();
   } catch (error) {
-    console.error('DBイベントを読み込めないためゲームを開始できません。', error);
-    document.body.innerHTML = '<main class="app"><section class="page"><h1>ゲームを開始できません</h1><p>DBイベントの読み込みに失敗しました。サーバーとデータベースの接続を確認してください。</p></section></main>';
+    console.error('ゲーム画面またはDBデータを読み込めないためゲームを開始できません。', error);
+    const message = error instanceof Error ? error.message : String(error);
+    document.body.innerHTML = `<main class="app"><section class="page"><h1>ゲームを開始できません</h1><p>ゲーム画面またはデータベースの読み込みに失敗しました。</p><p class="small">${message}</p><p>サーバーとデータベースの接続を確認してください。</p></section></main>`;
   }
 }
 
