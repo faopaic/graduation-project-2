@@ -116,6 +116,10 @@ const JOB_TEMPLATES = [
   { id: 'med',  name: '病院のデータ基盤',     diff: 3, reward: 17000000, days: 190, work: 1300, skills: ['design', 'dev', 'test', 'infra', 'security'],      minRep: 80, risk: '情報漏えい、障害、納期遅延' }
 ];
 
+function getJobTemplates() {
+  return S?.projectDatabase?.length ? S.projectDatabase : JOB_TEMPLATES;
+}
+
 // 投資。costs = レベルごとの費用
 const INVEST = {
   backup: {

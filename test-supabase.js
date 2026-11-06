@@ -1,17 +1,14 @@
-
-// 環境変数を読み込む
 require('dotenv').config();
 
-// Supabaseライブラリを読み込む
 const { createClient } = require('@supabase/supabase-js');
 
-// Supabaseに接続
+// Supabase接続
 const supabase = createClient(
     process.env.SUPABASE_URL,
     process.env.SUPABASE_KEY
 );
 
-// 社員データを取得する
+// イベントデータ取得テスト
 async function testSupabase() {
     console.log('Supabaseへの接続を開始します...');
 
@@ -21,26 +18,21 @@ async function testSupabase() {
             .select('*')
             .order('id', { ascending: true });
 
-        // エラーが発生した場合
         if (error) {
             console.error('データ取得エラー:', error.message);
             return;
         }
 
-        // 取得したデータを表示
-        console.log('社員データの取得に成功しました！');
+        console.log('イベントデータの取得に成功しました！');
         console.log(`取得件数：${data.length}件`);
         console.log('------------------------------');
 
-        data.forEach((employee) => {
-            console.log(`ID：${employee.id}`);
-            console.log(`名前：${employee.name}`);
-            console.log(`職種：${employee.job_type}`);
-            console.log(`給与：${employee.salary}`);
-            console.log(`開発力：${employee.development_skill}`);
-            console.log(`セキュリティ力：${employee.security_skill}`);
-            console.log(`テスト保守力：${employee.test_maintenance_skill}`);
-            console.log(`営業力：${employee.sales_skill}`);
+        data.forEach((project) => {
+            console.log(`ID：${project.id}`);
+            console.log(`イベント名：${project.event_name}`);
+            console.log(`種別：${project.event_type}`);
+            console.log(`発生率：${project.occurrence_rate}%`);
+            console.log(`説明：${project.description}`);
             console.log('------------------------------');
         });
 
@@ -49,5 +41,4 @@ async function testSupabase() {
     }
 }
 
-// 実行
 testSupabase();

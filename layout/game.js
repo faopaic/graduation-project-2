@@ -54,7 +54,11 @@ function advance() { S.pending = S.queue.length ? S.queue.shift() : null; S.dirt
 
 
 // ----- ゲーム開始 -----
-function newGame(employeeDatabase = S?.employeeDatabase || []) {
+function newGame(
+  employeeDatabase = S?.employeeDatabase || [],
+  eventDatabase = S?.eventDatabase || [],
+  projectDatabase = S?.projectDatabase || []
+) {
   S = {
     day: 0, money: CONFIG.startMoney, rep: CONFIG.startRep, level: 1,
     done: 0, successes: 0, advancedSuccesses: 0, experience: 0, big: 0,
@@ -68,11 +72,11 @@ function newGame(employeeDatabase = S?.employeeDatabase || []) {
     counts: { accepted: 0, hired: 0, handled: 0 },
     missionRewards: {},
     nextId: 1, playing: false, speedIdx: CONFIG.defaultSpeed, missionsOpen: false, missionUnlockNotices: {},
-    employeeView: 'staff', employeeDatabase
+    employeeView: 'staff', employeeDatabase, eventDatabase, projectDatabase
   };
   const initialStaff = selectInitialStaff(employeeDatabase);
   initialStaff.forEach((s) => addEmployee(s.name, s.skill, s.salesSkill, s.stats, s.id || s.sourceId, s.salary));
-  ['web', 'lp', 'inv'].forEach((id) => newOffer(id));
+  getJobTemplates().slice(0, 3).forEach((template) => newOffer(template.id));
   refreshCandidates();
   log('PEACE株式会社を設立した。まずは案件を受注しよう。');
   return S;
@@ -136,12 +140,13 @@ function checkMissionRewards() {
 function newOffer(tid) {
   let t;
   if (tid) {
-    t = JOB_TEMPLATES.find((x) => x.id === tid);
+    t = getJobTemplates().find((x) => x.id === tid);
   } else {
-    const ok = JOB_TEMPLATES.filter((x) => x.minRep <= S.rep + 30 && S.offers.filter((o) => o.tid === x.id).length < 2);
+    const ok = getJobTemplates().filter((x) => x.minRep <= S.rep + 30 && S.offers.filter((o) => o.tid === x.id).length < 2);
     if (!ok.length) return;
     t = pick(ok);
   }
+  if (!t) return;
   const reward = Math.round(t.reward * (0.9 + rand() * 0.2) / 10000) * 10000;
   S.offers.push({
     id: newId(), tid: t.id, name: t.name, diff: t.diff, reward, days: t.days, work: t.work,
@@ -386,13 +391,6 @@ function tick() {
       log(`「${job.name}」が納期を過ぎた(評判 -8)`, 'bad');
       notify(`「${job.name}」が納期を過ぎた。評判 -8`, 'bad');
       S.dirty = true;
-    } else if (!job.warned && left >= 0 && left <= 7) {
-      const projected = job.progress + jobPower(job) * left;
-      if (projected < job.work * 0.95) {
-        job.warned = true;
-        raise(INCIDENTS.delay.build({ job }));
-        S.marks.push({ day: S.day, kind: 'incident' });
-      }
     }
   });
 
@@ -424,18 +422,12 @@ function tick() {
     notify('投資イベントが始まった', 'info');
   }
 
-  // 隠していたことの発覚
-  const due = S.schedule.filter((s) => s.day <= S.day);
-  S.schedule = S.schedule.filter((s) => s.day > S.day);
-  due.forEach((s) => { raise(SCHEDULED[s.type](s)); S.marks.push({ day: S.day, kind: 'incident' }); });
-
-  // ランダムな障害
+  // DBイベント
   if (S.day >= S.nextIncidentDay && S.jobs.length > 0) {
-    const inc = makeIncident(S.firstDone ? null : 'server');
+    const inc = makeIncident();
     if (inc) {
       raise(inc);
       S.marks.push({ day: S.day, kind: 'incident' });
-      S.firstDone = true;
       S.nextIncidentDay = S.day + ri(CONFIG.incidentGap[0], CONFIG.incidentGap[1]);
     }
   }
@@ -446,17 +438,63 @@ function tick() {
 }
 
 function makeIncident(forceId) {
-  if (!S.jobs.length) return null;
+  if (!S.jobs.length || !S.eventDatabase.length) return null;
   const job = pick(S.jobs);
-  const emp = pick(S.employees.filter((e) => !isAbsent(e)).concat([null]).filter(Boolean)) || null;
-  let id = forceId;
-  if (!id) {
-    const ids = Object.keys(INCIDENTS).filter((k) => k !== 'delay' && (k !== 'absence' || emp));
-    const ws = ids.map((k) => Math.max(0.2, INCIDENTS[k].weight()));
-    let r = rand() * ws.reduce((a, b) => a + b, 0);
-    id = ids[ws.findIndex((w) => (r -= w) < 0)] || ids[0];
+  const event = pickWeighted(S.eventDatabase, (item) => item.occurrenceRate);
+  return event ? buildDatabaseEvent(event, job) : null;
+}
+
+function pickWeighted(items, weightOf) {
+  const weighted = items.map((item) => Math.max(0, Number(weightOf(item)) || 0));
+  const total = weighted.reduce((sum, weight) => sum + weight, 0);
+  if (!total) return null;
+  let value = rand() * total;
+  const index = weighted.findIndex((weight) => (value -= weight) < 0);
+  return items[index] || null;
+}
+
+function applyDatabaseEventEffects(effects, job) {
+  const applied = [];
+  const money = Number(effects?.money || 0) + Number(effects?.sales || 0) + Number(effects?.profit || 0);
+  if (money) {
+    addMoney(money);
+    applied.push(`資金 ${money >= 0 ? '+' : ''}${yen(money)}`);
   }
-  return INCIDENTS[id].build({ job, emp });
+  const reputation = Number(effects?.reputation || 0);
+  if (reputation) {
+    addRep(reputation);
+    applied.push(`評判 ${reputation >= 0 ? '+' : ''}${reputation}`);
+  }
+  const workload = Number(effects?.workload || 0);
+  if (job && workload) {
+    job.work = Math.max(job.progress + 1, job.work + workload);
+    applied.push(`仕事量 ${workload >= 0 ? '+' : ''}${workload}`);
+  }
+  const quality = Number(effects?.development || 0) + Number(effects?.security || 0) + Number(effects?.efficiency || 0);
+  if (job && quality) {
+    job.qBonus += Math.round(quality / 10);
+    applied.push(`品質 ${quality >= 0 ? '+' : ''}${Math.round(quality / 10)}`);
+  }
+  return applied;
+}
+
+function buildDatabaseEvent(event, job) {
+  return {
+    kind: 'incident',
+    id: `database-event-${event.id}`,
+    badge: event.type === 'incident' ? 'インシデント' : '会社イベント',
+    title: event.name,
+    body: `${event.description}${event.triggerCondition ? `（発生条件: ${event.triggerCondition}）` : ''}`,
+    choices: event.choices.map((choice) => ({
+      label: choice.label,
+      tag: 'other',
+      apply() {
+        const applied = applyDatabaseEventEffects(choice.effects || {}, job);
+        return applied.length ? `${choice.label}。${applied.join('、')}。` : `${choice.label}。`;
+      }
+    })),
+    lesson: 'データベースに登録されたイベントです。選択肢の結果を確認して、会社への影響を判断してください。'
+  };
 }
 
 // ----- 案件の完成 -----

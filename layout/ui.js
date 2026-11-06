@@ -355,11 +355,45 @@ async function loadEmployeeDatabase() {
   }
 }
 
+async function loadEventDatabase() {
+  const apiUrl = '/api/events';
+  const response = await fetch(apiUrl, { cache: 'no-store' });
+  if (!response.ok) throw new Error(`${apiUrl} の読み込みに失敗しました (${response.status})`);
+  const records = await response.json();
+  if (!Array.isArray(records) || records.length === 0) {
+    throw new Error('DBイベントが空、または配列ではありません');
+  }
+  return records;
+}
+
+async function loadProjectDatabase() {
+  try {
+    const apiUrl = '/api/projects';
+    const response = await fetch(apiUrl, { cache: 'no-store' });
+    if (!response.ok) throw new Error(`${apiUrl} の読み込みに失敗しました (${response.status})`);
+    const records = await response.json();
+    if (!Array.isArray(records)) throw new Error('案件データの形式が配列ではありません');
+    return records;
+  } catch (error) {
+    console.warn('Express APIから案件データを読み込めないため、組み込みデータを使用します。', error);
+    return [];
+  }
+}
+
 async function initializeGame() {
-  const employeeDatabase = await loadEmployeeDatabase();
-  newGame(employeeDatabase);
-  render();
-  showTitle();
+  try {
+    const [employeeDatabase, eventDatabase, projectDatabase] = await Promise.all([
+      loadEmployeeDatabase(),
+      loadEventDatabase(),
+      loadProjectDatabase()
+    ]);
+    newGame(employeeDatabase, eventDatabase, projectDatabase);
+    render();
+    showTitle();
+  } catch (error) {
+    console.error('DBイベントを読み込めないためゲームを開始できません。', error);
+    document.body.innerHTML = '<main class="app"><section class="page"><h1>ゲームを開始できません</h1><p>DBイベントの読み込みに失敗しました。サーバーとデータベースの接続を確認してください。</p></section></main>';
+  }
 }
 
 // ----- 決断画面 -----
@@ -465,7 +499,7 @@ function startGame() {
 
 function restart() {
   clearTimeout(timer);
-  newGame();
+  newGame(S.employeeDatabase, S.eventDatabase, S.projectDatabase);
   showPage('home');
   render();
   showTitle();

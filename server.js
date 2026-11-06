@@ -53,6 +53,66 @@ app.get('/api/employees', async (req, res) => {
     })));
 });
 
+// イベントデータ取得API
+app.get('/api/events', async (req, res) => {
+    const { data, error } = await supabase
+        .from('events')
+        .select('*')
+        .order('id', { ascending: true });
+
+    if (error) {
+        console.error(error);
+        return res.status(500).json({
+            message: 'イベントデータの取得に失敗しました'
+        });
+    }
+
+    res.json(data.map((event) => ({
+        id: String(event.id),
+        name: event.event_name,
+        type: event.event_type,
+        description: event.description,
+        triggerCondition: event.trigger_condition,
+        occurrenceRate: Number(event.occurrence_rate) || 0,
+        choices: [
+            { label: event.choice_a, effects: event.choice_a_effects },
+            { label: event.choice_b, effects: event.choice_b_effects },
+            { label: event.choice_c, effects: event.choice_c_effects }
+        ].filter((choice) => choice.label)
+    })));
+});
+
+// 案件データ取得API
+app.get('/api/projects', async (req, res) => {
+    const { data, error } = await supabase
+        .from('projects')
+        .select('*')
+        .order('id', { ascending: true });
+
+    if (error) {
+        console.error(error);
+        return res.status(500).json({
+            message: '案件データの取得に失敗しました'
+        });
+    }
+
+    res.json(data.map((project) => ({
+        id: String(project.id),
+        name: project.name,
+        diff: Number(project.difficulty),
+        reward: Number(project.reward),
+        days: Number(project.deadline_days),
+        work: Math.round(Number(project.deadline_days) * (1 + Number(project.difficulty) * 0.5)),
+        skills: [
+            Number(project.required_development) > 0 ? 'dev' : null,
+            Number(project.required_security) > 0 ? 'security' : null,
+            Number(project.required_test_maintenance) > 0 ? 'test' : null
+        ].filter(Boolean),
+        minRep: 0,
+        risk: ''
+    })));
+});
+
 app.get(/.*/, (req, res) => {
     res.sendFile(path.join(__dirname, 'layout', 'index.html'));
 });
