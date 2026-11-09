@@ -59,9 +59,15 @@ function newGame(
   eventDatabase,
   projectDatabase
 ) {
+  const difficulty = S?.difficulty || 'normal';
   S = {
-    day: 0, money: CONFIG.startMoney, rep: CONFIG.startRep, level: 1,
+    day: 0, 
+    money: difficulty === 'hard'
+      ? Math.floor(CONFIG.startMoney * 0.9)
+      : CONFIG.startMoney,
+    rep: CONFIG.startRep, level: 1,
     done: 0, successes: 0, advancedSuccesses: 0, experience: 0, big: 0,
+    difficulty,
     employees: [], jobs: [], offers: [], candidates: [],
     invest: { backup: 0, security: 0, qa: 0 },
     boost: {}, schedule: [], queue: [], pending: null, over: null, dirty: true,
@@ -74,6 +80,8 @@ function newGame(
     nextId: 1, playing: false, speedIdx: CONFIG.defaultSpeed, missionsOpen: false, missionUnlockNotices: {},
     employeeView: 'staff', employeeDatabase, eventDatabase, projectDatabase
   };
+  console.log('newGame難易度', difficulty);
+  console.log('開始資金', S.money);
   const initialStaff = selectInitialStaff(employeeDatabase);
   initialStaff.forEach((s) => addEmployee(s.name, s.skill, s.salesSkill, s.stats, s.id || s.sourceId, s.salary));
   const developmentProject = projectDatabase.find((template) => template.skills.includes('dev'));
@@ -101,7 +109,6 @@ function newGame(
   log('PEACE株式会社を設立した。まずは案件を受注しよう。');
   return S;
 }
-
 function selectInitialStaff(employeeDatabase) {
   const available = employeeDatabase.slice();
   const takeBySkill = (skill) => {
@@ -582,9 +589,18 @@ function checkLevel() {
 // ----- クリア判定 -----
 function goalList() {
   const g = CONFIG.goals;
+  
+  const goalMoney =
+  S.difficulty === 'hard'
+    ? Math.floor(g.money * 1.1)
+    : g.money;
+  const goalRep =
+    S.difficulty === 'hard'
+      ? Math.floor(g.rep * 1.1)
+      : g.rep;
   const list = [
-    { key: 'money', label: '資金', cur: S.money, target: g.money, fmt: yen },
-    { key: 'rep', label: '評判', cur: S.rep, target: g.rep, fmt: (n) => String(n) },
+    { key: 'money', label: '資金', cur: S.money, target: goalMoney, fmt: yen },
+    { key: 'rep', label: '評判', cur: S.rep, target: goalRep, fmt: (n) => String(n) },
     { key: 'big', label: '大規模案件の成功', cur: S.big, target: g.big, fmt: (n) => n + '件' }
   ];
   list.forEach((x) => { x.met = x.cur >= x.target; x.ratio = clamp(x.cur / x.target, 0, 1); });
