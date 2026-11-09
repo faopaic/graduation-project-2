@@ -1,10 +1,12 @@
 // 難易度の調整を行うための関数を定義する
-const HARD_START_MONEY_RATE = 0.9;
-const HARD_GOAL_MONEY_RATE = 1.1;
-const HARD_GOAL_REP_RATE = 1.1;
 
-function isHard(difficulty) {
-  return difficulty === 'hard';
+const DIFFICULTY = {
+  normal: {startMoneyRate: 1,goalMoneyRate: 1,goalRepRate: 1},
+  hard: {startMoneyRate: 0.9,goalMoneyRate: 1.1,goalRepRate: 1.1}
+};
+
+function getDifficultyConfig(difficulty) {
+  return DIFFICULTY[difficulty] || DIFFICULTY.normal;
 }
 
 function applyRate(value, rate) {
@@ -12,19 +14,16 @@ function applyRate(value, rate) {
 }
 
 function getStartMoney(baseMoney, difficulty) {
-  return isHard(difficulty)
-    ? applyRate(baseMoney, HARD_START_MONEY_RATE)
-    : baseMoney;
+  const config = getDifficultyConfig(difficulty);
+  return applyRate(baseMoney, config.startMoneyRate);
 }
 
 function getGoalMoney(baseMoney, difficulty) {
-  return isHard(difficulty)
-    ? applyRate(baseMoney, HARD_GOAL_MONEY_RATE)
-    : baseMoney;
+  const config = getDifficultyConfig(difficulty);
+  return applyRate(baseMoney, config.goalMoneyRate);
 }
 
 function getGoalReputation(baseRep, difficulty) {
-  return isHard(difficulty)
-    ? applyRate(baseRep, HARD_GOAL_REP_RATE)
-    : baseRep;
+  const config = getDifficultyConfig(difficulty);
+  return applyRate(baseRep, config.goalRepRate);
 }
