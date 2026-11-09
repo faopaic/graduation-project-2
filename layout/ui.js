@@ -525,7 +525,11 @@ function showTitle() {
     <p>あなたは、できたばかりのIT会社の社長。5年のあいだに、会社を大きく育てよう。</p>
     <div class="panel"><div class="panel-title">クリア条件(5年以内に、すべて達成)</div>
     <div class="goal-row"><span>難易度</span><span id="difficulty-label">Normal</span></div>
-    <div class="row"><button class="btn-small" data-act="difficulty-normal">Normal</button><button class="btn-small" data-act="difficulty-hard">Hard</button></div>
+    <div class="row">
+      <button class="btn-small" data-act="difficulty-normal">Normal</button>
+      <button class="btn-small" data-act="difficulty-hard">Hard</button>
+      <button class="btn-small" data-act="difficulty-expert">Expert</button>
+    </div>
     <div id="difficulty-description" class="small muted"></div>
     <div class="goal-row"><span>開始資金</span><span id="start-money"></span></div>
     <div class="goal-row"><span>資金</span><span id="goal-money">${yen(g.money)}</span></div>
@@ -663,9 +667,13 @@ document.addEventListener('click', (ev) => {
     updateDifficultyPreview();
     return;
   }
-
   if (a === 'difficulty-hard') {
     selectedDifficulty = 'hard';
+    updateDifficultyPreview();
+    return;
+  }
+  if (a === 'difficulty-expert') {
+    selectedDifficulty = 'expert';
     updateDifficultyPreview();
     return;
   }
