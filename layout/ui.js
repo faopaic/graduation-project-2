@@ -10,6 +10,7 @@ let lastResult = null;
 let timer = null;
 let screenMode = 'title';  // 'title' | 'end' | null
 let resetArmed = false;
+let selectedDifficulty = 'normal'; // 難易度
 
 // ----- 部品 -----
 function avatar(skill, label) {
@@ -170,7 +171,9 @@ function levelPanel() {
 function goalPanel() {
   const rows = goalList().map((g) => `<div class="goal-row"><span>${g.met ? '■' : '□'} ${g.label}</span><span>${g.fmt(g.cur)} / ${g.fmt(g.target)}</span></div>${seg(g.cur, g.target, 10)}`).join('');
   return `<div class="panel"><div class="panel-title">クリア条件(5年以内に、すべて達成)</div>${rows}</div>`;
+  
 }
+
 
 function missionPanel() {
   const tierNames = ['初級', '中級', '上級'];
@@ -521,6 +524,8 @@ function showTitle() {
   $('screen-body').innerHTML = `<h1 class="big-title end-title">IT会社経営シミュレーター(仮)</h1>
     <p>あなたは、できたばかりのIT会社の社長。5年のあいだに、会社を大きく育てよう。</p>
     <div class="panel"><div class="panel-title">クリア条件(5年以内に、すべて達成)</div>
+    <div class="goal-row"><span>難易度</span><span id="difficulty-label">Normal</span></div>
+    <div class="row"><button class="btn-small" data-act="difficulty-normal">Normal</button><button class="btn-small" data-act="difficulty-hard">Hard</button></div>
     <div class="goal-row"><span>資金</span><span>${yen(g.money)}</span></div>
     <div class="goal-row"><span>評判</span><span>${g.rep}</span></div>
     <div class="goal-row"><span>大規模案件(難易度 高)の成功</span><span>${g.big}件</span></div></div>
@@ -621,6 +626,16 @@ document.addEventListener('click', (ev) => {
     render();
   };
 
+  if (a === 'difficulty-normal') {
+    selectedDifficulty = 'normal';
+    document.getElementById('difficulty-label').textContent = 'Normal';
+    return;
+  }
+  if (a === 'difficulty-hard') {
+    selectedDifficulty = 'hard';
+    document.getElementById('difficulty-label').textContent = 'Hard';
+    return;
+  }
   if (a === 'start') { startGame(); return; }
   if (a === 'restart') { restart(); return; }
   if (a === 'reset') {
