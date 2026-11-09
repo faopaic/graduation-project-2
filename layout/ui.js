@@ -598,9 +598,18 @@ function showEnd() {
 }
 
 function startGame() {
+  const difficulty = selectedDifficulty;
+  newGame(S.employeeDatabase,S.eventDatabase,S.projectDatabase);
+  S.difficulty = difficulty;
+  if (difficulty === 'hard') {
+    S.money = Math.floor(CONFIG.startMoney * 0.9);
+  }
+  console.log('難易度', difficulty);
+  console.log('開始資金', S.money);
   screenMode = null;
   $('screen').classList.add('hidden');
-  stage = 1; lastResult = null;
+  stage = 1;
+  lastResult = null;
   showPage('town');
   render();
 }
@@ -663,7 +672,12 @@ document.addEventListener('click', (ev) => {
     updateDifficultyPreview();
     return;
   }
-  if (a === 'start') { startGame(); return; }
+  if (a === 'start') { 
+    S.difficulty = selectedDifficulty;
+    console.log('選択難易度', S.difficulty);
+    startGame();
+    return;
+  }
   if (a === 'restart') { restart(); return; }
   if (a === 'reset') {
     // 押し間違いを防ぐため、3秒以内にもう一度押したときだけ、最初からにする
