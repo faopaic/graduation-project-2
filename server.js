@@ -21,6 +21,8 @@ const skillKey = (jobType) => ({
     テスト: 'test',
     インフラ: 'infra',
     運用保守: 'infra',
+    インフラ運用保守: 'test',
+    'インフラ・運用保守': 'test',
     セキュリティ: 'security',
     営業: 'dev'
 }[jobType] || jobType);
