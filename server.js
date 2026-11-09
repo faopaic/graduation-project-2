@@ -104,6 +104,7 @@ app.get('/api/projects', async (req, res) => {
         days: Number(project.deadline_days),
         work: Math.round(Number(project.deadline_days) * (1 + Number(project.difficulty) * 0.5)),
         skills: [
+            Number(project.required_design) > 0 ? 'design' : null,
             Number(project.required_development) > 0 ? 'dev' : null,
             Number(project.required_security) > 0 ? 'security' : null,
             Number(project.required_test_maintenance) > 0 ? 'test' : null

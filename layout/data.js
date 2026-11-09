@@ -21,7 +21,6 @@ const CONFIG = {
   investmentEventInterval: 90
 };
 
-// 営業力は将来データベースの0〜100の値に置き換えられる
 const DEFAULT_SALES_SKILL = 50;
 const SALES_BASE_SUCCESS_RATE = 30;
 const SALES_SKILL_REFERENCE = 50;
@@ -99,26 +98,6 @@ const LEVELS = [
   { lv: 4, slots: 11, jobs: 5, needSuccess: 8, needExp: 140 },
   { lv: 5, slots: 13, jobs: 6, needSuccess: 12, needExp: 220 }
 ];
-
-const CANDIDATE_NAMES = [
-  '中村', '小林', '加藤', '吉田', '山本', '松本', '井上', '木村', '林', '清水',
-  '斎藤', '山口', '森', '池田', '橋本', '石川', '前田', '藤田', '岡田', '後藤'
-];
-
-// 案件。work = 仕事量、skills = 必要なスキル、diff = 難易度(1〜3)
-const JOB_TEMPLATES = [
-  { id: 'web',  name: '企業Webサイト制作',   diff: 1, reward: 1900000,  days: 40,  work: 120,  skills: ['design', 'dev'],                                   minRep: 0,  risk: '要件変更が起きやすい' },
-  { id: 'lp',   name: 'お店の予約サイト',     diff: 1, reward: 3000000,  days: 55,  work: 200,  skills: ['design', 'dev'],                                   minRep: 0,  risk: 'サーバー障害に注意' },
-  { id: 'inv',  name: '在庫管理システム',     diff: 2, reward: 5000000,  days: 100, work: 360,  skills: ['design', 'dev', 'test'],                           minRep: 0,  risk: 'バグ、納期遅延' },
-  { id: 'app',  name: '学習アプリの開発',     diff: 2, reward: 6200000,  days: 110, work: 450,  skills: ['design', 'dev', 'test'],                           minRep: 30, risk: 'バグ、要件変更' },
-  { id: 'ec',   name: 'ECサイト構築',         diff: 3, reward: 8500000,  days: 130, work: 650,  skills: ['design', 'dev', 'test', 'security'],               minRep: 50, risk: '情報漏えい、サーバー障害' },
-  { id: 'cust', name: '顧客情報管理システム', diff: 3, reward: 11000000,  days: 160, work: 900,  skills: ['dev', 'test', 'security', 'infra'],                minRep: 50, risk: '情報漏えい' },
-  { id: 'med',  name: '病院のデータ基盤',     diff: 3, reward: 17000000, days: 190, work: 1300, skills: ['design', 'dev', 'test', 'infra', 'security'],      minRep: 80, risk: '情報漏えい、障害、納期遅延' }
-];
-
-function getJobTemplates() {
-  return S?.projectDatabase?.length ? S.projectDatabase : JOB_TEMPLATES;
-}
 
 // 投資。costs = レベルごとの費用
 const INVEST = {

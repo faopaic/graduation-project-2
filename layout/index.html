@@ -15,7 +15,7 @@
 
   <!-- 上部ステータス -->
   <header class="hud">
-    <div class="hud-title">PEACE株式会社 <span class="tag" id="h-level">会社Lv.1</span></div>
+    <div class="hud-title" data-go="town" title="街の画面にもどる">PEACE株式会社 <span class="tag" id="h-level">会社Lv.1</span></div>
     <div class="hud-items">
       <span>資金 <b id="h-money"></b> <span class="small muted" id="h-cost"></span></span>
       <span>評判 <b id="h-rep"></b></span>
@@ -38,50 +38,14 @@
     <button class="btn-small" data-act="reset">最初から</button>
   </div>
 
-  <main class="main">
-
-    <!-- ホーム -->
-    <section class="page" id="page-home">
-      <div id="home-alerts"></div>
-      <div class="home-grid">
-        <div>
-          <h2>休職者</h2>
-          <div class="seats" id="home-seats"></div>
-          <div class="row gap-top">
-            <h2>進行中の案件</h2>
-          </div>
-          <div id="home-projects"></div>
-        </div>
-        <div class="side" id="home-side"></div>
-      </div>
-    </section>
-
-    <!-- 案件選択 -->
-    <section class="page hidden" id="page-jobs"><div id="jobs-body"></div></section>
-
-    <!-- 担当決定 -->
-    <section class="page hidden" id="page-assignment"><div id="assignment-body"></div></section>
-
-    <!-- 社員一覧 -->
-    <section class="page hidden" id="page-employees"><div id="employees-body"></div></section>
-
-    <!-- 採用イベント -->
-    <section class="page hidden" id="page-recruit"><div id="recruit-body"></div></section>
-
-    <!-- 社員強化一覧 -->
-    <section class="page hidden" id="page-upgrades"><div id="upgrades-body"></div></section>
-
-    <!-- 投資イベント -->
-    <section class="page hidden" id="page-invest-event"><div id="invest-event-body"></div></section>
-
-  </main>
+  <main class="main" id="page-container"></main>
 
   <!-- 下部メニュー -->
   <nav class="bottom-nav">
-    <button class="nav active" data-go="home">ホーム</button>
+    <button class="nav active" data-go="town">ホーム</button>
     <button class="nav" data-go="jobs">案件</button>
     <button class="nav" data-go="employees">社員一覧</button>
-    <button class="nav" data-go="upgrades">社員強化</button>
+    <button class="nav" data-go="invest-event">投資</button>
   </nav>
 
 </div>
