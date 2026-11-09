@@ -2,7 +2,8 @@
 
 const DIFFICULTY = {
   normal: {startMoneyRate: 1,goalMoneyRate: 1,goalRepRate: 1},
-  hard: {startMoneyRate: 0.9,goalMoneyRate: 1.1,goalRepRate: 1.1}
+  hard: {startMoneyRate: 0.9,goalMoneyRate: 1.1,goalRepRate: 1.1},
+  expert: {startMoneyRate: 0.8,goalMoneyRate: 1.25,goalRepRate: 1.25}
 };
 
 function getDifficultyConfig(difficulty) {
