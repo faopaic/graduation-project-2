@@ -62,9 +62,7 @@ function newGame(
   const difficulty = S?.difficulty || 'normal';
   S = {
     day: 0, 
-    money: difficulty === 'hard'
-      ? Math.floor(CONFIG.startMoney * 0.9)
-      : CONFIG.startMoney,
+    money: getStartMoney(CONFIG.startMoney,difficulty),
     rep: CONFIG.startRep, level: 1,
     done: 0, successes: 0, advancedSuccesses: 0, experience: 0, big: 0,
     difficulty,
@@ -589,15 +587,8 @@ function checkLevel() {
 // ----- クリア判定 -----
 function goalList() {
   const g = CONFIG.goals;
-  
-  const goalMoney =
-  S.difficulty === 'hard'
-    ? Math.floor(g.money * 1.1)
-    : g.money;
-  const goalRep =
-    S.difficulty === 'hard'
-      ? Math.floor(g.rep * 1.1)
-      : g.rep;
+  const goalMoney = getGoalMoney(g.money,S.difficulty);
+  const goalRep = getGoalReputation(g.rep,S.difficulty);
   const list = [
     { key: 'money', label: '資金', cur: S.money, target: goalMoney, fmt: yen },
     { key: 'rep', label: '評判', cur: S.rep, target: goalRep, fmt: (n) => String(n) },

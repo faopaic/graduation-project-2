@@ -539,17 +539,8 @@ function showTitle() {
 
 function updateDifficultyPreview() {
   const g = CONFIG.goals;
-
-  const money =
-    selectedDifficulty === 'hard'
-      ? Math.floor(g.money * 1.1)
-      : g.money;
-
-  const rep =
-    selectedDifficulty === 'hard'
-      ? Math.floor(g.rep * 1.1)
-      : g.rep;
-
+  const money = getGoalMoney(g.money,selectedDifficulty);
+  const rep = getGoalReputation(g.rep,selectedDifficulty);
   document.getElementById('goal-money').textContent =
     yen(money);
 
