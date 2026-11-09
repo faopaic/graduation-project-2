@@ -526,14 +526,40 @@ function showTitle() {
     <div class="panel"><div class="panel-title">クリア条件(5年以内に、すべて達成)</div>
     <div class="goal-row"><span>難易度</span><span id="difficulty-label">Normal</span></div>
     <div class="row"><button class="btn-small" data-act="difficulty-normal">Normal</button><button class="btn-small" data-act="difficulty-hard">Hard</button></div>
-    <div class="goal-row"><span>資金</span><span>${yen(g.money)}</span></div>
-    <div class="goal-row"><span>評判</span><span>${g.rep}</span></div>
+    <div class="goal-row"><span>資金</span><span id="goal-money">${yen(g.money)}</span></div>
+    <div class="goal-row"><span>評判</span><span id="goal-rep">${g.rep}</span></div>
     <div class="goal-row"><span>大規模案件(難易度 高)の成功</span><span>${g.big}件</span></div></div>
     <ol class="steps"><li>「案件」で仕事を受注する</li><li>社員を割り振って、「再生」で時間を進める</li><li>起きた障害に、どう対応するか決める</li><li>お金がたまったら、「採用」と「投資」で会社を強くする</li></ol>
     <p class="small muted">資金が0を下回るとゲームオーバー。障害への対応しだいで、評判も資金も変わる。</p>
     <button class="btn-main" data-act="start">ゲームスタート</button>`;
+  updateDifficultyPreview();
   $('screen').classList.remove('hidden');
   $('modal').classList.add('hidden');
+}
+
+function updateDifficultyPreview() {
+  const g = CONFIG.goals;
+
+  const money =
+    selectedDifficulty === 'hard'
+      ? Math.floor(g.money * 1.1)
+      : g.money;
+
+  const rep =
+    selectedDifficulty === 'hard'
+      ? Math.floor(g.rep * 1.1)
+      : g.rep;
+
+  document.getElementById('goal-money').textContent =
+    yen(money);
+
+  document.getElementById('goal-rep').textContent =
+    rep;
+
+  document.getElementById('difficulty-label').textContent =
+    selectedDifficulty === 'hard'
+      ? 'Hard'
+      : 'Normal';
 }
 
 function showEnd() {
@@ -628,12 +654,13 @@ document.addEventListener('click', (ev) => {
 
   if (a === 'difficulty-normal') {
     selectedDifficulty = 'normal';
-    document.getElementById('difficulty-label').textContent = 'Normal';
+    updateDifficultyPreview();
     return;
   }
+
   if (a === 'difficulty-hard') {
     selectedDifficulty = 'hard';
-    document.getElementById('difficulty-label').textContent = 'Hard';
+    updateDifficultyPreview();
     return;
   }
   if (a === 'start') { startGame(); return; }
