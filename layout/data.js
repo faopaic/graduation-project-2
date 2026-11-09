@@ -72,23 +72,7 @@ const SKILL_HELP = {
 const SALARY = { 1: 220000, 2: 300000, 3: 400000 };   // レベル別の月給
 const MISSION_EXPERIENCE = 5;
 
-const MISSIONS = [
-  { id: 'first-accept', tier: '初級', label: '最初の案件を受注する', met: (s) => s.counts.accepted >= 1 },
-  { id: 'first-hire', tier: '初級', label: '社員を1人採用する', met: (s) => s.counts.hired >= 1 },
-  { id: 'first-incident', tier: '初級', label: '障害に対応する', met: (s) => s.counts.handled >= 1 },
-  { id: 'first-complete', tier: '初級', label: '案件を1つ完成させる', met: (s) => s.done >= 1 },
-  { id: 'level-two', tier: '初級', label: '会社Lv.2に成長する', met: (s) => s.level >= 2 },
-  { id: 'accept-three', tier: '中級', label: '案件を3件受注する', met: (s) => s.counts.accepted >= 3 },
-  { id: 'success-three', tier: '中級', label: '案件を3件成功させる', met: (s) => s.successes >= 3 },
-  { id: 'invest-three', tier: '中級', label: '投資を3回行う', met: (s) => Object.values(s.invest).reduce((sum, lv) => sum + lv, 0) >= 3 },
-  { id: 'staff-five', tier: '中級', label: '社員を5人に増やす', met: (s) => s.employees.length >= 5 },
-  { id: 'success-five', tier: '上級', label: '案件を5件成功させる', reward: 10, met: (s) => s.successes >= 5 },
-  { id: 'big-success', tier: '上級', label: '大規模案件を1件成功させる', reward: 10, met: (s) => s.big >= 1 },
-  { id: 'level-three', tier: '上級', label: '会社Lv.3に成長する', reward: 10, met: (s) => s.level >= 3 },
-  { id: 'staff-seven', tier: '上級', label: '社員を7人に増やす', reward: 10, met: (s) => s.employees.length >= 7 },
-  { id: 'success-ten', tier: 'チャレンジ', label: '星2以上の案件を10件成功させる', reward: 15, met: (s) => s.advancedSuccesses >= 10 },
-  { id: 'max-investments', tier: 'チャレンジ', label: 'すべての投資を最大まで強化する', reward: 15, met: (s) => Object.keys(INVEST).every((key) => s.invest[key] >= INVEST[key].costs.length) }
-];
+let MISSIONS = [];
 
 // 会社のレベル。slots = 社員の席の数、jobs = 同時に受けられる案件の数
 const LEVELS = [

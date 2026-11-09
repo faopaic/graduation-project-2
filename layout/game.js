@@ -57,7 +57,8 @@ function advance() { S.pending = S.queue.length ? S.queue.shift() : null; S.dirt
 function newGame(
   employeeDatabase,
   eventDatabase,
-  projectDatabase
+  projectDatabase,
+  missionDatabase
 ) {
   const difficulty = S?.difficulty || 'normal';
   S = {
@@ -76,8 +77,12 @@ function newGame(
     counts: { accepted: 0, hired: 0, handled: 0 },
     missionRewards: {},
     nextId: 1, playing: false, speedIdx: CONFIG.defaultSpeed, missionsOpen: false, missionUnlockNotices: {},
-    employeeView: 'staff', employeeDatabase, eventDatabase, projectDatabase
+    employeeView: 'staff', employeeDatabase, eventDatabase, projectDatabase, missionDatabase
   };
+  MISSIONS = missionDatabase.map((mission) => ({
+    ...mission,
+    met: (state) => missionProgress(mission.conditionType, state) >= mission.target
+  }));
   console.log('newGame難易度', difficulty);
   console.log('開始資金', S.money);
   const initialStaff = selectInitialStaff(employeeDatabase);
@@ -96,6 +101,28 @@ function newGame(
       template: fallbackDesignProject,
       skills: ['design']
     });
+  }
+
+  function missionProgress(conditionType, state) {
+    const progress = {
+      accepted: state.counts.accepted,
+      hired: state.counts.hired,
+      handled: state.counts.handled,
+      done: state.done,
+      completed: state.done,
+      level: state.level,
+      successes: state.successes,
+      invest_total: Object.values(state.invest).reduce((sum, level) => sum + level, 0),
+      investments: Object.values(state.invest).reduce((sum, level) => sum + level, 0),
+      employees: state.employees.length,
+      big: state.big,
+      advanced_successes: state.advancedSuccesses,
+      advancedSuccesses: state.advancedSuccesses
+    };
+    if (conditionType === 'max_investments' || conditionType === 'all_investments_max') {
+      return Object.keys(INVEST).every((key) => state.invest[key] >= INVEST[key].costs.length) ? 1 : 0;
+    }
+    return Number(progress[conditionType]) || 0;
   }
   const remainingProjects = projectDatabase.filter((template) =>
     !initialProjects.some((initial) => initial.template.id === template.id)
@@ -143,10 +170,12 @@ function checkMissionRewards() {
   MISSIONS.forEach((mission) => {
     if (!mission.met(S) || S.missionRewards[mission.id]) return;
     S.missionRewards[mission.id] = true;
-    const reward = mission.reward || MISSION_EXPERIENCE;
-    S.experience += reward;
-    log(`ミッション「${mission.label}」達成。経験値 +${reward}`, 'good');
-    notify(`ミッション達成: ${mission.label} (経験値 +${reward})`, 'good');
+    const reward = mission.rewardAmount;
+    if (mission.rewardType === 'money') S.money += reward;
+    else S.experience += reward;
+    const rewardLabel = mission.rewardType === 'money' ? `資金 +${yen(reward)}` : `経験値 +${reward}`;
+    log(`ミッション「${mission.label}」達成。${rewardLabel}`, 'good');
+    notify(`ミッション達成: ${mission.label} (${rewardLabel})`, 'good');
   });
   const tiers = ['初級', '中級', '上級'];
   tiers.slice(0, -1).forEach((tier, index) => {

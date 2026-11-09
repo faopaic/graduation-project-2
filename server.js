@@ -116,6 +116,31 @@ app.get('/api/projects', async (req, res) => {
     })));
 });
 
+// ミッションデータ取得API
+app.get('/api/missions', async (req, res) => {
+    const { data, error } = await supabase
+        .from('missions')
+        .select('*')
+        .order('id', { ascending: true });
+
+    if (error) {
+        console.error(error);
+        return res.status(500).json({
+            message: 'ミッションデータの取得に失敗しました'
+        });
+    }
+
+    res.json(data.map((mission) => ({
+        id: String(mission.id),
+        tier: mission.tier,
+        label: mission.label,
+        conditionType: mission.condition_type,
+        target: Number(mission.condition_target),
+        rewardType: mission.reward_type,
+        rewardAmount: Number(mission.reward_amount)
+    })));
+});
+
 app.get(/.*/, (req, res) => {
     res.sendFile(path.join(__dirname, 'layout', 'index.html'));
 });

@@ -191,16 +191,16 @@ function missionPanel() {
       ? '<span class="mission-unlocked">解放済み</span>' : '';
     return `<li class="mission-tier"><div class="mission-tier-title">${tier}${unlockedLabel}</div><ul>${missions.map((mission) => {
       const done = mission.met(S);
-      return `<li class="${done ? 'done' : ''}">${mission.label}<span class="mission-exp">+${mission.reward || MISSION_EXPERIENCE}EXP</span></li>`;
+      return `<li class="${done ? 'done' : ''}">${mission.label}<span class="mission-exp">${mission.rewardType === 'money' ? `+${yen(mission.rewardAmount)}` : `+${mission.rewardAmount}EXP`}</span></li>`;
     }).join('')}</ul></li>`;
   }).join('');
   if (challengeMissions.length) {
     lists += `<li class="mission-tier">チャレンジ<ul>${challengeMissions.map((mission) =>
-      `<li>${mission.label}<span class="mission-exp">+${mission.reward || MISSION_EXPERIENCE}EXP</span></li>`
+      `<li>${mission.label}<span class="mission-exp">${mission.rewardType === 'money' ? `+${yen(mission.rewardAmount)}` : `+${mission.rewardAmount}EXP`}</span></li>`
     ).join('')}</ul></li>`;
   }
   if (!lists) return '<div class="panel panel-hl"><div class="panel-title">ミッション</div><div class="small">すべてのミッションを達成しました。</div></div>';
-  return `<div class="panel panel-hl"><div class="panel-title">ミッション(初級・中級 ${MISSION_EXPERIENCE}EXP / 上級 10EXP / チャレンジ 15EXP)</div><ul class="mission">${lists}</ul></div>`;
+  return `<div class="panel panel-hl"><div class="panel-title">ミッション</div><ul class="mission">${lists}</ul></div>`;
 }
 
 // ----- 案件 -----
@@ -450,18 +450,27 @@ async function loadProjectDatabase() {
   return records;
 }
 
+async function loadMissionDatabase() {
+  const records = await fetchJson('/api/missions');
+  if (!Array.isArray(records) || records.length === 0) {
+    throw new Error('DBミッションが空、または配列ではありません');
+  }
+  return records;
+}
+
 async function initializeGame() {
   try {
     if (location.protocol === 'file:') {
       throw new Error('index.htmlを直接開かず、ターミナルで「npm start」を実行して http://localhost:3000 を開いてください');
     }
-    const [, employeeDatabase, eventDatabase, projectDatabase] = await Promise.all([
+    const [, employeeDatabase, eventDatabase, projectDatabase, missionDatabase] = await Promise.all([
       loadPageTemplates(),
       loadEmployeeDatabase(),
       loadEventDatabase(),
-      loadProjectDatabase()
+      loadProjectDatabase(),
+      loadMissionDatabase()
     ]);
-    newGame(employeeDatabase, eventDatabase, projectDatabase);
+    newGame(employeeDatabase, eventDatabase, projectDatabase, missionDatabase);
     render();
     showTitle();
   } catch (error) {
@@ -596,7 +605,7 @@ function showEnd() {
 
 function startGame() {
   const difficulty = selectedDifficulty;
-  newGame(S.employeeDatabase,S.eventDatabase,S.projectDatabase);
+  newGame(S.employeeDatabase, S.eventDatabase, S.projectDatabase, S.missionDatabase);
   S.difficulty = difficulty;
   if (difficulty === 'hard') {
     S.money = Math.floor(CONFIG.startMoney * 0.9);
@@ -613,7 +622,7 @@ function startGame() {
 
 function restart() {
   clearTimeout(timer);
-  newGame(S.employeeDatabase, S.eventDatabase, S.projectDatabase);
+  newGame(S.employeeDatabase, S.eventDatabase, S.projectDatabase, S.missionDatabase);
   showPage('town');
   render();
   showTitle();
