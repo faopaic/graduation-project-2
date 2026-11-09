@@ -526,6 +526,8 @@ function showTitle() {
     <div class="panel"><div class="panel-title">クリア条件(5年以内に、すべて達成)</div>
     <div class="goal-row"><span>難易度</span><span id="difficulty-label">Normal</span></div>
     <div class="row"><button class="btn-small" data-act="difficulty-normal">Normal</button><button class="btn-small" data-act="difficulty-hard">Hard</button></div>
+    <div id="difficulty-description" class="small muted"></div>
+    <div class="goal-row"><span>開始資金</span><span id="start-money"></span></div>
     <div class="goal-row"><span>資金</span><span id="goal-money">${yen(g.money)}</span></div>
     <div class="goal-row"><span>評判</span><span id="goal-rep">${g.rep}</span></div>
     <div class="goal-row"><span>大規模案件(難易度 高)の成功</span><span>${g.big}件</span></div></div>
@@ -541,16 +543,20 @@ function updateDifficultyPreview() {
   const g = CONFIG.goals;
   const money = getGoalMoney(g.money,selectedDifficulty);
   const rep = getGoalReputation(g.rep,selectedDifficulty);
+  document.getElementById('start-money').textContent =
+    yen(getStartMoney(CONFIG.startMoney, selectedDifficulty));
   document.getElementById('goal-money').textContent =
     yen(money);
-
   document.getElementById('goal-rep').textContent =
     rep;
-
   document.getElementById('difficulty-label').textContent =
     selectedDifficulty === 'hard'
       ? 'Hard'
       : 'Normal';
+  document.getElementById('difficulty-description').textContent =
+    selectedDifficulty === 'hard'
+      ? '開始資金減少、クリア条件増加'
+      : '標準ルール';
 }
 
 function showEnd() {
