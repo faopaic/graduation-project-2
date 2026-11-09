@@ -211,12 +211,16 @@ function renderJobs() {
 function offerCard(o) {
   const locked = S.rep < o.minRep;
   const req = o.skills.map((sk) => skillTag(sk, S.employees.some((e) => e.skill === sk) ? 'ok' : 'ng')).join('');
-  const right = locked ? `<span class="small">評判${o.minRep}で解放</span>` : '<button class="act" data-act="accept" data-id="' + o.id + '">受注する</button>';
-  return `<div class="card job ${locked ? 'locked' : ''}">
-    <div class="row"><div><strong>${o.name}</strong> <span class="badge badge-${DIFF_CLASS[o.diff]}">難易度 ${DIFF_LABEL[o.diff]}</span> <span class="stars">${'★'.repeat(o.diff)}${'☆'.repeat(3 - o.diff)}</span></div>${right}</div>
-    <div class="small">報酬 ${yen(o.reward)} / 納期 ${o.days}日 / 仕事量 ${o.work}</div>
-    <div class="req small">必要なスキル: ${req}</div>
-    <div class="small">リスク: ${o.risk} ・ <span data-expire="${o.expires}">募集あと${o.expires - S.day}日</span></div>
+  const kind = o.diff >= 3 ? 'big' : o.skills.length <= 2 ? 'web' : 'sys';
+  const right = locked ? `<span class="offer-lock">評判${o.minRep}で解放</span>` : `<button class="act" data-act="accept" data-id="${o.id}">受注する</button>`;
+  return `<div class="offer offer-${kind} ${locked ? 'locked' : ''}">
+    <div class="offer-head"><strong>${o.name}</strong><span class="offer-tag">${o.diff >= 3 ? '大規模' : '案件'}</span></div>
+    ${o.diff >= 3 ? '<div class="offer-big">★ 大規模案件 ★</div>' : ''}
+    <div class="offer-row"><span class="muted small">難易度</span><span class="stars">${'★'.repeat(o.diff)}${'☆'.repeat(3 - o.diff)}</span><span class="small">${DIFF_LABEL[o.diff]}</span></div>
+    <div class="offer-row"><span class="muted small">報酬</span><span class="offer-reward">${yen(o.reward)}</span></div>
+    <div class="offer-row"><span class="muted small">納期</span><span>${o.days}日</span><span class="muted small">仕事量 ${o.work}</span></div>
+    <div class="req">${req}</div><div class="small muted">リスク: ${o.risk}</div>
+    <div class="offer-foot"><span class="small muted" data-expire="${o.expires}">募集あと${o.expires - S.day}日</span>${right}</div>
   </div>`;
 }
 
@@ -258,24 +262,29 @@ function renderEmployees() {
     const sales = S.employees.filter((e) => e.sales).map((e) => {
       const resting = e.salesCooldownUntil > S.day;
       const status = resting ? `営業休止中（あと${e.salesCooldownUntil - S.day}日）` : '営業活動中';
-      return `<div class="card job"><div class="row"><div class="who">${avatar(e.skill, e.name + 'のドット絵')}<div><strong>${e.name}</strong><div class="small muted">営業担当 / 営業力 ${e.salesSkill}/100</div></div></div><span class="small">${status}</span></div>
-        <div class="small">${employeeStats(e)}</div>
-        <div class="small">案件獲得率 ${salesSuccessRate(e.salesSkill)}%（基礎30%） / 獲得後1〜3か月休止</div><div class="gap-top">${salesButton(e)}</div></div>`;
+      return `<div class="employee-card">
+        <div class="employee-card-head"><div class="employee-avatar">${avatar(e.skill, e.name + 'のドット絵')}</div><div><div class="small muted">社員 / 営業担当</div><strong class="employee-name">${e.name}</strong><span class="employee-skill">${SKILLS[e.skill]}</span></div></div>
+        <div class="employee-status">${status}</div><div class="employee-info"><span>営業力</span><strong>${e.salesSkill}/100</strong></div>
+        <div class="small">${employeeStats(e)}</div><div class="small muted">案件獲得率 ${salesSuccessRate(e.salesSkill)}%（基礎30%） / 獲得後1〜3か月休止</div>
+        <div class="employee-actions">${salesButton(e)}</div></div>`;
     }).join('') || '<div class="card muted">営業担当がいません。社員一覧から担当者を設定してください。</div>';
     $('employees-body').innerHTML = `<div class="row"><h2>社員一覧 <span class="muted small">${S.employees.length} / ${slots}人</span></h2><div>${viewButton('staff')} <button class="btn-small" data-go="upgrades">社員強化</button></div></div>
       <p class="small muted legend">営業担当は毎月、基礎30%に営業力を加味した確率で案件を獲得します。営業力は将来データベースの値に差し替えられます。</p>
-      <h3>営業担当</h3>${sales}`;
+      <h3>営業担当</h3><div class="employee-grid">${sales}</div>`;
     return;
   }
   const cards = S.employees.filter((e) => !e.sales).map((e) => {
     const job = e.job ? jobById(e.job) : null;
     const salesRest = e.sales && e.salesCooldownUntil > S.day ? `（休止中 あと${e.salesCooldownUntil - S.day}日）` : '';
     const status = isAbsent(e) ? `欠勤中(あと${e.absentUntil - S.day}日)` : e.sales ? `営業担当${salesRest}` : job ? `「${job.name}」を担当中` : '待機中';
-    return `<div class="card job"><div class="row"><div class="who">${avatar(e.skill, e.name + 'のドット絵')}<div><strong>${e.name}</strong> <span class="small muted">${SKILLS[e.skill]}</span><div class="small muted">${SKILL_HELP[e.skill]}</div></div></div><span class="small">${status}</span></div>
-      <div class="small">月給 ${yen(e.salary)} / 営業力 ${e.salesSkill}/100</div><div class="small">${employeeStats(e)}</div><div class="gap-top">${salesButton(e)}</div></div>`;
+    return `<div class="employee-card">
+      <div class="employee-card-head"><div class="employee-avatar">${avatar(e.skill, e.name + 'のドット絵')}</div><div><div class="small muted">社員</div><strong class="employee-name">${e.name}</strong><span class="employee-skill">${SKILLS[e.skill]}</span></div></div>
+      <div class="small employee-help">${SKILL_HELP[e.skill]}</div><div class="employee-status">${status}</div>
+      <div class="employee-info"><span>月給</span><strong>${yen(e.salary)}</strong></div><div class="small">営業力 ${e.salesSkill}/100</div><div class="small">${employeeStats(e)}</div>
+      <div class="employee-actions">${salesButton(e)}</div></div>`;
   }).join('') || '<div class="card muted">営業担当以外の社員がいません。営業担当を見るボタンから確認できます。</div>';
   $('employees-body').innerHTML = `<div class="row"><h2>社員一覧 <span class="muted small">${S.employees.length} / ${slots}人</span></h2><div>${viewButton('sales')} <button class="btn-small" data-go="upgrades">社員強化</button></div></div>
-    <p class="small muted legend">社員のスキルや担当案件を確認できます。営業担当は毎月、基礎30%に営業力を加味した確率で1〜3件の案件を獲得し、獲得後1〜3か月休みます。</p>${cards}`;
+    <p class="small muted legend">社員のスキルや担当案件を確認できます。営業担当は毎月、基礎30%に営業力を加味した確率で1〜3件の案件を獲得し、獲得後1〜3か月休みます。</p><div class="employee-grid">${cards}</div>`;
 }
 
 // ----- 採用イベント -----
@@ -306,13 +315,15 @@ function renderRecruit() {
       <div class="recruit-actions"><button class="btn-small" data-act="back-recruit">求職者一覧に戻る</button></div>`;
     return;
   }
-  const cards = S.candidates.map((c) => `<div class="card job">
-    <div class="row"><div class="who">${avatar(c.skill, c.name + 'のドット絵')}<div><strong>${c.name}</strong> <span class="small muted">${SKILLS[c.skill]}</span><div class="small muted">${SKILL_HELP[c.skill]}</div></div></div>
-    <button class="act" data-act="hire" data-id="${c.id}">採用する</button></div>
-    <div class="small">月給 ${yen(c.salary)} / 採用すると、月の支出が ${yen(monthlyCost())} → ${yen(monthlyCost() + c.salary)} に増える</div></div>`).join('') || '<div class="card muted">いまは求職者がいない。しばらく待とう。</div>';
+  const cards = S.candidates.map((c) => `<div class="resume">
+    <div class="resume-head">履 歴 書</div><div class="resume-top"><div class="resume-photo">${avatar(c.skill, c.name + 'のドット絵')}</div>
+      <div><div class="small muted">名前</div><strong class="resume-name">${c.name}</strong><div class="small muted">スキル</div><div>${SKILLS[c.skill]}</div></div></div>
+    <div class="small resume-help">${SKILL_HELP[c.skill]}</div><div class="resume-row"><span class="muted small">月給</span><b>${yen(c.salary)}</b></div>
+    <div class="small muted">採用後の月の支出 ${yen(monthlyCost())} → ${yen(monthlyCost() + c.salary)}</div>
+    <button class="act resume-btn" data-act="hire" data-id="${c.id}">採用する</button></div>`).join('') || '<div class="card muted">いまは求職者がいない。しばらく待とう。</div>';
   $('recruit-body').innerHTML = `<h2>採用イベント <span class="muted small">空席 ${free} / 席 ${slots}</span></h2>
     <p class="small muted legend">新しい求職者が来ました。採用すると、毎月の支出が増えます。席がいっぱいのときは、会社Lvを上げると席が増えます。</p>
-    <h3>求職者</h3>${cards}
+    <h3>求職者</h3><div class="resume-grid">${cards}</div>
     <div class="recruit-actions">
       <button class="btn-small" data-act="open-staff">在籍社員を見る</button>
       <button class="btn-main" data-act="finish-recruit">採用を終える</button>
@@ -478,11 +489,13 @@ function renderModal() {
   }
 
   const badgeClass = p.kind === 'report' ? 'low' : p.kind === 'notice' && !p.id ? 'mid' : 'high';
-  const head = `<div class="modal-head"><span class="badge badge-${badgeClass}">${p.kind === 'incident' ? 'インシデント発生: ' : ''}${p.badge}</span><span class="small muted">ゲーム一時停止中</span></div><h3>${p.title}</h3>`;
+  const head = p.kind === 'incident'
+    ? `<div class="inc-head"><span class="inc-title">⚠ ${p.badge}が発生!</span><span class="small">ゲーム一時停止中</span></div>`
+    : `<div class="modal-head"><span class="badge badge-${badgeClass}">${p.badge}</span><span class="small muted">ゲーム一時停止中</span></div>`;
   const text = p.lines ? `<ul class="lines">${p.lines.map((l) => `<li>${l}</li>`).join('')}</ul>` : `<p class="muted">${p.body}</p>`;
   const chips = p.chips ? `<div class="chips">${p.chips.map((c) => `<span class="stag">${c}</span>`).join('')}</div>` : '';
-  const choices = p.choices.map((c, i) => `<button class="choice ${c.tag === 'hide' ? 'is-hide' : ''}" data-act="choice" data-i="${i}"><strong>${c.label}</strong>${c.desc ? `<span class="small ${c.tag === 'hide' ? 'neg' : 'muted'}">${c.desc}</span>` : ''}</button>`).join('');
-  body.innerHTML = head + chips + text + choices;
+  const choices = p.choices.map((c, i) => `<button class="choice has-letter ${c.tag === 'hide' ? 'is-hide' : ''}" data-act="choice" data-i="${i}"><span class="ch-letter">${'ABCDEFG'[i]}</span><span class="ch-body"><strong>${c.label}</strong>${c.desc ? `<span class="small ${c.tag === 'hide' ? 'neg' : 'muted'}">${c.desc}</span>` : ''}</span></button>`).join('');
+  body.innerHTML = head + (p.kind === 'incident' ? `<div class="inc-status"><h3>${p.title}</h3>${chips}${text}</div>` : `<h3>${p.title}</h3>${chips}${text}`) + choices;
 }
 
 function onChoice(i) {
@@ -505,7 +518,7 @@ function nextPending() {
 function showTitle() {
   screenMode = 'title';
   const g = CONFIG.goals;
-  $('screen-body').innerHTML = `<h1 class="big-title">IT会社経営シミュレーター(仮)</h1>
+  $('screen-body').innerHTML = `<h1 class="big-title end-title">IT会社経営シミュレーター(仮)</h1>
     <p>あなたは、できたばかりのIT会社の社長。5年のあいだに、会社を大きく育てよう。</p>
     <div class="panel"><div class="panel-title">クリア条件(5年以内に、すべて達成)</div>
     <div class="goal-row"><span>資金</span><span>${yen(g.money)}</span></div>
@@ -532,6 +545,8 @@ function showEnd() {
     title = `5年が経った(評価 ${rank})`; lead = '5年のうちに、すべての目標は達成できなかった。でも、ここまで会社を育てた。';
   }
   const t = S.tally;
+  const avg = goals.reduce((sum, goal) => sum + goal.ratio, 0) / goals.length;
+  const rank = avg >= 0.85 ? 'A' : avg >= 0.6 ? 'B' : 'C';
   let style;
   if (t.incidents === 0) style = 'まだ障害を経験していない。';
   else if (t.hide === 0) style = `障害に${t.incidents}回対応して、一度も隠さなかった。誠実な社長。`;
@@ -540,7 +555,7 @@ function showEnd() {
 
   const rows = goals.map((g) => `<tr class="${g.met ? 'met' : ''}"><td>${g.met ? '■' : '□'} ${g.label}</td><td>${g.fmt(g.cur)} / ${g.fmt(g.target)}</td></tr>`).join('');
   $('screen-body').innerHTML = `<div class="modal-head"><span class="badge badge-${o.type === 'clear' ? 'low' : o.type === 'bankrupt' ? 'high' : 'mid'}">結果</span></div>
-    <h1 class="big-title">${title}</h1><p>${lead}</p>
+    <h1 class="big-title end-title">${title}</h1>${o.type === 'bankrupt' ? `<p>${lead}</p>` : `<div class="medal-wrap"><div class="medal medal-${rank}"><b>${rank}</b></div><div class="medal-lead">${lead}</div></div>`}
     <table class="stats">${rows}
       <tr><td>完成させた案件</td><td>${S.done}件</td></tr>
       <tr><td>対応した障害</td><td>${t.incidents}回(隠した: ${t.hide}回)</td></tr>
