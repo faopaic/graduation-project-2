@@ -41,9 +41,10 @@ async function fetchJson(url) {
 
 // ----- 画面の切り替え -----
 function showPage(name) {
+  if (name === 'company') name = 'home';
   if (name !== 'recruit') S.recruiting = false;
   if (name !== 'invest-event') S.investing = false;
-  ['home', 'jobs', 'assignment', 'employees', 'recruit', 'upgrades', 'invest-event'].forEach((p) => $('page-' + p).classList.toggle('hidden', p !== name));
+  ['town', 'home', 'jobs', 'assignment', 'employees', 'recruit', 'upgrades', 'invest-event'].forEach((p) => $('page-' + p).classList.toggle('hidden', p !== name));
   document.querySelectorAll('.nav').forEach((b) => b.classList.toggle('active', b.dataset.go === name));
 }
 
@@ -59,6 +60,51 @@ function flushNotices() {
 }
 
 // ----- ホーム -----
+const SEASONS = {
+  spring: { name: '春', sky: '#ffdfe9', band: '#fff0f4', grass: '#b8e6a8', far1: '#f3c4d6', far2: '#d9c4f0', tree: '#f7a8c4', roof: '#ffb59e', page: '#ffe9f0', deco: ['#ffb6cf', '#ffd6e4'], n: 36, sz: 1.6 },
+  summer: { name: '夏', sky: '#4fb6f0', band: '#9fdcf8', grass: '#5fcf8a', far1: '#8ec7ea', far2: '#a9b8ef', tree: '#1f9a62', roof: '#ff8f6e', page: '#d5f3ff', deco: [], n: 0, sz: 0 },
+  autumn: { name: '秋', sky: '#ffc89a', band: '#ffe2c0', grass: '#d9c47a', far1: '#e8b49a', far2: '#caa0b8', tree: '#e0693a', roof: '#c2453a', page: '#ffe9d2', deco: ['#e0693a', '#f0a030'], n: 24, sz: 1.6 },
+  winter: { name: '冬', sky: '#6f86b8', band: '#a9bde0', grass: '#f1f6fb', far1: '#8ea0c8', far2: '#9a94c8', tree: '#2f7f62', roof: '#e8f0ff', page: '#e3ecf8', deco: ['#ffffff'], n: 56, sz: 1.2 }
+};
+function seasonOf(day) {
+  const month = dateOf(day).getMonth();
+  return month >= 2 && month <= 4 ? 'spring' : month >= 5 && month <= 7 ? 'summer' : month >= 8 && month <= 10 ? 'autumn' : 'winter';
+}
+const SKILL_COLOR = { design: '#6dcfb2', dev: '#ffb59e', test: '#ffe08a', infra: '#9fd6f5', security: '#cbbcf3' };
+function townScene() {
+  const theme = SEASONS[seasonOf(S.day)];
+  const rows = Math.min(4, Math.max(2, S.level + 1));
+  const bx = 70, bw = 60, bh = 12 + rows * 10.5, by = 72 - bh;
+  const windows = Array.from({ length: rows * 4 }, (_, i) => {
+    const row = Math.floor(i / 4), col = i % 4;
+    return `<rect x="${bx + 4 + col * 14}" y="${by + 6 + row * 10.5}" width="9" height="8" fill="#2e504a"/><rect x="${bx + 5 + col * 14}" y="${by + 7 + row * 10.5}" width="7" height="6" fill="${i < S.employees.length + 2 ? '#ffe08a' : '#9fd6f5'}"/>`;
+  }).join('');
+  const walkers = S.employees.filter((e) => !isAbsent(e)).map((e, i) => {
+    const delay = -((Date.now() / 1000 + i * 5) % 30).toFixed(2);
+    const label = `${e.name} ${SKILLS[e.skill]}`;
+    return `<g class="walker" style="--t:${16 + (i * 7) % 13}s;--w:${70 + (i * 23) % 50}px;--delay:${delay}s" transform="translate(${8 + (i * 31) % 70} 0)"><title>${label}</title><g class="bounce"><rect x="2" y="77" width="4" height="3" fill="#f8cdbb"/><rect x="1" y="80" width="6" height="3" fill="${SKILL_COLOR[e.skill]}"/><rect x="2" y="83" width="1" height="2" fill="#2e504a"/><rect x="5" y="83" width="1" height="2" fill="#2e504a"/></g></g>`;
+  }).join('');
+  const decor = theme.n ? Array.from({ length: theme.n }, (_, i) => `<rect x="${(i * 37) % 200}" y="${(i * 53) % 70}" width="${theme.sz}" height="${theme.sz}" fill="${theme.deco[i % theme.deco.length]}"/>`).join('') : '';
+  return `<svg class="town-scene" viewBox="0 0 200 100" role="img" aria-label="会社のある街">
+    <rect width="200" height="72" fill="${theme.sky}"/><rect y="40" width="200" height="32" fill="${theme.band}"/><rect x="150" y="8" width="12" height="12" fill="#fff3b0"/>
+    <g fill="#fff"><rect x="20" y="14" width="22" height="5"/><rect x="24" y="11" width="14" height="4"/><rect x="100" y="8" width="26" height="5"/></g>
+    <rect y="72" width="200" height="28" fill="${theme.grass}"/><rect y="72" width="200" height="1.5" fill="#2e504a"/><rect y="86" width="200" height="9" fill="#d5d5d5"/>
+    <g class="company" data-go="company"><rect x="${bx}" y="${by}" width="${bw}" height="${bh}" fill="#2e504a"/><rect x="${bx + 1}" y="${by + 1}" width="${bw - 2}" height="${bh - 1}" fill="#fff7ea"/><rect class="roof" x="${bx - 3}" y="${by - 4}" width="${bw + 6}" height="5" fill="${theme.roof}"/><rect x="${bx + 8}" y="${by - 16}" width="${bw - 16}" height="11" fill="#fafffd" stroke="#2e504a" stroke-width=".8"/><text x="${bx + bw / 2}" y="${by - 8}" font-size="4.3" text-anchor="middle" fill="#2e504a">PEACE株式会社</text>${windows}<rect x="${bx + 24}" y="58" width="12" height="14" fill="#6dcfb2"/></g>
+    ${walkers}<g fill="${theme.tree}"><rect x="14" y="62" width="14" height="10"/><rect x="176" y="62" width="14" height="10"/></g>${decor}<text x="16" y="9" font-size="4.4" text-anchor="middle" fill="#2e504a">${theme.name}</text><text x="100" y="97" font-size="4" text-anchor="middle" fill="#2e504a">▲ 会社をクリックすると、中が見られる</text>
+  </svg>`;
+}
+function renderTown() {
+  const theme = SEASONS[seasonOf(S.day)];
+  document.documentElement.style.setProperty('--page', theme.page);
+  const alerts = [];
+  const hint = hintText();
+  if (hint) alerts.push(`<div class="hint">${hint}</div>`);
+  if (S.money < monthlyCost() * 1.5) alerts.push('<div class="alert"><span>資金が少なくなっている。このままだと、来月の給料が払えなくなる。</span></div>');
+  S.jobs.filter((j) => j.late).forEach((j) => alerts.push(`<div class="alert"><span>「${j.name}」が納期を過ぎている。早く完成させよう。</span></div>`));
+  const projects = S.jobs.length ? S.jobs.map((j) => `<div class="town-job"><div class="row"><strong class="small">${j.name}</strong><span class="small ${remainDays(j) <= 7 ? 'neg' : 'muted'}" data-left="${j.id}">${leftText(j)}</span></div><div class="bar"><div class="fill" data-bar="${j.id}" style="width:${progressPct(j)}%"></div></div></div>`).join('') : '<div class="small muted">進行中の案件はない。下の「案件」から受注しよう。</div>';
+  $('town-body').innerHTML = townScene() + `<div class="town-grid"><div>${alerts.join('')}<div class="panel"><div class="panel-title">いまの会社</div><div class="goal-row"><span>資金</span><span data-live="money">${yen(S.money)}</span></div><div class="goal-row"><span>評判</span><span data-live="rep">${S.rep} / 100</span></div><div class="goal-row"><span>社員</span><span data-live="staff">${S.employees.length} / ${levelInfo().slots}人</span></div><div class="goal-row"><span>会社Lv</span><span>Lv.${S.level}</span></div></div>${levelPanel()}</div><div class="panel"><div class="panel-title">進行中の案件</div>${projects}<div class="town-menu"><button class="btn-small" data-act="auto">おまかせ配置</button></div></div></div>`;
+}
+
 function renderHome() {
   // お知らせ
   const alerts = [];
@@ -216,7 +262,7 @@ function renderEmployees() {
         <div class="small">${employeeStats(e)}</div>
         <div class="small">案件獲得率 ${salesSuccessRate(e.salesSkill)}%（基礎30%） / 獲得後1〜3か月休止</div><div class="gap-top">${salesButton(e)}</div></div>`;
     }).join('') || '<div class="card muted">営業担当がいません。社員一覧から担当者を設定してください。</div>';
-    $('employees-body').innerHTML = `<div class="row"><h2>社員一覧 <span class="muted small">${S.employees.length} / ${slots}人</span></h2>${viewButton('staff')}</div>
+    $('employees-body').innerHTML = `<div class="row"><h2>社員一覧 <span class="muted small">${S.employees.length} / ${slots}人</span></h2><div>${viewButton('staff')} <button class="btn-small" data-go="upgrades">社員強化</button></div></div>
       <p class="small muted legend">営業担当は毎月、基礎30%に営業力を加味した確率で案件を獲得します。営業力は将来データベースの値に差し替えられます。</p>
       <h3>営業担当</h3>${sales}`;
     return;
@@ -228,7 +274,7 @@ function renderEmployees() {
     return `<div class="card job"><div class="row"><div class="who">${avatar(e.skill, e.name + 'のドット絵')}<div><strong>${e.name}</strong> <span class="small muted">${SKILLS[e.skill]}</span><div class="small muted">${SKILL_HELP[e.skill]}</div></div></div><span class="small">${status}</span></div>
       <div class="small">月給 ${yen(e.salary)} / 営業力 ${e.salesSkill}/100</div><div class="small">${employeeStats(e)}</div><div class="gap-top">${salesButton(e)}</div></div>`;
   }).join('') || '<div class="card muted">営業担当以外の社員がいません。営業担当を見るボタンから確認できます。</div>';
-  $('employees-body').innerHTML = `<div class="row"><h2>社員一覧 <span class="muted small">${S.employees.length} / ${slots}人</span></h2>${viewButton('sales')}</div>
+  $('employees-body').innerHTML = `<div class="row"><h2>社員一覧 <span class="muted small">${S.employees.length} / ${slots}人</span></h2><div>${viewButton('sales')} <button class="btn-small" data-go="upgrades">社員強化</button></div></div>
     <p class="small muted legend">社員のスキルや担当案件を確認できます。営業担当は毎月、基礎30%に営業力を加味した確率で1〜3件の案件を獲得し、獲得後1〜3か月休みます。</p>${cards}`;
 }
 
@@ -338,6 +384,7 @@ function updateLive() {
 }
 
 function render() {
+  renderTown();
   renderHome();
   renderJobs();
   renderAssignment();
@@ -361,7 +408,7 @@ async function loadEmployeeDatabase() {
 }
 
 async function loadPageTemplates() {
-  const pages = ['home', 'jobs', 'assignment', 'employees', 'recruit', 'upgrades', 'invest-event'];
+  const pages = ['town', 'home', 'jobs', 'assignment', 'employees', 'recruit', 'upgrades', 'invest-event'];
   const templates = await Promise.all(pages.map(async (page) => {
     const url = `pages/${page}.html`;
     const response = await fetch(url, { cache: 'no-store' });
@@ -508,13 +555,14 @@ function startGame() {
   screenMode = null;
   $('screen').classList.add('hidden');
   stage = 1; lastResult = null;
+  showPage('town');
   render();
 }
 
 function restart() {
   clearTimeout(timer);
   newGame(S.employeeDatabase, S.eventDatabase, S.projectDatabase);
-  showPage('home');
+  showPage('town');
   render();
   showTitle();
 }
@@ -546,7 +594,11 @@ function afterTick() {
 document.addEventListener('click', (ev) => {
   const el = ev.target.closest('[data-act],[data-go]');
   if (!el || !S) return;
-  if (el.dataset.go) { showPage(el.dataset.go); return; }
+  if (el.dataset.go) {
+    const go = el.dataset.go;
+    showPage(el.classList.contains('nav') && go === 'town' ? 'town' : go);
+    return;
+  }
   const a = el.dataset.act;
   const done = (r) => {
     if (r) toast(r.msg, r.ok ? 'good' : 'bad');
@@ -567,6 +619,11 @@ document.addEventListener('click', (ev) => {
 
   if (a === 'play') { S.playing = !S.playing; updateLive(); loop(); }
   else if (a === 'speed') { S.speedIdx = (S.speedIdx + 1) % CONFIG.speeds.length; updateLive(); loop(); }
+  else if (a === 'auto') {
+    autoAssign();
+    toast(S.jobs.length ? '手が空いている社員を案件に割り振った' : '進行中の案件がない', 'good');
+    render();
+  }
   else if (a === 'auto-assignment') {
     const job = S.assignmentJobId ? jobById(S.assignmentJobId) : null;
     if (job) {
@@ -589,15 +646,15 @@ document.addEventListener('click', (ev) => {
       render();
     }
   }
-  else if (a === 'finish-assignment') { S.assignmentJobId = null; showPage('home'); render(); }
+  else if (a === 'finish-assignment') { S.assignmentJobId = null; showPage('town'); render(); }
   else if (a === 'hire') { done(hire(Number(el.dataset.id))); }
   else if (a === 'open-recruit') { S.recruitStage = 'candidates'; render(); }
   else if (a === 'open-staff') { S.recruitStage = 'staff'; render(); }
   else if (a === 'back-recruit') { S.recruitStage = 'candidates'; render(); }
-  else if (a === 'finish-recruit') { showPage('home'); render(); }
+  else if (a === 'finish-recruit') { showPage('town'); render(); }
   else if (a === 'upgrade-employee') { done(strengthenEmployee(Number(el.dataset.id))); }
   else if (a === 'invest') { done(buyInvest(el.dataset.key)); }
-  else if (a === 'finish-invest') { showPage('home'); render(); }
+  else if (a === 'finish-invest') { showPage('town'); render(); }
   else if (a === 'choice') { onChoice(Number(el.dataset.i)); }
   else if (a === 'continue') { nextPending(); }
 });
