@@ -562,14 +562,20 @@ function updateDifficultyPreview() {
     yen(money);
   document.getElementById('goal-rep').textContent =
     rep;
-  document.getElementById('difficulty-label').textContent =
-    selectedDifficulty === 'hard'
-      ? 'Hard'
-      : 'Normal';
-  document.getElementById('difficulty-description').textContent =
-    selectedDifficulty === 'hard'
-      ? '開始資金減少、クリア条件増加'
-      : '標準ルール';
+  let difficultyName = 'Normal';
+  let difficultyDescription = '標準ルール';
+  if (selectedDifficulty === 'hard') {
+    difficultyName = 'Hard';
+    difficultyDescription = '開始資金90%・クリア条件110%';
+  }
+
+  if (selectedDifficulty === 'expert') {
+    difficultyName = 'Expert';
+    difficultyDescription = '開始資金80%・クリア条件125%';
+  }
+  document.getElementById('difficulty-label').textContent = difficultyName;
+
+  document.getElementById('difficulty-description').textContent = difficultyDescription;
 }
 
 function showEnd() {
