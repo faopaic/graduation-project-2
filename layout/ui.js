@@ -78,6 +78,7 @@ function townScene() {
   const bx = 70, bw = 60, bh = 12 + rows * 10.5, by = 72 - bh;
   const windows = Array.from({ length: rows * 4 }, (_, i) => {
     const row = Math.floor(i / 4), col = i % 4;
+        if (row === rows - 1 && (col === 1 || col === 2)) return '';
     return `<rect x="${bx + 4 + col * 14}" y="${by + 6 + row * 10.5}" width="9" height="8" fill="#2e504a"/><rect x="${bx + 5 + col * 14}" y="${by + 7 + row * 10.5}" width="7" height="6" fill="${i < S.employees.length + 2 ? '#ffe08a' : '#9fd6f5'}"/>`;
   }).join('');
   const walkers = S.employees.filter((e) => !isAbsent(e)).map((e, i) => {
@@ -98,7 +99,7 @@ function townScene() {
     <rect width="200" height="72" fill="${theme.sky}"/><rect y="40" width="200" height="32" fill="${theme.band}"/><rect x="150" y="8" width="12" height="12" fill="#fff3b0"/>
     <g fill="#fff"><rect x="20" y="14" width="22" height="5"/><rect x="24" y="11" width="14" height="4"/><rect x="100" y="8" width="26" height="5"/></g>
     <rect y="72" width="200" height="28" fill="${theme.grass}"/><rect y="72" width="200" height="1.5" fill="#2e504a"/><rect y="86" width="200" height="9" fill="#d5d5d5"/>
-    <g class="company" data-go="company"><rect x="${bx}" y="${by}" width="${bw}" height="${bh}" fill="#2e504a"/><rect x="${bx + 1}" y="${by + 1}" width="${bw - 2}" height="${bh - 1}" fill="#fff7ea"/><rect class="roof" x="${bx - 3}" y="${by - 4}" width="${bw + 6}" height="5" fill="${theme.roof}"/><rect x="${bx + 8}" y="${by - 16}" width="${bw - 16}" height="11" fill="#fafffd" stroke="#2e504a" stroke-width=".8"/><text x="${bx + bw / 2}" y="${by - 8}" font-size="4.3" text-anchor="middle" fill="#2e504a">PEACE株式会社</text>${windows}<rect x="${bx + 24}" y="58" width="12" height="14" fill="#6dcfb2"/></g>
+    <g class="company" data-go="company"><rect x="${bx}" y="${by}" width="${bw}" height="${bh}" fill="#2e504a"/><rect x="${bx + 1}" y="${by + 1}" width="${bw - 2}" height="${bh - 1}" fill="#fff7ea"/><rect class="roof" x="${bx - 3}" y="${by - 4}" width="${bw + 6}" height="5" fill="${theme.roof}"/><rect x="${bx + 8}" y="${by - 16}" width="${bw - 16}" height="11" fill="#fafffd" stroke="#2e504a" stroke-width=".8"/><text x="${bx + bw / 2}" y="${by - 8}" font-size="4.3" text-anchor="middle" fill="#2e504a">PEACE株式会社</text>${windows}<rect x="${bx + 24}" y="58" width="12" height="14" fill="#2e504a"/><rect x="${bx + 25}" y="59" width="10" height="13" fill="#6dcfb2"/><rect x="${bx + 33}" y="65" width="1" height="1" fill="#2e504a"/></g>
     <g fill="${theme.tree}"><rect x="14" y="62" width="14" height="10"/><rect x="176" y="62" width="14" height="10"/></g>${decor}${walkers}<text x="16" y="9" font-size="4.4" text-anchor="middle" fill="#2e504a">${theme.name}</text><text x="100" y="97" font-size="4" text-anchor="middle" fill="#2e504a">▲ 会社をクリックすると、中が見られる</text>
   </svg>`;
 }
