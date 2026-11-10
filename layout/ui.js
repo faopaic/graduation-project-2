@@ -750,5 +750,54 @@ document.addEventListener('click', (ev) => {
   else if (a === 'continue') { nextPending(); }
 });
 
+// ----- キーボード操作 -----
+document.addEventListener('keydown', (ev) => {
+  const activeTag = document.activeElement?.tagName;
+  if (
+    activeTag === 'INPUT' ||
+    activeTag === 'TEXTAREA' ||
+    activeTag === 'SELECT'
+  ) {
+    return;
+  }
+  if (ev.code === 'Space') {
+    ev.preventDefault();
+    document.getElementById('play-btn')?.click();
+    return;
+  }
+  if (ev.code === 'Digit1') {
+    ev.preventDefault();
+    showPage('town');
+    return;
+  }
+  if (ev.code === 'Digit2') {
+    ev.preventDefault();
+    showPage('jobs');
+    return;
+  }
+  if (ev.code === 'Digit3') {
+    ev.preventDefault();
+    showPage('employees');
+    return;
+  }
+  if (ev.code === 'Digit4') {
+    ev.preventDefault();
+    showPage('invest-event');
+    return;
+  }
+    if (ev.code === 'KeyS') {
+    ev.preventDefault();
+    document.getElementById('speed-btn')?.click();
+    return;
+  }
+  if (ev.code === 'KeyR') {
+    ev.preventDefault();
+    const resetBtn =
+      document.querySelector('[data-act="reset"]');
+    resetBtn?.click();
+    return;
+  }
+});
+
 // ----- 起動 -----
 initializeGame();
