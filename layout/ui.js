@@ -535,9 +535,9 @@ function showTitle() {
     <div class="panel"><div class="panel-title">クリア条件(5年以内に、すべて達成)</div>
     <div class="goal-row"><span>難易度</span><span id="difficulty-label">Normal</span></div>
     <div class="row">
-      <button class="btn-small" data-act="difficulty-normal">Normal</button>
-      <button class="btn-small" data-act="difficulty-hard">Hard</button>
-      <button class="btn-small" data-act="difficulty-expert">Expert</button>
+      <button class="difficulty-btn normal" data-act="difficulty-normal">Normal</button>
+      <button class="difficulty-btn hard" data-act="difficulty-hard">Hard</button>
+      <button class="difficulty-btn expert" data-act="difficulty-expert">Expert</button>
     </div>
     <div id="difficulty-description" class="small muted"></div>
     <div class="goal-row"><span>開始資金</span><span id="start-money"></span></div>
