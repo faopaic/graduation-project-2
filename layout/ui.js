@@ -585,8 +585,9 @@ function showEnd() {
   const goals = goalList();
   const years = (S.day / 365).toFixed(1);
   let title, lead;
+  let rank = 'C';
   if (o.type === 'clear') {
-    const rank = getClearRank();
+    rank = getClearRank();
     title = `ゲームクリア！ 評価 ${rank}`;
     lead = `${years}年で、すべての目標を達成した。会社は大きく成長した。`;
   }
@@ -597,16 +598,18 @@ function showEnd() {
   }
   const t = S.tally;
   const avg = goals.reduce((sum, goal) => sum + goal.ratio, 0) / goals.length;
-  const rank = avg >= 0.85 ? 'A' : avg >= 0.6 ? 'B' : 'C';
   let style;
   if (t.incidents === 0) style = 'まだ障害を経験していない。';
   else if (t.hide === 0) style = `障害に${t.incidents}回対応して、一度も隠さなかった。誠実な社長。`;
   else if (t.hide >= t.honest) style = `障害${t.incidents}回のうち、${t.hide}回は隠す選択をした。実際の会社では、信頼を失う原因になる。`;
   else style = `障害${t.incidents}回のうち、${t.hide}回は隠す選択をした。隠した障害は、あとで見つかることが多い。`;
 
-  const rows = goals.map((g) => `<tr class="${g.met ? 'met' : ''}"><td>${g.met ? '■' : '□'} ${g.label}</td><td>${g.fmt(g.cur)} / ${g.fmt(g.target)}</td></tr>`).join('');
-  $('screen-body').innerHTML = `<div class="modal-head"><span class="badge badge-${o.type === 'clear' ? 'low' : o.type === 'bankrupt' ? 'high' : 'mid'}">結果</span></div>
-    <h1 class="big-title end-title">${title}</h1>${o.type === 'bankrupt' ? `<p>${lead}</p>` : `<div class="medal-wrap"><div class="medal medal-${rank}"><b>${rank}</b></div><div class="medal-lead">${lead}</div></div>`}
+  const rows = goals.map((g) => `<tr class="${g.met ? 'met' : ''}">
+    <td>${g.met ? '■' : '□'} ${g.label}</td><td>${g.fmt(g.cur)} / ${g.fmt(g.target)}</td></tr>`).join('');
+  $('screen-body').innerHTML = `<div class="modal-head">
+    <span class="badge badge-${o.type === 'clear' ? 'low' : o.type === 'bankrupt' ? 'high' : 'mid'}">結果</span></div>
+    <h1 class="big-title end-title">${title}</h1>${o.type === 'bankrupt' ? `<p>${lead}</p>` : `
+    <div class="medal-wrap"><div class="medal medal-${rank}"><b>${rank}</b></div><div class="medal-lead">${lead}</div></div>`}
     <table class="stats">${rows}
       <tr><td>完成させた案件</td><td>${S.done}件</td></tr>
       <tr><td>対応した障害</td><td>${t.incidents}回(隠した: ${t.hide}回)</td></tr>

@@ -783,6 +783,8 @@ button:focus-visible {
 .medal-B b { color: #3a5a8a; }
 .medal-C { background: #e3b284; }
 .medal-C b { color: #6a4020; }
+.medal-D { background: #d5d5d5;}
+.medal-D b { color: #666666;}
 .medal-lead { text-align: center; }
 .stats .chk { width: 28px; text-align: center; color: var(--ok); }
 .end-btns { display: flex; gap: 10px; flex-wrap: wrap; }
