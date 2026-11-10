@@ -651,8 +651,9 @@ button:focus-visible {
   .town-grid { grid-template-columns: 1fr; }
 }
 .emp-tip { display: none; pointer-events: none; }
+.emp-tip text { font-family: "DotGothic16", sans-serif; }
 .walker:hover .emp-tip { display: block; }
-.walker { cursor: help; }
+.walker { cursor: default; }
 #town-level { margin-top: 12px; }
 
 /* ===== 季節・紙吹雪・スタンプ ===== */

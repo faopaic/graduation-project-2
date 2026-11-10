@@ -83,7 +83,15 @@ function townScene() {
   const walkers = S.employees.filter((e) => !isAbsent(e)).map((e, i) => {
     const delay = -((Date.now() / 1000 + i * 5) % 30).toFixed(2);
     const label = `${e.name} ${SKILLS[e.skill]}`;
-    return `<g class="walker" style="--t:${16 + (i * 7) % 13}s;--w:${70 + (i * 23) % 50}px;--delay:${delay}s" transform="translate(${8 + (i * 31) % 70} 0)"><title>${label}</title><g class="bounce"><rect x="2" y="77" width="4" height="3" fill="#f8cdbb"/><rect x="1" y="80" width="6" height="3" fill="${SKILL_COLOR[e.skill]}"/><rect x="2" y="83" width="1" height="2" fill="#2e504a"/><rect x="5" y="83" width="1" height="2" fill="#2e504a"/></g></g>`;
+    return `<g class="walker" style="--t:${16 + (i * 7) % 13}s;--w:${70 + (i * 23) % 50}px;--delay:${delay}s" transform="translate(${8 + (i * 31) % 70} 0)">
+      <title>${label}</title>
+      <g class="emp-tip" aria-hidden="true">
+        <rect x="-7" y="56" width="28" height="9" rx="1" fill="#fafffd" stroke="#2e504a" stroke-width=".7"/>
+        <text x="7" y="60" text-anchor="middle" font-size="3.1" fill="#2e504a">${e.name}</text>
+        <text x="7" y="63.5" text-anchor="middle" font-size="2.8" fill="#57756f">${SKILLS[e.skill]}</text>
+      </g>
+      <g class="bounce"><rect x="2" y="77" width="4" height="3" fill="#f8cdbb"/><rect x="1" y="80" width="6" height="3" fill="${SKILL_COLOR[e.skill]}"/><rect x="2" y="83" width="1" height="2" fill="#2e504a"/><rect x="5" y="83" width="1" height="2" fill="#2e504a"/></g>
+    </g>`;
   }).join('');
   const decor = theme.n ? Array.from({ length: theme.n }, (_, i) => `<rect x="${(i * 37) % 200}" y="${(i * 53) % 70}" width="${theme.sz}" height="${theme.sz}" fill="${theme.deco[i % theme.deco.length]}"/>`).join('') : '';
   return `<svg class="town-scene" viewBox="0 0 200 100" role="img" aria-label="会社のある街">
@@ -91,7 +99,7 @@ function townScene() {
     <g fill="#fff"><rect x="20" y="14" width="22" height="5"/><rect x="24" y="11" width="14" height="4"/><rect x="100" y="8" width="26" height="5"/></g>
     <rect y="72" width="200" height="28" fill="${theme.grass}"/><rect y="72" width="200" height="1.5" fill="#2e504a"/><rect y="86" width="200" height="9" fill="#d5d5d5"/>
     <g class="company" data-go="company"><rect x="${bx}" y="${by}" width="${bw}" height="${bh}" fill="#2e504a"/><rect x="${bx + 1}" y="${by + 1}" width="${bw - 2}" height="${bh - 1}" fill="#fff7ea"/><rect class="roof" x="${bx - 3}" y="${by - 4}" width="${bw + 6}" height="5" fill="${theme.roof}"/><rect x="${bx + 8}" y="${by - 16}" width="${bw - 16}" height="11" fill="#fafffd" stroke="#2e504a" stroke-width=".8"/><text x="${bx + bw / 2}" y="${by - 8}" font-size="4.3" text-anchor="middle" fill="#2e504a">PEACE株式会社</text>${windows}<rect x="${bx + 24}" y="58" width="12" height="14" fill="#6dcfb2"/></g>
-    ${walkers}<g fill="${theme.tree}"><rect x="14" y="62" width="14" height="10"/><rect x="176" y="62" width="14" height="10"/></g>${decor}<text x="16" y="9" font-size="4.4" text-anchor="middle" fill="#2e504a">${theme.name}</text><text x="100" y="97" font-size="4" text-anchor="middle" fill="#2e504a">▲ 会社をクリックすると、中が見られる</text>
+    <g fill="${theme.tree}"><rect x="14" y="62" width="14" height="10"/><rect x="176" y="62" width="14" height="10"/></g>${decor}${walkers}<text x="16" y="9" font-size="4.4" text-anchor="middle" fill="#2e504a">${theme.name}</text><text x="100" y="97" font-size="4" text-anchor="middle" fill="#2e504a">▲ 会社をクリックすると、中が見られる</text>
   </svg>`;
 }
 function renderTown() {
