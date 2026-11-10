@@ -59,6 +59,12 @@ async function testSupabase() {
         success: await readTable('events', 'イベントデータ')
     });
 
+    // ミッションデータ
+    results.push({
+    name: 'missions',
+    success: await readTable('missions', 'ミッションデータ')
+    });
+
     // 最終結果
     console.log('\n========== 読み取りテスト結果 ==========');
 
