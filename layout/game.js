@@ -29,6 +29,26 @@ const empById = (id) => S.employees.find((e) => e.id === id);
 const jobById = (id) => S.jobs.find((j) => j.id === id);
 const isAbsent = (e) => S.day < e.absentUntil;
 const isWorking = (e) => !isAbsent(e) || S.day < e.coveredUntil;
+function employeeStatValue(employee, skill) {
+  if (!employee) return 0;
+  const statKey = EMPLOYEE_SPECIALTY_STATS[skill];
+  return statKey ? clamp(Number(employee.stats?.[statKey]) || 0, 0, 100) : 0;
+}
+function employeeAbility(employee, skill) {
+  if (!employee || employee.skill !== skill) return 0;
+  return employeeStatValue(employee, skill);
+}
+function abilityTotal(employees, skill) {
+  return employees.reduce((total, employee) => total + employeeAbility(employee, skill), 0);
+}
+function abilityTotalWithoutSkillMatch(employees, skill) {
+  return employees.reduce((total, employee) => total + employeeStatValue(employee, skill), 0);
+}
+function meetsRequirement(job, skill, employees) {
+  const required = Number(job.requirements?.[skill]) || 0;
+  if (required <= 0) return true;
+  return abilityTotal(employees, skill) >= required;
+}
 const remainDays = (job) => job.deadline - S.day;
 const monthlyCost = () => S.employees.reduce((s, e) => s + e.salary, 0) + CONFIG.officeCost;
 const newId = () => S.nextId++;
@@ -204,7 +224,7 @@ function newOffer(tid, skillsOverride) {
   const reward = Math.round(t.reward * (0.9 + rand() * 0.2) / 10000) * 10000;
   S.offers.push({
     id: newId(), tid: t.id, name: t.name, diff: t.diff, reward, days: t.days, work: t.work,
-    skills: skillsOverride || t.skills,
+    skills: skillsOverride || t.skills, requirements: t.requirements || {},
     minRep: t.minRep, risk: t.risk, expires: S.day + 45
   });
   if (S.offers.length > 6) S.offers.shift();
@@ -219,7 +239,7 @@ function acceptOffer(id) {
   S.offers = S.offers.filter((x) => x.id !== id);
   const job = {
     id: newId(), tid: o.tid, name: o.name, diff: o.diff, reward: o.reward, work: o.work,
-    progress: 0, start: S.day, deadline: S.day + o.days, skills: o.skills,
+    progress: 0, start: S.day, deadline: S.day + o.days, skills: o.skills, requirements: o.requirements || {},
     staff: [], late: false, warned: false, qDebt: 0, qBonus: 0
   };
   S.jobs.push(job);
@@ -401,6 +421,7 @@ function employeeUpgradeChance(stat) {
 // ----- 1日ぶんの進行 -----
 function jobPower(job) {
   let p = 0;
+  const staff = job.staff.map(empById).filter(Boolean);
   job.staff.forEach((id) => {
     const e = empById(id);
     if (!e || !isWorking(e)) return;
@@ -410,7 +431,10 @@ function jobPower(job) {
     }
     const statKey = EMPLOYEE_SPECIALTY_STATS[e.skill];
     const stat = statKey ? clamp(Number(e.stats?.[statKey]) || 0, 0, 100) : 50;
-    p += 0.5 + stat / 100;
+    const basePower = 0.5 + stat / 100;
+    const required = Number(job.requirements?.[e.skill]) || 0;
+    const abilityShortage = required > 0 && abilityTotal(staff, e.skill) < required;
+    p += basePower * (abilityShortage ? 0.7 : 1);
   });
   if (S.boost[job.id] && S.day < S.boost[job.id]) p *= 1.4;
   return p;
@@ -546,11 +570,15 @@ function buildDatabaseEvent(event, job) {
 // ----- 案件の完成 -----
 function completeJob(job) {
   const staff = job.staff.map(empById).filter(Boolean);
-  const have = new Set(staff.map((e) => e.skill));
+  const have = new Set(job.skills.filter((skill) => meetsRequirement(job, skill, staff)));
   const missing = job.skills.filter((sk) => !have.has(sk));
   const covered = job.skills.length - missing.length;
+  const mismatchedRequirements = job.skills.filter((skill) =>
+    abilityTotalWithoutSkillMatch(staff, skill) >= (Number(job.requirements?.[skill]) || 0)
+    && !meetsRequirement(job, skill, staff)
+  ).length;
 
-  let q = 55 + 35 * covered / job.skills.length + S.invest.qa * 5 + (have.has('test') ? 5 : 0) + job.qBonus - job.qDebt;
+  let q = 55 + 35 * covered / job.skills.length + S.invest.qa * 5 + (have.has('test') ? 5 : 0) + job.qBonus - job.qDebt - mismatchedRequirements * 10;
   q = clamp(Math.round(q), 0, 100);
 
   const lateDays = Math.max(0, S.day - job.deadline);
@@ -589,6 +617,7 @@ function completeJob(job) {
     success ? `案件成功: 経験値 +${job.diff * 10}` : '案件成功にならなかった'
   ];
   if (missing.length) lines.push(`スキル不足: ${missing.map((sk) => SKILLS[sk]).join('、')}の担当がいなかったため、品質が下がった`);
+  if (mismatchedRequirements) lines.push(`職種不一致: 要求能力値は満たしていたが、職種が一致しないスキルが${mismatchedRequirements}件あり、品質が${mismatchedRequirements * 10}点下がった`);
   if (job.qDebt > 0) lines.push('バグを残したまま納品したため、品質が下がった');
   raise({
     kind: 'report', badge: '案件完了', title: `「${job.name}」が完成した`, lines,

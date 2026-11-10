@@ -57,7 +57,7 @@ const SKILLS = {
   design: '設計',
   dev: '開発',
   test: 'テスト',
-  infra: 'インフラ',
+  infra: 'テスト',
   security: 'セキュリティ'
 };
 
@@ -65,7 +65,7 @@ const SKILL_HELP = {
   design: '画面や仕組みを考える人',
   dev: 'プログラムを作る人',
   test: 'バグを見つける人',
-  infra: 'サーバーやネットワークを守る人',
+  infra: 'テストや運用保守を担当する人',
   security: '情報漏えいを防ぐ人'
 };
 
