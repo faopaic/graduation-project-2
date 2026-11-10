@@ -636,11 +636,25 @@ function goalList() {
 }
 const goalsMet = () => goalList().every((x) => x.met);
 
+// ----- クリア評価 -----
+function getClearRank() {
+  const years = S.day / 365;
+  if (years < 5) return 'A';
+  if (years < 6) return 'B';
+  if (years < 8) return 'C';
+  return 'D';
+}
 function checkEnd() {
   if (S.over) return;
-  if (S.money < 0) S.over = { type: 'bankrupt' };
-  else if (goalsMet()) S.over = { type: 'clear' };
-  else if (S.day >= CONFIG.totalDays) S.over = { type: 'timeup' };
+  if (S.money < 0) {
+    S.over = { type: 'bankrupt' };
+  }
+  else if (goalsMet()) {
+    S.over = { type: 'clear' };
+  }
+  else if (S.day >= 365 * 15) {
+    S.over = { type: 'retire' };
+  }
   if (S.over) S.over.day = S.day;
 }
 

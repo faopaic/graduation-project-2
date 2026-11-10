@@ -178,7 +178,7 @@ function levelPanel() {
 
 function goalPanel() {
   const rows = goalList().map((g) => `<div class="goal-row"><span>${g.met ? '■' : '□'} ${g.label}</span><span>${g.fmt(g.cur)} / ${g.fmt(g.target)}</span></div>${seg(g.cur, g.target, 10)}`).join('');
-  return `<div class="panel"><div class="panel-title">クリア条件(5年以内に、すべて達成)</div>${rows}</div>`;
+  return `<div class="panel"><div class="panel-title">クリア条件(すべての条件を達成)</div>${rows}</div>`;
   
 }
 
@@ -541,7 +541,7 @@ function showTitle() {
   const g = CONFIG.goals;
   $('screen-body').innerHTML = `<h1 class="big-title end-title">IT会社経営シミュレーター(仮)</h1>
     <p>あなたは、できたばかりのIT会社の社長。5年のあいだに、会社を大きく育てよう。</p>
-    <div class="panel"><div class="panel-title">クリア条件(5年以内に、すべて達成)</div>
+    <div class="panel"><div class="panel-title">クリア条件(資金・評判・成功をすべて達成)</div>
     <div class="goal-row"><span>難易度</span><span id="difficulty-label">Normal</span></div>
     <div class="row">
       <button class="difficulty-btn normal" data-act="difficulty-normal">Normal</button>
@@ -593,12 +593,15 @@ function showEnd() {
   const goals = goalList();
   const years = (S.day / 365).toFixed(1);
   let title, lead;
-  if (o.type === 'clear') { title = 'ゲームクリア!'; lead = `${years}年で、すべての目標を達成した。会社は大きく成長した。`; }
+  if (o.type === 'clear') {
+    const rank = getClearRank();
+    title = `ゲームクリア！ 評価 ${rank}`;
+    lead = `${years}年で、すべての目標を達成した。会社は大きく成長した。`;
+  }
   else if (o.type === 'bankrupt') { title = 'ゲームオーバー'; lead = `${dateLabel(o.day)}、資金が尽きて、会社を続けられなくなった。`; }
-  else {
-    const avg = goals.reduce((s, g) => s + g.ratio, 0) / goals.length;
-    const rank = avg >= 0.85 ? 'A' : avg >= 0.6 ? 'B' : 'C';
-    title = `5年が経った(評価 ${rank})`; lead = '5年のうちに、すべての目標は達成できなかった。でも、ここまで会社を育てた。';
+  else if (o.type === 'retire') {
+    title = '15年経過';
+    lead = '15年が経過したため、社長を引退した。';
   }
   const t = S.tally;
   const avg = goals.reduce((sum, goal) => sum + goal.ratio, 0) / goals.length;
