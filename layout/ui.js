@@ -78,7 +78,7 @@ function townScene() {
   const bx = 70, bw = 60, bh = 12 + rows * 10.5, by = 72 - bh;
   const windows = Array.from({ length: rows * 4 }, (_, i) => {
     const row = Math.floor(i / 4), col = i % 4;
-        if (row === rows - 1 && (col === 1 || col === 2)) return '';
+        if (row === rows - 1 && (col === 1 || col === 2)) return ''; // コメントを追加してみた
     return `<rect x="${bx + 4 + col * 14}" y="${by + 6 + row * 10.5}" width="9" height="8" fill="#2e504a"/><rect x="${bx + 5 + col * 14}" y="${by + 7 + row * 10.5}" width="7" height="6" fill="${i < S.employees.length + 2 ? '#ffe08a' : '#9fd6f5'}"/>`;
   }).join('');
   const walkers = S.employees.filter((e) => !isAbsent(e)).map((e, i) => {
