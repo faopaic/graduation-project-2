@@ -651,8 +651,9 @@ button:focus-visible {
   .town-grid { grid-template-columns: 1fr; }
 }
 .emp-tip { display: none; pointer-events: none; }
+.emp-tip text { font-family: "DotGothic16", sans-serif; }
 .walker:hover .emp-tip { display: block; }
-.walker { cursor: help; }
+.walker { cursor: default; }
 #town-level { margin-top: 12px; }
 
 /* ===== 季節・紙吹雪・スタンプ ===== */
@@ -783,6 +784,8 @@ button:focus-visible {
 .medal-B b { color: #3a5a8a; }
 .medal-C { background: #e3b284; }
 .medal-C b { color: #6a4020; }
+.medal-D { background: #d5d5d5;}
+.medal-D b { color: #666666;}
 .medal-lead { text-align: center; }
 .stats .chk { width: 28px; text-align: center; color: var(--ok); }
 .end-btns { display: flex; gap: 10px; flex-wrap: wrap; }
@@ -799,4 +802,10 @@ button:focus-visible {
 .namebox { margin: 12px 0; padding: 10px 12px; border: var(--line-thin); background: var(--hl); }
 .name-input { display: block; width: 100%; margin-top: 6px; padding: 8px 10px; border: var(--line); background: var(--paper); font: inherit; font-size: 16px; color: var(--ink); }
 .name-input:focus { outline: 3px solid var(--main); }
-.btn-main:disabled { opacity: .45; cursor: not-allowed; }
+button:disabled { opacity: .45; cursor: not-allowed; }
+
+/* ===== 難易度ボタン ===== */
+.difficulty-btn{ min-width:120px; min-height:36px;font-size:20px; font-weight:bold; margin:4px;}
+.difficulty-btn.normal{background:#9fd3ff;}
+.difficulty-btn.hard{background:#8fd6a3;}
+.difficulty-btn.expert{background:#f4d97a;}

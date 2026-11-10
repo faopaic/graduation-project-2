@@ -293,17 +293,25 @@ function salesSuccessRate(salesSkill) {
 
 // 手が空いている社員を、スキルが合う案件に割り振る
 function autoAssign(targetJob) {
-  const idle = S.employees.filter((e) => !e.job && !e.sales).sort((a, b) => b.lv - a.lv);
-  idle.forEach((e) => {
-    const covered = (job, sk) => job.staff.some((id) => empById(id).skill === sk);
-    const jobs = targetJob ? [targetJob] : S.jobs;
-    const needing = jobs.filter((j) => j.skills.includes(e.skill) && !covered(j, e.skill));
-    const fitting = jobs.filter((j) => j.skills.includes(e.skill));
-    // 合う案件がなければ、人手が少ない案件を手伝う(スキルが合わないので、力は半分)
-    const target = needing[0]
-      || fitting.sort((a, b) => a.staff.length - b.staff.length)[0]
-      || jobs.slice().sort((a, b) => a.staff.length - b.staff.length)[0];
-    if (target) assign(target, e);
+  const jobs = targetJob ? [targetJob] : S.jobs;
+  const idle = S.employees
+    .filter((e) => !e.job && !e.sales)
+    .sort((a, b) => (b.lv || 0) - (a.lv || 0));
+
+  jobs.forEach((job) => {
+    const assignedSkills = new Set(
+      job.staff.map((id) => empById(id)).filter(Boolean).map((e) => e.skill)
+    );
+    const requiredSkills = [...new Set(job.skills)];
+
+    requiredSkills.forEach((skill) => {
+      if (assignedSkills.has(skill)) return;
+      const employeeIndex = idle.findIndex((e) => e.skill === skill);
+      if (employeeIndex < 0) return;
+      const [employee] = idle.splice(employeeIndex, 1);
+      assign(job, employee);
+      assignedSkills.add(skill);
+    });
   });
   S.dirty = true;
 }
@@ -657,11 +665,25 @@ function goalList() {
 }
 const goalsMet = () => goalList().every((x) => x.met);
 
+// ----- クリア評価 -----
+function getClearRank() {
+  const years = S.day / 365;
+  if (years < 5) return 'A';
+  if (years < 6) return 'B';
+  if (years < 8) return 'C';
+  return 'D';
+}
 function checkEnd() {
   if (S.over) return;
-  if (S.money < 0) S.over = { type: 'bankrupt' };
-  else if (goalsMet()) S.over = { type: 'clear' };
-  else if (S.day >= CONFIG.totalDays) S.over = { type: 'timeup' };
+  if (S.money < 0) {
+    S.over = { type: 'bankrupt' };
+  }
+  else if (goalsMet()) {
+    S.over = { type: 'clear' };
+  }
+  else if (S.day >= 365 * 15) {
+    S.over = { type: 'retire' };
+  }
   if (S.over) S.over.day = S.day;
 }
 
