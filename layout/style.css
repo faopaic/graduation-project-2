@@ -799,7 +799,7 @@ button:focus-visible {
 .namebox { margin: 12px 0; padding: 10px 12px; border: var(--line-thin); background: var(--hl); }
 .name-input { display: block; width: 100%; margin-top: 6px; padding: 8px 10px; border: var(--line); background: var(--paper); font: inherit; font-size: 16px; color: var(--ink); }
 .name-input:focus { outline: 3px solid var(--main); }
-.btn-main:disabled { opacity: .45; cursor: not-allowed; }
+button:disabled { opacity: .45; cursor: not-allowed; }
 
 /* ===== 難易度ボタン ===== */
 .difficulty-btn{ min-width:120px; min-height:36px;font-size:20px; font-weight:bold; margin:4px;}

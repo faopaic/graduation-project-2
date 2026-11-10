@@ -43,8 +43,8 @@ async function fetchJson(url) {
 // ----- 画面の切り替え -----
 function showPage(name) {
   if (name === 'company') name = 'home';
-  if (name !== 'recruit') S.recruiting = false;
-  if (name !== 'invest-event') S.investing = false;
+  const eventPage = S.recruiting ? 'recruit' : S.investing ? 'invest-event' : null;
+  if ((S.pending || eventPage) && name !== eventPage) return;
   ['town', 'home', 'jobs', 'assignment', 'employees', 'recruit', 'upgrades', 'invest-event'].forEach((p) => $('page-' + p).classList.toggle('hidden', p !== name));
   document.querySelectorAll('.nav').forEach((b) => b.classList.toggle('active', b.dataset.go === name));
 }
@@ -379,9 +379,10 @@ function updateLive() {
   $('h-level').textContent = `会社Lv.${S.level}`;
   $('h-date').textContent = dateLabel(S.day);
   $('track-fill').style.width = (S.day / CONFIG.totalDays * 100) + '%';
-  const eventActive = S.recruiting || S.investing;
+  const eventActive = S.pending || S.recruiting || S.investing;
   $('play-btn').textContent = eventActive ? 'イベント中' : S.playing && !S.pending ? '❚❚ 一時停止' : '▶ 再生';
   $('play-btn').disabled = eventActive;
+  $('speed-btn').disabled = eventActive;
   $('speed-btn').textContent = CONFIG.speeds[S.speedIdx].label;
 
   S.jobs.forEach((job) => {
@@ -666,6 +667,7 @@ document.addEventListener('click', (ev) => {
   const el = ev.target.closest('[data-act],[data-go]');
   if (!el || !S) return;
   if (el.dataset.go) {
+    if (S.pending || S.recruiting || S.investing) return;
     const go = el.dataset.go;
     showPage(el.classList.contains('nav') && go === 'town' ? 'town' : go);
     return;
@@ -708,8 +710,18 @@ document.addEventListener('click', (ev) => {
   }
   if (screenMode !== null) return;
 
-  if (a === 'play') { S.playing = !S.playing; updateLive(); loop(); }
-  else if (a === 'speed') { S.speedIdx = (S.speedIdx + 1) % CONFIG.speeds.length; updateLive(); loop(); }
+  if (a === 'play') {
+    if (S.pending || S.recruiting || S.investing) return;
+    S.playing = !S.playing;
+    updateLive();
+    loop();
+  }
+  else if (a === 'speed') {
+    if (S.pending || S.recruiting || S.investing) return;
+    S.speedIdx = (S.speedIdx + 1) % CONFIG.speeds.length;
+    updateLive();
+    loop();
+  }
   else if (a === 'auto') {
     autoAssign();
     toast(S.jobs.length ? '手が空いている社員を案件に割り振った' : '進行中の案件がない', 'good');
@@ -742,10 +754,20 @@ document.addEventListener('click', (ev) => {
   else if (a === 'open-recruit') { S.recruitStage = 'candidates'; render(); }
   else if (a === 'open-staff') { S.recruitStage = 'staff'; render(); }
   else if (a === 'back-recruit') { S.recruitStage = 'candidates'; render(); }
-  else if (a === 'finish-recruit') { showPage('town'); render(); }
+  else if (a === 'finish-recruit') {
+    S.recruiting = false;
+    S.recruitmentEvent = false;
+    showPage('town');
+    render();
+  }
   else if (a === 'upgrade-employee') { done(strengthenEmployee(Number(el.dataset.id))); }
   else if (a === 'invest') { done(buyInvest(el.dataset.key)); }
-  else if (a === 'finish-invest') { showPage('town'); render(); }
+  else if (a === 'finish-invest') {
+    S.investing = false;
+    S.investmentEvent = false;
+    showPage('town');
+    render();
+  }
   else if (a === 'choice') { onChoice(Number(el.dataset.i)); }
   else if (a === 'continue') { nextPending(); }
 });
