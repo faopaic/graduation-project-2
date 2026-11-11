@@ -49,10 +49,10 @@ async function fetchJson(url) {
 }
 
 // ----- 画面の切り替え -----
-function showPage(name) {
+function showPage(name, force = false) {
   if (name === 'company') name = 'home';
   const eventPage = S.recruiting ? 'recruit' : null;
-  if ((S.pending || eventPage) && name !== eventPage) return;
+  if (!force && (S.pending || eventPage) && name !== eventPage) return;
   ['town', 'home', 'jobs', 'assignment', 'employees', 'recruit', 'upgrades', 'invest-event'].forEach((p) => $('page-' + p).classList.toggle('hidden', p !== name));
   document.querySelector('.bottom-nav').classList.toggle('hidden', name === 'town');
   document.querySelectorAll('.nav').forEach((b) => b.classList.toggle('active', b.dataset.go === name));
@@ -391,8 +391,7 @@ function renderInvestEvent() {
       <div class="small">${inv.help}</div><div class="small muted">いまの効果: ${inv.now(lv)}</div></div>`;
   }).join('');
   $('invest-event-body').innerHTML = `<h2>投資 <span class="muted small">資金 ${yen(S.money)}</span></h2>
-    <p class="small muted legend">資金を使って会社設備を強化できます。</p>${cards}
-    <button class="btn-main" data-act="finish-invest">ホームに戻る</button>`;
+    <p class="small muted legend">資金を使って会社設備を強化できます。</p>${cards}`;
 }
 
 // ----- 時間バーとHUD -----
@@ -545,6 +544,7 @@ function onChoice(i) {
   const res = resolve(i);
   if (!res) return;
   flushNotices();
+  showPage('home', true);
   if (S.over) { render(); afterTick(); return; }
   if (res.text || res.lesson) { lastResult = res; stage = 2; renderModal(); updateLive(); render(); return; }
   nextPending();
@@ -781,14 +781,23 @@ document.addEventListener('click', (ev) => {
     }
   }
   else if (a === 'finish-assignment') { S.assignmentJobId = null; showPage('town'); render(); }
-  else if (a === 'hire') { done(hire(Number(el.dataset.id))); }
+  else if (a === 'hire') {
+    const r = hire(Number(el.dataset.id));
+    done(r);
+    if (r.ok) {
+      S.recruiting = false;
+      S.recruitmentEvent = false;
+      showPage('home', true);
+      render();
+    }
+  }
   else if (a === 'open-recruit') { S.recruitStage = 'candidates'; render(); }
   else if (a === 'open-staff') { S.recruitStage = 'staff'; render(); }
   else if (a === 'back-recruit') { S.recruitStage = 'candidates'; render(); }
   else if (a === 'finish-recruit') {
     S.recruiting = false;
     S.recruitmentEvent = false;
-    showPage('town');
+    showPage('home', true);
     render();
   }
   else if (a === 'upgrade-employee') { done(strengthenEmployee(Number(el.dataset.id))); }
