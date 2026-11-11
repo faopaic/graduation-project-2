@@ -339,13 +339,17 @@ function renderRecruit() {
   const free = slots - S.employees.length;
   const staff = S.employees.map((e) => {
     const job = e.job ? jobById(e.job) : null;
-    const status = isAbsent(e) ? `休職中(あと${e.absentUntil - S.day}日)` : job ? `「${job.name}」を担当中` : '待機中';
-    return `<div class="card job"><div class="row"><div class="who">${avatar(e.skill, e.name + 'のドット絵')}<div><strong>${e.name}</strong> <span class="small muted">${SKILLS[e.skill]}</span><div class="small muted">${SKILL_HELP[e.skill]}</div></div></div><span class="small">${status}</span></div>
-      <div class="small">月給 ${yen(e.salary)}</div></div>`;
+    const salesRest = e.sales && e.salesCooldownUntil > S.day ? `（休止中 あと${e.salesCooldownUntil - S.day}日）` : '';
+    const status = isAbsent(e) ? `欠勤中(あと${e.absentUntil - S.day}日)` : e.sales ? `営業担当${salesRest}` : job ? `「${job.name}」を担当中` : '待機中';
+    return `<div class="employee-card">
+      <div class="employee-card-head"><div class="employee-avatar">${avatar(e.skill, e.name + 'のドット絵')}</div><div><div class="small muted">社員</div><strong class="employee-name">${e.name}</strong><span class="employee-skill">${SKILLS[e.skill]}</span></div></div>
+      <div class="small employee-help">${SKILL_HELP[e.skill]}</div><div class="employee-status">${status}</div>
+      <div class="employee-info"><span>月給</span><strong>${yen(e.salary)}</strong></div><div class="small">営業力 ${e.salesSkill}/100</div><div class="small">${employeeStats(e)}</div>
+    </div>`;
   }).join('');
   if (S.recruitStage === 'staff') {
     $('recruit-body').innerHTML = `<h2>在籍社員 <span class="muted small">${S.employees.length} / ${slots}人</span></h2>
-      <p class="small muted legend">現在在籍している社員を確認できます。</p>${staff || '<div class="card muted">社員がいません。</div>'}
+      <p class="small muted legend">社員のスキルや担当案件を確認できます。</p><div class="employee-grid">${staff || '<div class="card muted">社員がいません。</div>'}</div>
       <div class="recruit-actions"><button class="btn-small" data-act="back-recruit">求職者一覧に戻る</button></div>`;
     return;
   }
