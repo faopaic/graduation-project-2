@@ -51,7 +51,7 @@ async function fetchJson(url) {
 // ----- 画面の切り替え -----
 function showPage(name) {
   if (name === 'company') name = 'home';
-  const eventPage = S.recruiting ? 'recruit' : S.investing ? 'invest-event' : null;
+  const eventPage = S.recruiting ? 'recruit' : null;
   if ((S.pending || eventPage) && name !== eventPage) return;
   ['town', 'home', 'jobs', 'assignment', 'employees', 'recruit', 'upgrades', 'invest-event'].forEach((p) => $('page-' + p).classList.toggle('hidden', p !== name));
   document.querySelectorAll('.nav').forEach((b) => b.classList.toggle('active', b.dataset.go === name));
@@ -387,9 +387,9 @@ function renderInvestEvent() {
     return `<div class="card job"><div class="row"><div><strong>${inv.name}</strong> ${pips(lv, max)}</div>${btn}</div>
       <div class="small">${inv.help}</div><div class="small muted">いまの効果: ${inv.now(lv)}</div></div>`;
   }).join('');
-  $('invest-event-body').innerHTML = `<h2>投資イベント <span class="muted small">資金 ${yen(S.money)}</span></h2>
-    <p class="small muted legend">投資イベントが発生しました。障害への備えを強化できます。</p>${cards}
-    <button class="btn-main" data-act="finish-invest">投資を終える</button>`;
+  $('invest-event-body').innerHTML = `<h2>投資 <span class="muted small">資金 ${yen(S.money)}</span></h2>
+    <p class="small muted legend">資金を使って会社設備を強化できます。</p>${cards}
+    <button class="btn-main" data-act="finish-invest">ホームに戻る</button>`;
 }
 
 // ----- 時間バーとHUD -----
@@ -406,7 +406,7 @@ function updateLive() {
   $('h-level').textContent = `会社Lv.${S.level}`;
   $('h-date').textContent = dateLabel(S.day);
   $('track-fill').style.width = (S.day / CONFIG.totalDays * 100) + '%';
-  const eventActive = S.pending || S.recruiting || S.investing;
+  const eventActive = S.pending || S.recruiting ;
   $('play-btn').textContent = eventActive ? 'イベント中' : S.playing && !S.pending ? '❚❚ 一時停止' : '▶ 再生';
   $('play-btn').disabled = eventActive;
   $('speed-btn').disabled = eventActive;
@@ -675,7 +675,7 @@ function restart() {
 // ----- 時間を進める -----
 function loop() {
   clearTimeout(timer);
-  if (!S.playing || S.pending || S.over || S.recruiting || S.investing || screenMode !== null) return;
+  if (!S.playing || S.pending || S.over || S.recruiting || screenMode !== null) return;
   timer = setTimeout(() => { tick(); afterTick(); loop(); }, CONFIG.speeds[S.speedIdx].ms);
 }
 
@@ -687,11 +687,6 @@ function afterTick() {
     S.playing = false;
     showPage('recruit');
   }
-  if (S.investmentEvent) {
-    S.investmentEvent = false;
-    S.playing = false;
-    showPage('invest-event');
-  }
   if (S.dirty) render(); else updateLive();
 }
 
@@ -700,7 +695,7 @@ document.addEventListener('click', (ev) => {
   const el = ev.target.closest('[data-act],[data-go]');
   if (!el || !S) return;
   if (el.dataset.go) {
-    if (S.pending || S.recruiting || S.investing) return;
+    if (S.pending || S.recruiting ) return;
     const go = el.dataset.go;
     showPage(el.classList.contains('nav') && go === 'town' ? 'town' : go);
     return;
@@ -744,13 +739,13 @@ document.addEventListener('click', (ev) => {
   if (screenMode !== null) return;
 
   if (a === 'play') {
-    if (S.pending || S.recruiting || S.investing) return;
+    if (S.pending || S.recruiting ) return;
     S.playing = !S.playing;
     updateLive();
     loop();
   }
   else if (a === 'speed') {
-    if (S.pending || S.recruiting || S.investing) return;
+    if (S.pending || S.recruiting ) return;
     S.speedIdx = (S.speedIdx + 1) % CONFIG.speeds.length;
     updateLive();
     loop();
@@ -796,8 +791,6 @@ document.addEventListener('click', (ev) => {
   else if (a === 'upgrade-employee') { done(strengthenEmployee(Number(el.dataset.id))); }
   else if (a === 'invest') { done(buyInvest(el.dataset.key)); }
   else if (a === 'finish-invest') {
-    S.investing = false;
-    S.investmentEvent = false;
     showPage('town');
     render();
   }
