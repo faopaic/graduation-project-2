@@ -782,16 +782,7 @@ document.addEventListener('click', (ev) => {
     }
   }
   else if (a === 'finish-assignment') { S.assignmentJobId = null; showPage('home', true); render(); }
-  else if (a === 'hire') {
-    const r = hire(Number(el.dataset.id));
-    done(r);
-    if (r.ok) {
-      S.recruiting = false;
-      S.recruitmentEvent = false;
-      showPage('home', true);
-      render();
-    }
-  }
+  else if (a === 'hire') { done(hire(Number(el.dataset.id))); }
   else if (a === 'open-recruit') { S.recruitStage = 'candidates'; render(); }
   else if (a === 'open-staff') { S.recruitStage = 'staff'; render(); }
   else if (a === 'back-recruit') { S.recruitStage = 'candidates'; render(); }
