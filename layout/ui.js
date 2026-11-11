@@ -781,7 +781,7 @@ document.addEventListener('click', (ev) => {
       render();
     }
   }
-  else if (a === 'finish-assignment') { S.assignmentJobId = null; showPage('town'); render(); }
+  else if (a === 'finish-assignment') { S.assignmentJobId = null; showPage('home', true); render(); }
   else if (a === 'hire') {
     const r = hire(Number(el.dataset.id));
     done(r);
@@ -804,7 +804,7 @@ document.addEventListener('click', (ev) => {
   else if (a === 'upgrade-employee') { done(strengthenEmployee(Number(el.dataset.id))); }
   else if (a === 'invest') { done(buyInvest(el.dataset.key)); }
   else if (a === 'finish-invest') {
-    showPage('town');
+    showPage('home', true);
     render();
   }
   else if (a === 'choice') { onChoice(Number(el.dataset.i)); }
