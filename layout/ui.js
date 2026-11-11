@@ -166,9 +166,9 @@ function projectCard(job) {
     meetsRequirement(job, sk, assigned) ? 'ok' : 'ng'
   )).join('');
   const chips = S.employees.map((e) => {
-    const mine = e.job === job.id, busy = e.sales || (e.job && !mine), away = isAbsent(e);
+    const mine = e.job === job.id, otherJob = Boolean(e.job && !mine), busy = e.sales || otherJob, away = isAbsent(e);
     if (e.sales) return `<span class="chip busy" title="営業担当中">${e.name}<span class="small">営業担当</span></span>`;
-    return `<button class="chip ${mine ? 'on' : ''} ${busy ? 'busy' : ''} ${away ? 'away' : ''}" data-act="assign" data-job="${job.id}" data-emp="${e.id}" title="${SKILLS[e.skill]}">${e.name}<span class="small">${SKILLS[e.skill]}</span></button>`;
+    return `<button class="chip ${mine ? 'on' : ''} ${busy ? 'busy' : ''} ${otherJob ? 'other-job' : ''} ${away ? 'away' : ''}" data-act="assign" data-job="${job.id}" data-emp="${e.id}" title="${SKILLS[e.skill]}">${e.name}<span class="small">${SKILLS[e.skill]}</span></button>`;
   }).join('');
   return `<div class="card proj">
     <div class="row"><strong>${job.name}</strong><span class="small ${left <= 7 ? 'neg' : 'muted'}" data-left="${job.id}">${leftText(job)}</span></div>
@@ -262,10 +262,11 @@ function renderAssignment() {
   }
   const chips = S.employees.map((e) => {
     const mine = e.job === job.id;
-    const busy = e.sales || (e.job && !mine);
+    const otherJob = Boolean(e.job && !mine);
+    const busy = e.sales || otherJob;
     const away = isAbsent(e);
     if (e.sales) return `<span class="chip busy" title="営業担当中">${e.name}<span class="small">営業担当</span></span>`;
-    return `<button class="chip ${mine ? 'on' : ''} ${busy ? 'busy' : ''} ${away ? 'away' : ''}" data-act="assign" data-job="${job.id}" data-emp="${e.id}" title="${SKILLS[e.skill]}">${e.name}<span class="small">${SKILLS[e.skill]}</span></button>`;
+    return `<button class="chip ${mine ? 'on' : ''} ${busy ? 'busy' : ''} ${otherJob ? 'other-job' : ''} ${away ? 'away' : ''}" data-act="assign" data-job="${job.id}" data-emp="${e.id}" title="${SKILLS[e.skill]}">${e.name}<span class="small">${SKILLS[e.skill]}</span></button>`;
   }).join('');
   const assigned = job.staff.map(empById).filter(Boolean);
   const req = requirementSkills(job).map((sk) => skillTag(sk,
