@@ -172,6 +172,7 @@ function projectCard(job) {
     <div class="bar"><div class="fill ${left <= 7 ? 'fill-warn' : ''}" data-bar="${job.id}" style="width:${pct}%"></div></div>
     <div class="small"><span data-pct="${job.id}">進捗 ${pct}%</span> / 報酬 ${yen(job.reward)}</div>
     <div class="req small">要求能力値: ${requirementText(job)}</div>
+    <div class="req small">割り当て能力値: ${requirementProgressText(job, assigned)}</div>
     <div class="req small">必要能力値を満たしたスキル(緑) / 未達(赤): ${req}</div>
     <div class="chips">担当: ${chips}</div>
   </div>`;
