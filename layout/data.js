@@ -40,7 +40,7 @@ const EMPLOYEE_STAT_LABELS = {
 const EMPLOYEE_SPECIALTY_STATS = {
   design: 'design',
   dev: 'development',
-  test: 'security',
+  test: 'operations',
   infra: 'operations',
   security: 'security'
 };
@@ -60,7 +60,8 @@ const SKILLS = {
   dev: '開発',
   test: 'テスト',
   infra: 'テスト',
-  security: 'セキュリティ'
+  security: 'セキュリティ',
+  sales: '営業'
 };
 
 const SKILL_HELP = {
@@ -68,7 +69,8 @@ const SKILL_HELP = {
   dev: 'プログラムを作る人',
   test: 'バグを見つける人',
   infra: 'テストや運用保守を担当する人',
-  security: '情報漏えいを防ぐ人'
+  security: '情報漏えいを防ぐ人',
+  sales: '案件を獲得する人'
 };
 
 const SALARY = { 1: 220000, 2: 300000, 3: 400000 };   // レベル別の月給

@@ -54,6 +54,7 @@ function showPage(name) {
   const eventPage = S.recruiting ? 'recruit' : S.investing ? 'invest-event' : null;
   if ((S.pending || eventPage) && name !== eventPage) return;
   ['town', 'home', 'jobs', 'assignment', 'employees', 'recruit', 'upgrades', 'invest-event'].forEach((p) => $('page-' + p).classList.toggle('hidden', p !== name));
+  document.querySelector('.bottom-nav').classList.toggle('hidden', name === 'town');
   document.querySelectorAll('.nav').forEach((b) => b.classList.toggle('active', b.dataset.go === name));
 }
 
@@ -120,7 +121,7 @@ function renderTown() {
   if (S.money < monthlyCost() * 1.5) alerts.push('<div class="alert"><span>資金が少なくなっている。このままだと、来月の給料が払えなくなる。</span></div>');
   S.jobs.filter((j) => j.late).forEach((j) => alerts.push(`<div class="alert"><span>「${j.name}」が納期を過ぎている。早く完成させよう。</span></div>`));
   const projects = S.jobs.length ? S.jobs.map((j) => `<div class="town-job"><div class="row"><strong class="small">${j.name}</strong><span class="small ${remainDays(j) <= 7 ? 'neg' : 'muted'}" data-left="${j.id}">${leftText(j)}</span></div><div class="bar"><div class="fill" data-bar="${j.id}" style="width:${progressPct(j)}%"></div></div></div>`).join('') : '<div class="small muted">進行中の案件はない。下の「案件」から受注しよう。</div>';
-  $('town-body').innerHTML = townScene() + `<div class="town-grid"><div>${alerts.join('')}<div class="panel"><div class="panel-title">いまの会社</div><div class="goal-row"><span>資金</span><span data-live="money">${yen(S.money)}</span></div><div class="goal-row"><span>評判</span><span data-live="rep">${S.rep} / 100</span></div><div class="goal-row"><span>社員</span><span data-live="staff">${S.employees.length} / ${levelInfo().slots}人</span></div><div class="goal-row"><span>会社Lv</span><span>Lv.${S.level}</span></div></div>${levelPanel()}</div><div class="panel"><div class="panel-title">進行中の案件</div>${projects}<div class="town-menu"><button class="btn-small" data-act="auto">おまかせ配置</button></div></div></div>`;
+  $('town-body').innerHTML = townScene() + `<div class="town-grid"><div>${alerts.join('')}<div class="panel"><div class="panel-title">いまの会社</div><div class="goal-row"><span>資金</span><span data-live="money">${yen(S.money)}</span></div><div class="goal-row"><span>評判</span><span data-live="rep">${S.rep} / 100</span></div><div class="goal-row"><span>社員</span><span data-live="staff">${S.employees.length} / ${levelInfo().slots}人</span></div><div class="goal-row"><span>会社Lv</span><span>Lv.${S.level}</span></div></div>${levelPanel()}</div><div class="panel"><div class="panel-title">進行中の案件</div>${projects}</div></div>`;
 }
 
 function renderHome() {
@@ -139,8 +140,10 @@ function renderHome() {
   $('home-seats').innerHTML = seats.join('') || '<div class="card muted">現在、休職者はいません。</div>';
 
   // 進行中の案件
-  $('home-projects').innerHTML = S.jobs.length ? S.jobs.map(projectCard).join('') :
+  const projects = S.jobs.length ? S.jobs.map(projectCard).join('') :
     '<div class="card muted">まだ案件がありません。「案件」ページから受注しよう。</div>';
+  $('home-projects').innerHTML = projects
+    + '<div class="town-menu"><button class="btn-small" data-act="auto">おまかせ配置</button></div>';
 
   // 右パネル
   $('home-side').innerHTML = levelPanel() + goalPanel()
@@ -702,7 +705,7 @@ document.addEventListener('click', (ev) => {
   if (el.dataset.go) {
     if (S.pending || S.recruiting || S.investing) return;
     const go = el.dataset.go;
-    showPage(el.classList.contains('nav') && go === 'town' ? 'town' : go);
+    showPage(go);
     return;
   }
   const a = el.dataset.act;

@@ -21,10 +21,10 @@ const skillKey = (jobType) => ({
     テスト: 'test',
     インフラ: 'infra',
     運用保守: 'infra',
-    インフラ運用保守: 'test',
-    'インフラ・運用保守': 'test',
+    インフラ運用保守: 'infra',
+    'インフラ・運用保守': 'infra',
     セキュリティ: 'security',
-    営業: 'dev'
+    営業: 'sales'
 }[jobType] || jobType);
 
 // 社員データ取得API
@@ -45,6 +45,7 @@ app.get('/api/employees', async (req, res) => {
         id: String(employee.id),
         name: employee.name,
         skill: skillKey(employee.job_type),
+        sales: employee.job_type === '営業',
         salary: employee.salary,
         salesSkill: employee.sales_skill,
         stats: {

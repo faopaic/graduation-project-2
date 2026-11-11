@@ -106,7 +106,7 @@ function newGame(
   console.log('newGame難易度', difficulty);
   console.log('開始資金', S.money);
   const initialStaff = selectInitialStaff(employeeDatabase);
-  initialStaff.forEach((s) => addEmployee(s.name, s.skill, s.salesSkill, s.stats, s.id || s.sourceId, s.salary));
+  initialStaff.forEach((s) => addEmployee(s.name, s.skill, s.salesSkill, s.stats, s.id || s.sourceId, s.salary, false));
   const developmentProject = projectDatabase.find((template) => template.skills.includes('dev'));
   const designProject = projectDatabase.find((template) => template.skills.includes('design'));
   const initialProjects = [];
@@ -164,18 +164,20 @@ function selectInitialStaff(employeeDatabase) {
     return employee;
   };
   const initial = [takeBySkill('dev'), takeBySkill('design')].filter(Boolean);
-  while (initial.length < 3 && available.length) {
-    const employee = pick(available);
+  while (initial.length < 3) {
+    const nonSales = available.filter((employee) => !employee.sales && employee.skill !== 'sales');
+    if (!nonSales.length) break;
+    const employee = pick(nonSales);
     available.splice(available.indexOf(employee), 1);
     initial.push(employee);
   }
   return initial;
 }
 
-function addEmployee(name, skill, salesSkill, stats, sourceId, salary) {
+function addEmployee(name, skill, salesSkill, stats, sourceId, salary, sales) {
   const rawStats = { ...DEFAULT_EMPLOYEE_STATS, ...(stats || {}) };
   const e = {
-    id: newId(), sourceId, name, skill, salary: salary ?? SALARY[1], job: null, sales: false,
+    id: newId(), sourceId, name, skill, salary: salary ?? SALARY[1], job: null, sales: Boolean(sales),
     salesSkill: salesSkill ?? DEFAULT_SALES_SKILL, salesCooldownUntil: 0,
     stats: Object.fromEntries(Object.keys(DEFAULT_EMPLOYEE_STATS).map((key) => [
       key, clamp(Number(rawStats[key]) || 0, 0, 100)
@@ -330,7 +332,7 @@ function makeCandidate() {
   const record = pick(available.length ? available : S.employeeDatabase);
   return {
     id: newId(), sourceId: record.id, name: record.name, skill: record.skill,
-    salary: record.salary, salesSkill: record.salesSkill,
+    salary: record.salary, salesSkill: record.salesSkill, sales: record.sales,
     stats: { ...DEFAULT_EMPLOYEE_STATS, ...(record.stats || {}) }
   };
 }
@@ -339,7 +341,7 @@ function hire(id) {
   if (!c) return { ok: false, msg: 'この人は、ほかの会社に決まった' };
   if (S.employees.length >= levelInfo().slots) return { ok: false, msg: '席がいっぱい。会社Lvが上がると、席が増える' };
   S.candidates = S.candidates.filter((x) => x.id !== id);
-  addEmployee(c.name, c.skill, c.salesSkill, c.stats, c.sourceId, c.salary);
+  addEmployee(c.name, c.skill, c.salesSkill, c.stats, c.sourceId, c.salary, c.sales);
   S.counts.hired++;
   checkMissionRewards();
   log(`${c.name}(${SKILLS[c.skill]})を採用した`);
