@@ -48,6 +48,7 @@ app.get('/api/employees', async (req, res) => {
         salary: employee.salary,
         salesSkill: employee.sales_skill,
         stats: {
+            design: employee.design_skill,
             development: employee.development_skill,
             security: employee.security_skill,
             operations: employee.test_maintenance_skill
