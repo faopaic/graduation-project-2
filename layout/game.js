@@ -71,8 +71,7 @@ function newGame(
     invest: { backup: 0, security: 0, qa: 0 },
     boost: {}, schedule: [], queue: [], pending: null, over: null, dirty: true,
     nextIncidentDay: CONFIG.firstIncidentDay, nextOfferDay: 14, nextCandDay: 60,
-    nextInvestDay: CONFIG.investmentEventInterval, firstDone: false,
-    log: [], notices: [], marks: [], recruitmentEvent: false, recruiting: false, recruitStage: 'confirm', investmentEvent: false, investing: false, assignmentJobId: null,
+    log: [], notices: [], marks: [], recruitmentEvent: false, recruiting: false, recruitStage: 'confirm', assignmentJobId: null,
     tally: { honest: 0, hide: 0, incidents: 0 },
     counts: { accepted: 0, hired: 0, handled: 0 },
     missionRewards: {},
@@ -468,12 +467,6 @@ function tick() {
     S.recruiting = true;
     S.recruitStage = 'confirm';
     notify('新しい求職者が来た', 'info');
-  }
-  if (S.day >= S.nextInvestDay && !S.recruitmentEvent) {
-    S.nextInvestDay = S.day + CONFIG.investmentEventInterval;
-    S.investmentEvent = true;
-    S.investing = true;
-    notify('投資イベントが始まった', 'info');
   }
 
   // DBイベント

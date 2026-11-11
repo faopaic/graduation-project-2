@@ -18,7 +18,6 @@ const CONFIG = {
   goals: { money: 70000000, rep: 100, big: 3 },   // クリア条件
   incidentGap: [35, 60],    // 障害が起きる間隔(日)
   firstIncidentDay: 12,      // 最初の障害は、案件があればこの日以降に起きる
-  investmentEventInterval: 90
 };
 
 const DEFAULT_SALES_SKILL = 50;
