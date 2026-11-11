@@ -29,6 +29,14 @@ const leftText = (job) => { const l = remainDays(job); return l >= 0 ? `残り${
 const progressPct = (job) => Math.min(100, Math.floor(job.progress / job.work * 100));
 const employeeStats = (e) => Object.entries(EMPLOYEE_STAT_LABELS)
   .map(([key, label]) => `${label} ${e.stats?.[key] ?? 0}/100`).join(' / ');
+const requirementSkills = (job) => ['design', 'dev', 'security', 'infra']
+  .filter((skill) => Number(job.requirements?.[skill]) > 0);
+const requirementText = (job) => requirementSkills(job)
+  .map((skill) => `${SKILLS[skill]} ${Number(job.requirements?.[skill]) || 0}`)
+  .join(' / ');
+const requirementProgressText = (job, employees) => requirementSkills(job)
+  .map((skill) => `${SKILLS[skill]} ${abilityTotalWithoutSkillMatch(employees, skill)}/${Number(job.requirements?.[skill]) || 0}`)
+  .join(' / ');
 
 async function fetchJson(url) {
   const response = await fetch(url, { cache: 'no-store' });
@@ -78,6 +86,7 @@ function townScene() {
   const bx = 70, bw = 60, bh = 12 + rows * 10.5, by = 72 - bh;
   const windows = Array.from({ length: rows * 4 }, (_, i) => {
     const row = Math.floor(i / 4), col = i % 4;
+        if (row === rows - 1 && (col === 1 || col === 2)) return ''; // コメントを追加してみた
     return `<rect x="${bx + 4 + col * 14}" y="${by + 6 + row * 10.5}" width="9" height="8" fill="#2e504a"/><rect x="${bx + 5 + col * 14}" y="${by + 7 + row * 10.5}" width="7" height="6" fill="${i < S.employees.length + 2 ? '#ffe08a' : '#9fd6f5'}"/>`;
   }).join('');
   const walkers = S.employees.filter((e) => !isAbsent(e)).map((e, i) => {
@@ -98,7 +107,7 @@ function townScene() {
     <rect width="200" height="72" fill="${theme.sky}"/><rect y="40" width="200" height="32" fill="${theme.band}"/><rect x="150" y="8" width="12" height="12" fill="#fff3b0"/>
     <g fill="#fff"><rect x="20" y="14" width="22" height="5"/><rect x="24" y="11" width="14" height="4"/><rect x="100" y="8" width="26" height="5"/></g>
     <rect y="72" width="200" height="28" fill="${theme.grass}"/><rect y="72" width="200" height="1.5" fill="#2e504a"/><rect y="86" width="200" height="9" fill="#d5d5d5"/>
-    <g class="company" data-go="company"><rect x="${bx}" y="${by}" width="${bw}" height="${bh}" fill="#2e504a"/><rect x="${bx + 1}" y="${by + 1}" width="${bw - 2}" height="${bh - 1}" fill="#fff7ea"/><rect class="roof" x="${bx - 3}" y="${by - 4}" width="${bw + 6}" height="5" fill="${theme.roof}"/><rect x="${bx + 8}" y="${by - 16}" width="${bw - 16}" height="11" fill="#fafffd" stroke="#2e504a" stroke-width=".8"/><text x="${bx + bw / 2}" y="${by - 8}" font-size="4.3" text-anchor="middle" fill="#2e504a">PEACE株式会社</text>${windows}<rect x="${bx + 24}" y="58" width="12" height="14" fill="#6dcfb2"/></g>
+    <g class="company" data-go="company"><rect x="${bx}" y="${by}" width="${bw}" height="${bh}" fill="#2e504a"/><rect x="${bx + 1}" y="${by + 1}" width="${bw - 2}" height="${bh - 1}" fill="#fff7ea"/><rect class="roof" x="${bx - 3}" y="${by - 4}" width="${bw + 6}" height="5" fill="${theme.roof}"/><rect x="${bx + 8}" y="${by - 16}" width="${bw - 16}" height="11" fill="#fafffd" stroke="#2e504a" stroke-width=".8"/><text x="${bx + bw / 2}" y="${by - 8}" font-size="4.3" text-anchor="middle" fill="#2e504a">PEACE株式会社</text>${windows}<rect x="${bx + 24}" y="58" width="12" height="14" fill="#2e504a"/><rect x="${bx + 25}" y="59" width="10" height="13" fill="#6dcfb2"/><rect x="${bx + 33}" y="65" width="1" height="1" fill="#2e504a"/></g>
     <g fill="${theme.tree}"><rect x="14" y="62" width="14" height="10"/><rect x="176" y="62" width="14" height="10"/></g>${decor}${walkers}<text x="16" y="9" font-size="4.4" text-anchor="middle" fill="#2e504a">${theme.name}</text><text x="100" y="97" font-size="4" text-anchor="middle" fill="#2e504a">▲ 会社をクリックすると、中が見られる</text>
   </svg>`;
 }
@@ -149,8 +158,10 @@ function hintText() {
 function projectCard(job) {
   const pct = progressPct(job);
   const left = remainDays(job);
-  const covered = new Set(job.staff.map(empById).filter(Boolean).map((e) => e.skill));
-  const req = job.skills.map((sk) => skillTag(sk, covered.has(sk) ? 'ok' : 'ng')).join('');
+  const assigned = job.staff.map(empById).filter(Boolean);
+  const req = requirementSkills(job).map((sk) => skillTag(sk,
+    meetsRequirement(job, sk, assigned) ? 'ok' : 'ng'
+  )).join('');
   const chips = S.employees.map((e) => {
     const mine = e.job === job.id, busy = e.sales || (e.job && !mine), away = isAbsent(e);
     if (e.sales) return `<span class="chip busy" title="営業担当中">${e.name}<span class="small">営業担当</span></span>`;
@@ -160,7 +171,9 @@ function projectCard(job) {
     <div class="row"><strong>${job.name}</strong><span class="small ${left <= 7 ? 'neg' : 'muted'}" data-left="${job.id}">${leftText(job)}</span></div>
     <div class="bar"><div class="fill ${left <= 7 ? 'fill-warn' : ''}" data-bar="${job.id}" style="width:${pct}%"></div></div>
     <div class="small"><span data-pct="${job.id}">進捗 ${pct}%</span> / 報酬 ${yen(job.reward)}</div>
-    <div class="req small">必要なスキル(緑=担当がいる / 赤=足りない): ${req}</div>
+    <div class="req small">要求能力値: ${requirementText(job)}</div>
+    <div class="req small">割り当て能力値: ${requirementProgressText(job, assigned)}</div>
+    <div class="req small">必要能力値を満たしたスキル(緑) / 未達(赤): ${req}</div>
     <div class="chips">担当: ${chips}</div>
   </div>`;
 }
@@ -216,12 +229,14 @@ function renderJobs() {
   const info = levelInfo();
   const list = S.offers.map(offerCard).join('') || '<div class="card muted">いまは募集がない。しばらく待とう。</div>';
   $('jobs-body').innerHTML = `<h2>案件を選ぶ <span class="muted small">同時進行 ${S.jobs.length}/${info.jobs}件</span></h2>
-    <p class="small muted legend">必要なスキルの色: 緑=いまの社員にいる / 赤=まだいない(採用すると品質が上がる)。スキルが合わない社員は、半分の力で手伝う。</p>${list}`;
+    <p class="small muted legend">割り当てた社員のスキル別能力値の合計が要求値以上: 緑=達成 / 赤=未達。スキルが合わない社員は、半分の力で手伝う。</p>${list}`;
 }
 
 function offerCard(o) {
   const locked = S.rep < o.minRep;
-  const req = o.skills.map((sk) => skillTag(sk, S.employees.some((e) => e.skill === sk) ? 'ok' : 'ng')).join('');
+  const req = requirementSkills(o).map((sk) => skillTag(sk,
+    meetsRequirement(o, sk, S.employees) ? 'ok' : 'ng'
+  )).join('');
   const kind = o.diff >= 3 ? 'big' : o.skills.length <= 2 ? 'web' : 'sys';
   const right = locked ? `<span class="offer-lock">評判${o.minRep}で解放</span>` : `<button class="act" data-act="accept" data-id="${o.id}">受注する</button>`;
   return `<div class="offer offer-${kind} ${locked ? 'locked' : ''}">
@@ -230,7 +245,7 @@ function offerCard(o) {
     <div class="offer-row"><span class="muted small">難易度</span><span class="stars">${'★'.repeat(o.diff)}${'☆'.repeat(3 - o.diff)}</span><span class="small">${DIFF_LABEL[o.diff]}</span></div>
     <div class="offer-row"><span class="muted small">報酬</span><span class="offer-reward">${yen(o.reward)}</span></div>
     <div class="offer-row"><span class="muted small">納期</span><span>${o.days}日</span><span class="muted small">仕事量 ${o.work}</span></div>
-    <div class="req">${req}</div><div class="small muted">リスク: ${o.risk}</div>
+    <div class="req">要求能力値: ${requirementText(o)}</div><div class="req">${req}</div><div class="small muted">リスク: ${o.risk}</div>
     <div class="offer-foot"><span class="small muted" data-expire="${o.expires}">募集あと${o.expires - S.day}日</span>${right}</div>
   </div>`;
 }
@@ -242,7 +257,6 @@ function renderAssignment() {
     $('assignment-body').innerHTML = '<div class="card muted">担当を決める案件がありません。</div>';
     return;
   }
-  const covered = new Set(job.staff.map(empById).filter(Boolean).map((e) => e.skill));
   const chips = S.employees.map((e) => {
     const mine = e.job === job.id;
     const busy = e.sales || (e.job && !mine);
@@ -250,11 +264,16 @@ function renderAssignment() {
     if (e.sales) return `<span class="chip busy" title="営業担当中">${e.name}<span class="small">営業担当</span></span>`;
     return `<button class="chip ${mine ? 'on' : ''} ${busy ? 'busy' : ''} ${away ? 'away' : ''}" data-act="assign" data-job="${job.id}" data-emp="${e.id}" title="${SKILLS[e.skill]}">${e.name}<span class="small">${SKILLS[e.skill]}</span></button>`;
   }).join('');
-  const req = job.skills.map((sk) => skillTag(sk, covered.has(sk) ? 'ok' : 'ng')).join('');
+  const assigned = job.staff.map(empById).filter(Boolean);
+  const req = requirementSkills(job).map((sk) => skillTag(sk,
+    meetsRequirement(job, sk, assigned) ? 'ok' : 'ng'
+  )).join('');
   $('assignment-body').innerHTML = `<h2>担当を決める</h2>
     <div class="card job"><strong>${job.name}</strong>
       <div class="small">報酬 ${yen(job.reward)} / 納期 ${job.deadline - S.day}日 / 仕事量 ${job.work}</div>
-      <div class="req small">必要なスキル: ${req}</div>
+      <div class="req small">要求能力値: ${requirementText(job)}</div>
+      <div class="req small">割り当て能力値: ${requirementProgressText(job, assigned)}</div>
+      <div class="req small">必要能力値を満たしたスキル(緑) / 未達(赤): ${req}</div>
       <div class="chips">担当: ${chips || '<span class="muted">社員がいません</span>'}</div>
     </div>
     <p class="small muted legend">社員を選ぶと、この案件の担当になります。担当中の社員を選ぶと、担当を外します。</p>
@@ -356,7 +375,7 @@ function renderUpgrades() {
       <div class="small">月給 ${yen(e.salary)} / 強化成功率 ${chance}%</div>
       ${statText ? `<div class="small">得意分野強化: ${statText}</div>` : ''}</div>`;
   }).join('') || '<div class="card muted">社員がいません。</div>';
-  $('upgrades-body').innerHTML = `<h2>社員強化</h2>
+  $('upgrades-body').innerHTML = `<div class="row"><h2>社員強化</h2><button class="btn-small" data-go="employees">← 社員一覧に戻る</button></div>
     <p class="small muted legend">資金を使って社員の得意分野を強化できます。得意分野は大きく伸び、それ以外のステータスも低確率で少し伸びます。</p>${cards}`;
 }
 

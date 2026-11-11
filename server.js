@@ -48,6 +48,7 @@ app.get('/api/employees', async (req, res) => {
         salary: employee.salary,
         salesSkill: employee.sales_skill,
         stats: {
+            design: employee.design_skill,
             development: employee.development_skill,
             security: employee.security_skill,
             operations: employee.test_maintenance_skill
@@ -98,22 +99,26 @@ app.get('/api/projects', async (req, res) => {
         });
     }
 
-    res.json(data.map((project) => ({
-        id: String(project.id),
-        name: project.name,
-        diff: Number(project.difficulty),
-        reward: Number(project.reward),
-        days: Number(project.deadline_days),
-        work: Math.round(Number(project.deadline_days) * (1 + Number(project.difficulty) * 0.5)),
-        skills: [
-            Number(project.required_design) > 0 ? 'design' : null,
-            Number(project.required_development) > 0 ? 'dev' : null,
-            Number(project.required_security) > 0 ? 'security' : null,
-            Number(project.required_test_maintenance) > 0 ? 'test' : null
-        ].filter(Boolean),
-        minRep: 0,
-        risk: ''
-    })));
+    res.json(data.map((project) => {
+        const requirements = {
+            design: Number(project.required_design) || 0,
+            dev: Number(project.required_development) || 0,
+            security: Number(project.required_security) || 0,
+            infra: Number(project.required_test_maintenance) || 0
+        };
+        return {
+            id: String(project.id),
+            name: project.name,
+            diff: Number(project.difficulty),
+            reward: Number(project.reward),
+            days: Number(project.deadline_days),
+            work: Math.round(Number(project.deadline_days) * (1 + Number(project.difficulty) * 0.5)),
+            skills: Object.keys(requirements).filter((skill) => requirements[skill] > 0),
+            requirements,
+            minRep: 0,
+            risk: ''
+        };
+    }));
 });
 
 // ミッションデータ取得API
