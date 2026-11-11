@@ -26,17 +26,19 @@ const SALES_BASE_SUCCESS_RATE = 30;
 const SALES_SKILL_REFERENCE = 50;
 const SALES_SKILL_RATE_PER_POINT = 1.1;
 const DEFAULT_EMPLOYEE_STATS = {
+  design: 50,
   development: 50,
   security: 50,
   operations: 50
 };
 const EMPLOYEE_STAT_LABELS = {
+  design: '設計力',
   development: '開発力',
   security: 'セキュリティ力',
   operations: '運用保守力'
 };
 const EMPLOYEE_SPECIALTY_STATS = {
-  design: 'development',
+  design: 'design',
   dev: 'development',
   test: 'security',
   infra: 'operations',

@@ -375,7 +375,7 @@ function renderUpgrades() {
       <div class="small">月給 ${yen(e.salary)} / 強化成功率 ${chance}%</div>
       ${statText ? `<div class="small">得意分野強化: ${statText}</div>` : ''}</div>`;
   }).join('') || '<div class="card muted">社員がいません。</div>';
-  $('upgrades-body').innerHTML = `<h2>社員強化</h2>
+  $('upgrades-body').innerHTML = `<div class="row"><h2>社員強化</h2><button class="btn-small" data-go="employees">← 社員一覧に戻る</button></div>
     <p class="small muted legend">資金を使って社員の得意分野を強化できます。得意分野は大きく伸び、それ以外のステータスも低確率で少し伸びます。</p>${cards}`;
 }
 
