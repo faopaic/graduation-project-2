@@ -47,7 +47,8 @@ function abilityTotalWithoutSkillMatch(employees, skill) {
 function meetsRequirement(job, skill, employees) {
   const required = Number(job.requirements?.[skill]) || 0;
   if (required <= 0) return true;
-  return abilityTotal(employees, skill) >= required;
+  const hasMatchingSkill = employees.some((employee) => employee?.skill === skill);
+  return hasMatchingSkill && abilityTotalWithoutSkillMatch(employees, skill) >= required;
 }
 const remainDays = (job) => job.deadline - S.day;
 const monthlyCost = () => S.employees.reduce((s, e) => s + e.salary, 0) + CONFIG.officeCost;
@@ -553,13 +554,15 @@ function applyDatabaseEventEffects(effects, job) {
 }
 
 function buildDatabaseEvent(event, job) {
+  const choices = (event.choices || []).filter((choice) => choice?.label);
+  if (!choices.length) return null;
   return {
     kind: 'incident',
     id: `database-event-${event.id}`,
     badge: event.type === 'incident' ? 'インシデント' : '会社イベント',
     title: event.name,
     body: `${event.description}${event.triggerCondition ? `（発生条件: ${event.triggerCondition}）` : ''}`,
-    choices: event.choices.map((choice) => ({
+    choices: choices.map((choice) => ({
       label: choice.label,
       tag: 'other',
       apply() {
@@ -688,6 +691,7 @@ function resolve(idx) {
   const p = S.pending;
   if (!p || p.done) return null;
   const c = p.choices[idx];
+  if (!c || typeof c.apply !== 'function') return null;
   const text = c.apply() || '';
   p.done = true;
   if (p.kind === 'incident') {
