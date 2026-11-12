@@ -53,7 +53,8 @@ function showPage(name, force = false) {
   if (name === 'company') name = 'home';
   const eventPage = S.recruiting ? 'recruit' : null;
   if (!force && (S.pending || eventPage) && name !== eventPage) return;
-  ['town', 'home', 'jobs', 'assignment', 'employees', 'recruit', 'upgrades', 'invest-event'].forEach((p) => $('page-' + p).classList.toggle('hidden', p !== name));
+  ['town', 'home', 'jobs', 'assignment', 'employees', 'recruit', 'upgrades', 'invest-event'].forEach((p) => 
+    $('page-' + p).classList.toggle('hidden', p !== name));
   document.querySelector('.bottom-nav').classList.toggle('hidden', name === 'town');
   document.querySelectorAll('.nav').forEach((b) => b.classList.toggle('active', b.dataset.go === name));
 }
@@ -390,14 +391,39 @@ function renderUpgrades() {
 // ----- 投資イベント -----
 function renderInvestEvent() {
   const cards = Object.keys(INVEST).map((k) => {
-    const inv = INVEST[k], lv = S.invest[k], max = inv.costs.length;
-    const btn = lv >= max ? '<span class="small">最大</span>' : `<button class="act" data-act="invest" data-key="${k}">強化する ${yen(inv.costs[lv])}</button>`;
-    return `<div class="card job"><div class="row"><div><strong>${inv.name}</strong> ${pips(lv, max)}</div>${btn}</div>
-      <div class="small">${inv.help}</div><div class="small muted">いまの効果: ${inv.now(lv)}</div></div>`;
+    const inv = INVEST[k];
+      if (k === 'recruitContract') {
+        const disabled =
+          S.recruitContractCount >= inv.maxCount ||
+          S.recruitContractActive;
+        const btn = disabled
+          ? '<span class="small">利用不可</span>'
+          : `<button class="act" data-act="recruit-contract">契約する 評判${inv.repCost}</button>`;
+            return `<div class="card job">
+            <div class="row">
+              <div>
+                <strong>${inv.name}</strong>
+              </div>
+              ${btn}
+            </div>
+            <div class="small">${inv.help}</div>
+            <div class="small muted">
+              ${inv.now(S.recruitContractCount,S.recruitContractActive,S.recruitContractJobType)}
+            </div>
+          </div>`;
+      }
+    const lv = S.invest[k];
+    const max = inv.costs.length;
+    const btn = lv >= max
+      ? '<span class="small">最大</span>'
+      : `<button class="act" data-act="invest" data-key="${k}">強化する ${yen(inv.costs[lv])}</button>`;
+    return `<div class="card job"><div class="row"><div><strong>${inv.name}</strong> ${pips(lv,max)}
+    </div>${btn}</div><div class="small">${inv.help}</div><div class="small muted">いまの効果: ${inv.now(lv)}</div></div>`;
   }).join('');
   $('invest-event-body').innerHTML = `<h2>投資 <span class="muted small">資金 ${yen(S.money)}</span></h2>
     <p class="small muted legend">資金を使って会社設備を強化できます。</p>${cards}`;
 }
+
 
 // ----- 時間バーとHUD -----
 function renderTrack() {
@@ -804,6 +830,7 @@ document.addEventListener('click', (ev) => {
   }
   else if (a === 'choice') { onChoice(Number(el.dataset.i)); }
   else if (a === 'continue') { nextPending(); }
+  
 });
 
 // ----- キーボード操作 -----
