@@ -320,17 +320,24 @@ function autoAssign(targetJob) {
 }
 
 // ----- 採用 -----
-function refreshCandidates() {
+function refreshCandidates(skill) {
   S.candidates = [];
-  for (let i = 0; i < 4; i++) S.candidates.push(makeCandidate());
+  for (let i = 0; i < 4; i++) {
+    const candidate = makeCandidate(skill);
+    if (!candidate) break;
+    S.candidates.push(candidate);
+  }
   S.dirty = true;
 }
-function makeCandidate() {
+function makeCandidate(skill) {
   const available = S.employeeDatabase.filter((candidate) =>
+    (!skill || candidate.skill === skill)
+    &&
     !S.employees.some((e) => e.sourceId === candidate.id)
     && !S.candidates.some((c) => c.sourceId === candidate.id)
   );
-  const record = pick(available.length ? available : S.employeeDatabase);
+  const record = pick(available.length ? available : (skill ? [] : S.employeeDatabase));
+  if (!record) return null;
   return {
     id: newId(), sourceId: record.id, name: record.name, skill: record.skill,
     salary: record.salary, salesSkill: record.salesSkill, sales: record.sales,
@@ -489,7 +496,7 @@ function tick() {
   if (S.offers.length !== before) S.dirty = true;
   if (S.day >= S.nextOfferDay) { newOffer(); S.nextOfferDay = S.day + ri(14, 24); }
   if (S.day >= S.nextCandDay) {
-    refreshCandidates();
+    refreshCandidates(S.recruitContractActive ? S.recruitContractJobType : null);
     S.nextCandDay = S.day + 60;
     S.recruitmentEvent = true;
     S.recruiting = true;

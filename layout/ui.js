@@ -324,10 +324,12 @@ function renderEmployees() {
 
 // ----- 採用イベント -----
 function renderRecruit() {
+  const priorityRecruiting = S.recruitContractActive;
+  const eventTitle = priorityRecruiting ? '優先採用イベント' : '採用イベント';
   if (S.recruitStage === 'confirm') {
-    $('recruit-body').innerHTML = `<h2>採用イベント</h2>
+    $('recruit-body').innerHTML = `<h2>${eventTitle}</h2>
       <div class="card">
-        <p>新しい求職者が来ました。候補者を確認して、採用活動を行いますか?</p>
+        <p>${priorityRecruiting ? `${SKILLS[S.recruitContractJobType]}の求職者が紹介されました。` : '新しい求職者が来ました。候補者を確認して、採用活動を行いますか?'}</p>
         <p class="small muted">採用しない場合でも、あとで別の採用イベントが発生します。</p>
         <div class="row gap-top">
           <button class="btn-main" data-act="open-recruit">候補者を見る</button>
@@ -360,7 +362,7 @@ function renderRecruit() {
     <div class="small resume-help">${SKILL_HELP[c.skill]}</div><div class="resume-row"><span class="muted small">月給</span><b>${yen(c.salary)}</b></div>
     <div class="small muted">採用後の月の支出 ${yen(monthlyCost())} → ${yen(monthlyCost() + c.salary)}</div>
     <button class="act resume-btn" data-act="hire" data-id="${c.id}">採用する</button></div>`).join('') || '<div class="card muted">いまは求職者がいない。しばらく待とう。</div>';
-  $('recruit-body').innerHTML = `<h2>採用イベント <span class="muted small">空席 ${free} / 席 ${slots}</span></h2>
+  $('recruit-body').innerHTML = `<h2>${eventTitle} <span class="muted small">空席 ${free} / 席 ${slots}</span></h2>
     <p class="small muted legend">新しい求職者が来ました。採用すると、毎月の支出が増えます。席がいっぱいのときは、会社Lvを上げると席が増えます。</p>
     <h3>求職者</h3><div class="resume-grid">${cards}</div>
     <div class="recruit-actions">
@@ -397,7 +399,7 @@ function renderInvestEvent() {
           S.recruitContractCount >= inv.maxCount ||
           S.recruitContractActive;
         const btn = disabled
-          ? '<span class="small">利用不可</span>'
+          ? '<span class="small">利用できません</span>'
           : `<button class="act" data-act="recruit-contract">契約する 評判${inv.repCost}</button>`;
             return `<div class="card job">
             <div class="row">
@@ -544,14 +546,38 @@ async function initializeGame() {
 // ----- 決断画面 -----
 function renderModal() {
   const p = S && S.pending;
+  const body = $('modal-body');
   const showMission = S && S.missionsOpen && !p && screenMode === null;
   $('modal').classList.toggle('hidden', (!p && !showMission) || screenMode !== null);
   if (showMission) {
     $('modal-body').innerHTML = `<div class="modal-head"><span class="badge badge-low">ミッション</span><button class="btn-small" data-act="toggle-missions">閉じる</button></div>${missionPanel()}`;
     return;
   }
+    if (S.recruitSelectingJob) {
+      body.innerHTML = `
+        <div class="modal-head">
+          <span class="badge badge-low">人材紹介会社との特別契約</span>
+        </div>
+        <h3>職種選択</h3>
+        <p class="small muted">
+          次回の採用イベントで優先的に紹介してほしい職種を選択してください。
+        </p>
+        <div class="choices">
+          <button class="choice" data-act="select-recruit-job" data-job="dev">開発</button>
+          <button class="choice" data-act="select-recruit-job" data-job="design">設計</button>
+          <button class="choice" data-act="select-recruit-job" data-job="sales">営業</button>
+          <button class="choice" data-act="select-recruit-job" data-job="security">セキュリティ</button>
+          <button class="choice" data-act="select-recruit-job" data-job="infra">インフラ・運用保守</button>
+        </div>
+        <button class="btn-small" data-act="cancel-recruit-contract">
+          キャンセル
+        </button>
+      `;
+      $('modal').classList.remove('hidden');
+      return;
+    }
   if (!p || screenMode !== null) return;
-  const body = $('modal-body');
+
 
   if (stage === 2 && lastResult) {
     body.innerHTML = `<div class="modal-head"><span class="badge badge-low">結果</span></div><h3>${lastResult.title}</h3>
@@ -819,6 +845,10 @@ document.addEventListener('click', (ev) => {
   else if (a === 'finish-recruit') {
     S.recruiting = false;
     S.recruitmentEvent = false;
+    if (S.recruitContractActive) {
+      S.recruitContractActive = false;
+      S.recruitContractJobType = null;
+    }
     showPage('home', true);
     render();
   }
@@ -830,7 +860,57 @@ document.addEventListener('click', (ev) => {
   }
   else if (a === 'choice') { onChoice(Number(el.dataset.i)); }
   else if (a === 'continue') { nextPending(); }
-  
+  else if (a === 'recruit-contract') {
+    if (
+      S.recruitContractCount >=
+      INVEST.recruitContract.maxCount
+    ) {
+      notify('利用回数の上限です', 'warn');
+      return;
+    }
+    if (S.recruitContractActive) {
+      notify('契約実行待ちです', 'warn');
+      return;
+    }
+    if (S.rep < INVEST.recruitContract.repCost) {
+      notify('評判が足りません', 'warn');
+      return;
+    }
+    S.recruitSelectingJob = true;
+    renderModal();
+    return;
+  }
+  else if (a === 'select-recruit-job') {
+    const jobType = el.dataset.job;
+    const contract = INVEST.recruitContract;
+    const hasJobType = S.employeeDatabase.some((candidate) => candidate.skill === jobType);
+    if (!hasJobType) {
+      notify('その職種の候補者データがありません', 'warn');
+      return;
+    }
+    if (S.recruitContractCount >= contract.maxCount || S.recruitContractActive) {
+      notify('この契約は利用できません', 'warn');
+      return;
+    }
+    if (S.rep < contract.repCost) {
+      notify('評判が足りません', 'warn');
+      return;
+    }
+    S.rep -= contract.repCost;
+    S.recruitContractCount++;
+    S.recruitContractActive = true;
+    S.recruitContractJobType = jobType;
+    S.recruitSelectingJob = false;
+    log(`${SKILLS[jobType]}の優先採用契約を結んだ`);
+    $('modal').classList.add('hidden');
+    render();
+    return;
+  }
+  else if (a === 'cancel-recruit-contract') {
+    S.recruitSelectingJob = false;
+    $('modal').classList.add('hidden');
+    return;
+  }
 });
 
 // ----- キーボード操作 -----
