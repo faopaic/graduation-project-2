@@ -190,7 +190,7 @@ function bgFence() {
   out += bgRect(134, 76, 64, 1.4, '#fff7ea', 'stroke="#2e504a" stroke-width=".3"');
   return out;
 }
-const bgRoad = () => Array.from({ length: 13 }, (_, i) => bgRect(4 + i * 16, 89.4, 8, 1, '#fff')).join('');
+const bgRoad = () => bgRect(0, 85, 200, .8, '#fff') + bgRect(0, 96, 200, .8, '#fff');   // 路側帯の白線(道路の上下のふち)
 // ----- 道路を走る乗り物 -----
 // 同じ車線の乗り物は同じ速さで進むので、重なったり追い越したりしない。各スプライトは { w: 幅, svg: 絵 }
 const bgCar = (c) => ({ w: 14, h: 5, svg: bgRect(0, 2, 14, 2.4, c) + bgRect(3, 0, 7, 2.2, c) + bgRect(4, .6, 2.2, 1.4, '#cfe8f5') + bgRect(7, .6, 2.2, 1.4, '#cfe8f5')
@@ -238,7 +238,7 @@ function bgTraffic() {
   let off = 210;
   const vehicles = queue.map((s, i) => { const v = { s, off }; off += s.w + 30 + (i * 17) % 40; return v; });
   const length = Math.ceil(off);
-  return bgLane(vehicles, 93, length, Math.round(length / 26.7), 0.2);   // 速さは 約26.7 / 秒
+  return bgLane(vehicles, 96, length, Math.round(length / 26.7), 0.2);   // 速さは 約26.7 / 秒
 }
 
 // ----- 月ごとの飾り(4月イースター / 5月こどもの日 / 10月ハロウィン) -----
@@ -448,7 +448,7 @@ function townScene() {
   return `<svg class="town-scene" viewBox="0 0 200 100" role="img" aria-label="会社のある街"><style>${BG_ANIM_CSS}</style>
     <rect width="200" height="72" fill="${theme.sky}"/><rect y="40" width="200" height="32" fill="${theme.band}"/><rect x="150" y="8" width="12" height="12" fill="#fff3b0"/>
     ${backdrop.back}
-    <rect y="72" width="200" height="28" fill="${theme.grass}"/><rect y="72" width="200" height="1.5" fill="#2e504a"/><rect y="85" width="200" height="9" fill="#d5d5d5"/>
+    <rect y="72" width="200" height="28" fill="${theme.grass}"/><rect y="72" width="200" height="1.5" fill="#2e504a"/><rect y="85" width="200" height="12" fill="#d5d5d5"/>
     ${backdrop.fore}
     <g class="company" data-go="company"><rect x="${bx}" y="${by}" width="${bw}" height="${bh}" fill="#2e504a"/><rect x="${bx + 1}" y="${by + 1}" width="${bw - 2}" height="${bh - 1}" fill="#fff7ea"/><rect class="roof" x="${bx - 3}" y="${by - 4}" width="${bw + 6}" height="5" fill="${theme.roof}"/><rect x="${bx + 8}" y="${by - 16}" width="${bw - 16}" height="11" fill="#fafffd" stroke="#2e504a" stroke-width=".8"/><text x="${bx + bw / 2}" y="${by - 8}" font-size="${nameSize}" text-anchor="middle" fill="#2e504a">${esc(rawName)}</text>${windows}<rect x="${bx + 24}" y="58" width="12" height="14" fill="#2e504a"/><rect x="${bx + 25}" y="59" width="10" height="13" fill="#6dcfb2"/><rect x="${bx + 33}" y="65" width="1" height="1" fill="#2e504a"/></g>
     ${backdrop.front}${decor}${walkers}<rect x="3" y="3" width="27" height="8" fill="#fafffd" stroke="#2e504a" stroke-width=".6"/><text x="16.5" y="9" font-size="4.4" text-anchor="middle" fill="#2e504a">${theme.name}・${month}月</text>
