@@ -105,5 +105,17 @@ const INVEST = {
     costs: [250000, 500000, 800000],
     help: 'バグが起きにくくなり、完成品の品質も上がる。',
     now: (lv) => lv === 0 ? 'まだ何もしていない' : `バグの確率 -${25 * lv}% / 品質 +${5 * lv}点`
+  },
+  recruitContract: {
+    name: '人材紹介会社との特別契約',
+    repCost: 15,
+    maxCount: 3,
+    help: '次回の採用で、指定した職種の候補者だけを紹介してもらう。',
+    now: (used, active, jobType) => {
+      if (active) {
+        return `待機中 (${jobType})`;
+      }
+      return `利用回数 ${used}/3`;
+    }
   }
 };
