@@ -29,6 +29,17 @@ const leftText = (job) => { const l = remainDays(job); return l >= 0 ? `残り${
 const progressPct = (job) => Math.min(100, Math.floor(job.progress / job.work * 100));
 const employeeStats = (e) => Object.entries(EMPLOYEE_STAT_LABELS)
   .map(([key, label]) => `${label} ${e.stats?.[key] ?? 0}/100`).join(' / ');
+const employeeStatus = (e) => {
+  const salesRest = e.sales && e.salesCooldownUntil > S.day ? `（休止中 あと${e.salesCooldownUntil - S.day}日）` : '';
+  if (isAbsent(e)) return `休職中（あと${e.absentUntil - S.day}日）`;
+  if (e.sales) return `営業担当${salesRest}`;
+  const job = e.job ? jobById(e.job) : null;
+  return job ? `「${job.name}」を担当中` : '待機中';
+};
+const employeeStatusMarkup = (e) => {
+  const away = isAbsent(e);
+  return `<div class="employee-status ${away ? 'employee-status-away' : ''}"${away ? ` data-employee-away="${e.absentUntil}"` : ''}>${employeeStatus(e)}</div>`;
+};
 const requirementSkills = (job) => ['design', 'dev', 'security', 'infra']
   .filter((skill) => Number(job.requirements?.[skill]) > 0);
 const requirementText = (job) => requirementSkills(job)
@@ -133,12 +144,6 @@ function renderHome() {
   if (S.money < monthlyCost() * 1.5) alerts.push(`<div class="alert"><span>資金が少なくなっている。このままだと、来月の給料が払えなくなる。</span></div>`);
   S.jobs.filter((j) => j.late).forEach((j) => alerts.push(`<div class="alert"><span>「${j.name}」が納期を過ぎている。早く完成させよう。</span></div>`));
   $('home-alerts').innerHTML = alerts.join('');
-
-  // 休職者のみ表示
-  const seats = S.employees.filter(isAbsent).map((e) =>
-    `<div class="seat seat-away">${avatar(e.skill, e.name + 'のドット絵')}<div><strong>${e.name}</strong> <span class="small muted">${SKILLS[e.skill]}</span><div class="small neg" data-away="${e.absentUntil}">休職中 あと${e.absentUntil - S.day}日</div></div></div>`
-  );
-  $('home-seats').innerHTML = seats.join('') || '<div class="card muted">現在、休職者はいません。</div>';
 
   // 進行中の案件
   const projects = S.jobs.length ? S.jobs.map(projectCard).join('') :
@@ -299,7 +304,7 @@ function renderEmployees() {
       const status = resting ? `営業休止中（あと${e.salesCooldownUntil - S.day}日）` : '営業活動中';
       return `<div class="employee-card">
         <div class="employee-card-head"><div class="employee-avatar">${avatar(e.skill, e.name + 'のドット絵')}</div><div><div class="small muted">社員 / 営業担当</div><strong class="employee-name">${e.name}</strong><span class="employee-skill">${SKILLS[e.skill]}</span></div></div>
-        <div class="employee-status">${status}</div><div class="employee-info"><span>営業力</span><strong>${e.salesSkill}/100</strong></div>
+        ${isAbsent(e) ? employeeStatusMarkup(e) : `<div class="employee-status">${status}</div>`}<div class="employee-info"><span>営業力</span><strong>${e.salesSkill}/100</strong></div>
         <div class="small">${employeeStats(e)}</div><div class="small muted">案件獲得率 ${salesSuccessRate(e.salesSkill)}%（基礎30%） / 獲得後1〜3か月休止</div>
         <div class="employee-actions">${salesButton(e)}</div></div>`;
     }).join('') || '<div class="card muted">営業担当がいません。社員一覧から担当者を設定してください。</div>';
@@ -309,12 +314,9 @@ function renderEmployees() {
     return;
   }
   const cards = S.employees.filter((e) => !e.sales).map((e) => {
-    const job = e.job ? jobById(e.job) : null;
-    const salesRest = e.sales && e.salesCooldownUntil > S.day ? `（休止中 あと${e.salesCooldownUntil - S.day}日）` : '';
-    const status = isAbsent(e) ? `欠勤中(あと${e.absentUntil - S.day}日)` : e.sales ? `営業担当${salesRest}` : job ? `「${job.name}」を担当中` : '待機中';
     return `<div class="employee-card">
       <div class="employee-card-head"><div class="employee-avatar">${avatar(e.skill, e.name + 'のドット絵')}</div><div><div class="small muted">社員</div><strong class="employee-name">${e.name}</strong><span class="employee-skill">${SKILLS[e.skill]}</span></div></div>
-      <div class="small employee-help">${SKILL_HELP[e.skill]}</div><div class="employee-status">${status}</div>
+      <div class="small employee-help">${SKILL_HELP[e.skill]}</div>${employeeStatusMarkup(e)}
       <div class="employee-info"><span>月給</span><strong>${yen(e.salary)}</strong></div><div class="small">営業力 ${e.salesSkill}/100</div><div class="small">${employeeStats(e)}</div>
       <div class="employee-actions">${salesButton(e)}</div></div>`;
   }).join('') || '<div class="card muted">営業担当以外の社員がいません。営業担当を見るボタンから確認できます。</div>';
@@ -341,12 +343,9 @@ function renderRecruit() {
   const slots = levelInfo().slots;
   const free = slots - S.employees.length;
   const staff = S.employees.map((e) => {
-    const job = e.job ? jobById(e.job) : null;
-    const salesRest = e.sales && e.salesCooldownUntil > S.day ? `（休止中 あと${e.salesCooldownUntil - S.day}日）` : '';
-    const status = isAbsent(e) ? `欠勤中(あと${e.absentUntil - S.day}日)` : e.sales ? `営業担当${salesRest}` : job ? `「${job.name}」を担当中` : '待機中';
     return `<div class="employee-card">
       <div class="employee-card-head"><div class="employee-avatar">${avatar(e.skill, e.name + 'のドット絵')}</div><div><div class="small muted">社員</div><strong class="employee-name">${e.name}</strong><span class="employee-skill">${SKILLS[e.skill]}</span></div></div>
-      <div class="small employee-help">${SKILL_HELP[e.skill]}</div><div class="employee-status">${status}</div>
+      <div class="small employee-help">${SKILL_HELP[e.skill]}</div>${employeeStatusMarkup(e)}
       <div class="employee-info"><span>月給</span><strong>${yen(e.salary)}</strong></div><div class="small">営業力 ${e.salesSkill}/100</div><div class="small">${employeeStats(e)}</div>
     </div>`;
   }).join('');
@@ -457,7 +456,7 @@ function updateLive() {
     if (l) { l.textContent = leftText(job); l.className = 'small ' + (left <= 7 ? 'neg' : 'muted'); }
   });
   document.querySelectorAll('[data-expire]').forEach((el) => { el.textContent = `募集あと${Math.max(0, Number(el.dataset.expire) - S.day)}日`; });
-  document.querySelectorAll('[data-away]').forEach((el) => { el.textContent = `欠勤中 あと${Math.max(0, Number(el.dataset.away) - S.day)}日`; });
+  document.querySelectorAll('[data-employee-away]').forEach((el) => { el.textContent = `休職中（あと${Math.max(0, Number(el.dataset.employeeAway) - S.day)}日）`; });
 }
 
 function render() {
@@ -548,11 +547,13 @@ function renderModal() {
   const p = S && S.pending;
   const body = $('modal-body');
   const showMission = S && S.missionsOpen && !p && screenMode === null;
-  $('modal').classList.toggle('hidden', (!p && !showMission) || screenMode !== null);
+  const showKeyHelp = S && S.keyHelpOpen && !p && !showMission && screenMode === null;
+  $('modal').classList.toggle('hidden', (!p && !showMission && !showKeyHelp) || screenMode !== null);
   if (showMission) {
     $('modal-body').innerHTML = `<div class="modal-head"><span class="badge badge-low">ミッション</span><button class="btn-small" data-act="toggle-missions">閉じる</button></div>${missionPanel()}`;
     return;
   }
+<<<<<<< HEAD
     if (S.recruitSelectingJob) {
       body.innerHTML = `
         <div class="modal-head">
@@ -576,6 +577,23 @@ function renderModal() {
       $('modal').classList.remove('hidden');
       return;
     }
+=======
+  if (showKeyHelp) {
+    $('modal-body').innerHTML = `<div class="modal-head"><span class="badge badge-low">キー操作</span><button class="btn-small" data-act="toggle-key-help">閉じる</button></div>
+      <p class="muted">ゲーム中は次のキーでよく使う操作を実行できます。</p>
+      <div class="key-help-list">
+        <div><kbd>Space</kbd><span>時間を進める / 一時停止 / 続ける・OK</span></div>
+        <div><kbd>1</kbd><span>街</span></div>
+        <div><kbd>2</kbd><span>案件</span></div>
+        <div><kbd>3</kbd><span>社員一覧</span></div>
+        <div><kbd>4</kbd><span>投資</span></div>
+        <div><kbd>S</kbd><span>ゲーム速度を変更</span></div>
+        <div><kbd>R</kbd><span>最初からやり直す</span></div>
+      </div>
+      <p class="small muted">「最初からやり直す」は確認操作が必要です。</p>`;
+    return;
+  }
+>>>>>>> 2496339844318c15ff974551ffe92907d4077767
   if (!p || screenMode !== null) return;
 
 
@@ -583,7 +601,7 @@ function renderModal() {
     body.innerHTML = `<div class="modal-head"><span class="badge badge-low">結果</span></div><h3>${lastResult.title}</h3>
       <div class="result">${lastResult.text}</div>
       ${lastResult.lesson ? `<div class="lesson"><div class="small muted">ひとこと解説</div>${lastResult.lesson}</div>` : ''}
-      <button class="choice" data-act="continue"><strong>つづける</strong></button>`;
+      <button class="choice has-letter" data-act="continue"><span class="ch-letter space-key">Space</span><span class="ch-body"><strong>つづける</strong></span></button>`;
     return;
   }
 
@@ -593,7 +611,11 @@ function renderModal() {
     : `<div class="modal-head"><span class="badge badge-${badgeClass}">${p.badge}</span><span class="small muted">ゲーム一時停止中</span></div>`;
   const text = p.lines ? `<ul class="lines">${p.lines.map((l) => `<li>${l}</li>`).join('')}</ul>` : `<p class="muted">${p.body}</p>`;
   const chips = p.chips ? `<div class="chips">${p.chips.map((c) => `<span class="stag">${c}</span>`).join('')}</div>` : '';
-  const choices = p.choices.map((c, i) => `<button class="choice has-letter ${c.tag === 'hide' ? 'is-hide' : ''}" data-act="choice" data-i="${i}"><span class="ch-letter">${'ABCDEFG'[i]}</span><span class="ch-body"><strong>${c.label}</strong>${c.desc ? `<span class="small ${c.tag === 'hide' ? 'neg' : 'muted'}">${c.desc}</span>` : ''}</span></button>`).join('');
+  const choices = p.choices.map((c, i) => {
+    const keyLabel = p.choices.length === 1 ? 'Space' : i + 1;
+    const keyClass = p.choices.length === 1 ? 'space-key' : '';
+    return `<button class="choice has-letter ${c.tag === 'hide' ? 'is-hide' : ''}" data-act="choice" data-i="${i}"><span class="ch-letter ${keyClass}">${keyLabel}</span><span class="ch-body"><strong>${c.label}</strong>${c.desc ? `<span class="small ${c.tag === 'hide' ? 'neg' : 'muted'}">${c.desc}</span>` : ''}</span></button>`;
+  }).join('');
   body.innerHTML = head + (p.kind === 'incident' ? `<div class="inc-status"><h3>${p.title}</h3>${chips}${text}</div>` : `<h3>${p.title}</h3>${chips}${text}`) + choices;
 }
 
@@ -824,6 +846,7 @@ document.addEventListener('click', (ev) => {
     }
   }
   else if (a === 'toggle-missions') { S.missionsOpen = !S.missionsOpen; render(); }
+  else if (a === 'toggle-key-help') { S.keyHelpOpen = !S.keyHelpOpen; renderModal(); }
   else if (a === 'employee-view') { S.employeeView = el.dataset.view; render(); }
   else if (a === 'assign') { toggleAssign(Number(el.dataset.job), Number(el.dataset.emp)); render(); }
   else if (a === 'toggle-sales') { toggleSales(Number(el.dataset.id)); render(); }
@@ -922,6 +945,38 @@ document.addEventListener('keydown', (ev) => {
     activeTag === 'SELECT'
   ) {
     return;
+  }
+  if (S?.keyHelpOpen) {
+    if (ev.code === 'Escape') {
+      ev.preventDefault();
+      S.keyHelpOpen = false;
+      renderModal();
+    }
+    return;
+  }
+  if (S?.pending && stage === 1 && Array.isArray(S.pending.choices)) {
+    const choiceIndex = {
+      Digit1: 0,
+      Digit2: 1,
+      Digit3: 2
+    }[ev.code];
+    if (choiceIndex !== undefined && choiceIndex < S.pending.choices.length) {
+      ev.preventDefault();
+      onChoice(choiceIndex);
+      return;
+    }
+  }
+  if (S?.pending && ev.code === 'Space') {
+    if (stage === 2 && lastResult) {
+      ev.preventDefault();
+      nextPending();
+      return;
+    }
+    if (stage === 1 && S.pending.choices?.length === 1) {
+      ev.preventDefault();
+      onChoice(0);
+      return;
+    }
   }
   if (ev.code === 'Space') {
     ev.preventDefault();
