@@ -553,31 +553,6 @@ function renderModal() {
     $('modal-body').innerHTML = `<div class="modal-head"><span class="badge badge-low">ミッション</span><button class="btn-small" data-act="toggle-missions">閉じる</button></div>${missionPanel()}`;
     return;
   }
-<<<<<<< HEAD
-    if (S.recruitSelectingJob) {
-      body.innerHTML = `
-        <div class="modal-head">
-          <span class="badge badge-low">人材紹介会社との特別契約</span>
-        </div>
-        <h3>職種選択</h3>
-        <p class="small muted">
-          次回の採用イベントで優先的に紹介してほしい職種を選択してください。
-        </p>
-        <div class="choices">
-          <button class="choice" data-act="select-recruit-job" data-job="dev">開発</button>
-          <button class="choice" data-act="select-recruit-job" data-job="design">設計</button>
-          <button class="choice" data-act="select-recruit-job" data-job="sales">営業</button>
-          <button class="choice" data-act="select-recruit-job" data-job="security">セキュリティ</button>
-          <button class="choice" data-act="select-recruit-job" data-job="infra">インフラ・運用保守</button>
-        </div>
-        <button class="btn-small" data-act="cancel-recruit-contract">
-          キャンセル
-        </button>
-      `;
-      $('modal').classList.remove('hidden');
-      return;
-    }
-=======
   if (showKeyHelp) {
     $('modal-body').innerHTML = `<div class="modal-head"><span class="badge badge-low">キー操作</span><button class="btn-small" data-act="toggle-key-help">閉じる</button></div>
       <p class="muted">ゲーム中は次のキーでよく使う操作を実行できます。</p>
@@ -593,7 +568,27 @@ function renderModal() {
       <p class="small muted">「最初からやり直す」は確認操作が必要です。</p>`;
     return;
   }
->>>>>>> 2496339844318c15ff974551ffe92907d4077767
+  if (S.recruitSelectingJob) {
+    body.innerHTML = `
+      <div class="modal-head">
+        <span class="badge badge-low">人材紹介会社との特別契約</span>
+      </div>
+      <h3>職種選択</h3>
+      <p class="small muted">
+        次回の採用イベントで優先的に紹介してほしい職種を選択してください。
+      </p>
+      <div class="choices">
+        <button class="choice" data-act="select-recruit-job" data-job="dev">開発</button>
+        <button class="choice" data-act="select-recruit-job" data-job="design">設計</button>
+        <button class="choice" data-act="select-recruit-job" data-job="sales">営業</button>
+        <button class="choice" data-act="select-recruit-job" data-job="security">セキュリティ</button>
+        <button class="choice" data-act="select-recruit-job" data-job="infra">インフラ・運用保守</button>
+      </div>
+      <button class="btn-small" data-act="cancel-recruit-contract">キャンセル</button>
+    `;
+    $('modal').classList.remove('hidden');
+    return;
+  }
   if (!p || screenMode !== null) return;
 
 
