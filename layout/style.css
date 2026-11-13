@@ -144,10 +144,6 @@ button:focus-visible {
   font-size: 13px;
 }
 
-.hud-help {
-  margin-left: 2px;
-}
-
 /* ===== 時間バー ===== */
 .timebar {
   display: flex;
@@ -499,30 +495,6 @@ button:focus-visible {
 }
 
 .modal .chips { margin: 4px 0 8px; }
-
-.key-help-list {
-  display: grid;
-  gap: 6px;
-  margin: 12px 0;
-}
-
-.key-help-list div {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 5px 8px;
-  border: var(--line-thin);
-  background: var(--bg);
-}
-
-kbd {
-  min-width: 62px;
-  padding: 1px 6px;
-  border: var(--line-thin);
-  background: var(--paper);
-  text-align: center;
-  font: inherit;
-}
 
 .choice {
   display: block;
