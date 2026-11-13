@@ -754,6 +754,7 @@ button:focus-visible {
 .employee-skill { font-size: 12px; color: var(--ink-sub); }
 .employee-help { padding-bottom: 5px; border-bottom: 1px dashed #d6cfa8; }
 .employee-status { padding: 5px 8px; border: var(--line-thin); background: var(--bg); }
+.employee-status-away { background: var(--alert); color: var(--alert-ink, #c2453a); }
 .employee-info { display: flex; justify-content: space-between; align-items: baseline; }
 .employee-info strong { font-size: 18px; color: var(--ok); }
 .employee-actions { display: flex; justify-content: flex-end; margin-top: auto; padding-top: 3px; }
