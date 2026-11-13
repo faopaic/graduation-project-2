@@ -761,6 +761,10 @@ function afterTick() {
   if (S.over) { S.playing = false; render(); showEnd(); return; }
   if (S.recruitmentEvent) {
     S.recruitmentEvent = false;
+    if (S.pending) {
+      S.queue.unshift(S.pending);
+      S.pending = null;
+    }
     S.playing = false;
     showPage('recruit');
   }
@@ -866,6 +870,14 @@ document.addEventListener('click', (ev) => {
     if (S.recruitContractActive) {
       S.recruitContractActive = false;
       S.recruitContractJobType = null;
+    }
+    if (!S.pending && S.queue.length) {
+      stage = 1;
+      lastResult = null;
+      advance();
+      showPage('home', true);
+      render();
+      return;
     }
     showPage('home', true);
     render();

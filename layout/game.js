@@ -505,7 +505,7 @@ function tick() {
   }
 
   // DBイベント
-  if (S.day >= S.nextIncidentDay && S.jobs.length > 0) {
+  if (!S.recruitmentEvent && S.day >= S.nextIncidentDay && S.jobs.length > 0) {
     const inc = makeIncident();
     if (inc) {
       raise(inc);
@@ -516,7 +516,7 @@ function tick() {
 
   checkLevel();
   checkEnd();
-  if (!S.pending && S.queue.length) advance();
+  if (!S.recruitmentEvent && !S.pending && S.queue.length) advance();
 }
 
 function makeIncident(forceId) {
