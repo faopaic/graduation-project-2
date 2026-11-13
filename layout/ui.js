@@ -552,23 +552,6 @@ function renderModal() {
     $('modal-body').innerHTML = `<div class="modal-head"><span class="badge badge-low">ミッション</span><button class="btn-small" data-act="toggle-missions">閉じる</button></div>${missionPanel()}`;
     return;
   }
-<<<<<<< HEAD
-=======
-  if (showKeyHelp) {
-    $('modal-body').innerHTML = `<div class="modal-head"><span class="badge badge-low">キー操作</span><button class="btn-small" data-act="toggle-key-help">閉じる</button></div>
-      <p class="muted">ゲーム中は次のキーでよく使う操作を実行できます。</p>
-      <div class="key-help-list">
-        <div><kbd>Space</kbd><span>時間を進める / 一時停止 / 続ける・OK</span></div>
-        <div><kbd>1</kbd><span>街</span></div>
-        <div><kbd>2</kbd><span>案件</span></div>
-        <div><kbd>3</kbd><span>社員一覧</span></div>
-        <div><kbd>4</kbd><span>投資</span></div>
-        <div><kbd>S</kbd><span>ゲーム速度を変更</span></div>
-        <div><kbd>R</kbd><span>最初からやり直す</span></div>
-      </div>
-      <p class="small muted">「最初からやり直す」は確認操作が必要です。</p>`;
-    return;
-  }
   if (S.recruitSelectingJob) {
     body.innerHTML = `
       <div class="modal-head">
@@ -590,7 +573,6 @@ function renderModal() {
     $('modal').classList.remove('hidden');
     return;
   }
->>>>>>> c90c97ea6b276968fd8f53879f82fc272ca1152b
   if (!p || screenMode !== null) return;
 
 
