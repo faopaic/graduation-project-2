@@ -26,7 +26,7 @@
 
   <!-- 時間バー -->
   <div class="timebar">
-    <button id="play-btn" class="btn-small" data-act="play">▶ 再生</button>
+    <button id="play-btn" class="btn-small" data-act="play" data-key="Space" aria-keyshortcuts="Space">▶ 再生</button>
     <div class="timeline">
       <div class="track" id="track">
         <div class="track-fill" id="track-fill"></div>
@@ -34,18 +34,18 @@
       </div>
       <div class="years"><span>1年目</span><span>2年目</span><span>3年目</span><span>4年目</span><span>5年目</span></div>
     </div>
-    <button id="speed-btn" class="btn-small" data-act="speed">x1</button>
-    <button class="btn-small" data-act="reset">最初から</button>
+    <button id="speed-btn" class="btn-small" data-act="speed" data-key="S" aria-keyshortcuts="S">x1</button>
+    <button class="btn-small" data-act="reset" data-key="R" aria-keyshortcuts="R">最初から</button>
   </div>
 
   <main class="main" id="page-container"></main>
 
   <!-- 下部メニュー -->
   <nav class="bottom-nav">
-    <button class="nav" data-go="home">ダッシュボード</button>
-    <button class="nav" data-go="jobs">案件</button>
-    <button class="nav" data-go="employees">社員一覧</button>
-    <button class="nav" data-go="invest-event">投資</button>
+    <button class="nav active" data-go="town" data-key="1" aria-keyshortcuts="1">ホーム</button>
+    <button class="nav" data-go="jobs" data-key="2" aria-keyshortcuts="2">案件</button>
+    <button class="nav" data-go="employees" data-key="3" aria-keyshortcuts="3">社員一覧</button>
+    <button class="nav" data-go="invest-event" data-key="4" aria-keyshortcuts="4">投資</button>
   </nav>
 
 </div>

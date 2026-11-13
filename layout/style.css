@@ -154,7 +154,31 @@ button:focus-visible {
   border-bottom: var(--line);
 }
 
-.timebar #play-btn { min-width: 108px; }
+/* 文言が変わっても横幅が動かないように(▶ 再生 / ❚❚ 一時停止 / イベント中) */
+.timebar #play-btn { min-width: 172px; }
+
+/* ===== キーキャップ表示(data-key を持つボタンに、押すキーを添える) =====
+   ::after で描くので、ui.js が textContent を書き換えても消えない */
+button[data-key]::after {
+  content: attr(data-key);
+  display: inline-block;
+  min-width: 22px;
+  margin-left: 8px;
+  padding: 0 6px;
+  border: 2px solid var(--ink);
+  border-bottom-width: 4px;
+  background: var(--paper);
+  color: var(--ink);
+  font-size: 11px;
+  line-height: 1.3;
+  text-align: center;
+  vertical-align: 1px;
+}
+
+/* タッチ操作の端末はキーボードを使わないので隠す */
+@media (hover: none) and (pointer: coarse) {
+  button[data-key]::after { display: none; }
+}
 
 .timeline { flex: 1; min-width: 0; }
 
@@ -337,7 +361,6 @@ button:focus-visible {
 .chip .small { margin-left: 3px; color: var(--ink-sub); }
 .chip.on { background: var(--main); }
 .chip.busy { border-style: dashed; color: var(--ink-sub); }
-.chip.other-job { background: var(--hl); }
 .chip.away { background: var(--alert); }
 
 /* ===== 右の目標パネル ===== */
@@ -754,7 +777,6 @@ button:focus-visible {
 .employee-skill { font-size: 12px; color: var(--ink-sub); }
 .employee-help { padding-bottom: 5px; border-bottom: 1px dashed #d6cfa8; }
 .employee-status { padding: 5px 8px; border: var(--line-thin); background: var(--bg); }
-.employee-status-away { background: var(--alert); color: var(--alert-ink, #c2453a); }
 .employee-info { display: flex; justify-content: space-between; align-items: baseline; }
 .employee-info strong { font-size: 18px; color: var(--ok); }
 .employee-actions { display: flex; justify-content: flex-end; margin-top: auto; padding-top: 3px; }
@@ -773,7 +795,6 @@ button:focus-visible {
 .inc-status .lines { margin: 4px 0; }
 .choice.has-letter { display: flex; align-items: center; gap: 10px; }
 .ch-letter { flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; border: var(--line-thin); background: var(--paper); font-size: 16px; }
-.ch-letter.space-key { width: auto; min-width: 52px; padding: 0 6px; font-size: 13px; }
 .ch-body { display: block; }
 @media (max-width: 700px) { .inc-grid { grid-template-columns: 1fr; } .inc-art { max-width: 260px; } }
 
