@@ -29,6 +29,17 @@ const leftText = (job) => { const l = remainDays(job); return l >= 0 ? `残り${
 const progressPct = (job) => Math.min(100, Math.floor(job.progress / job.work * 100));
 const employeeStats = (e) => Object.entries(EMPLOYEE_STAT_LABELS)
   .map(([key, label]) => `${label} ${e.stats?.[key] ?? 0}/100`).join(' / ');
+const employeeStatus = (e) => {
+  const salesRest = e.sales && e.salesCooldownUntil > S.day ? `（休止中 あと${e.salesCooldownUntil - S.day}日）` : '';
+  if (isAbsent(e)) return `休職中（あと${e.absentUntil - S.day}日）`;
+  if (e.sales) return `営業担当${salesRest}`;
+  const job = e.job ? jobById(e.job) : null;
+  return job ? `「${job.name}」を担当中` : '待機中';
+};
+const employeeStatusMarkup = (e) => {
+  const away = isAbsent(e);
+  return `<div class="employee-status ${away ? 'employee-status-away' : ''}"${away ? ` data-employee-away="${e.absentUntil}"` : ''}>${employeeStatus(e)}</div>`;
+};
 const requirementSkills = (job) => ['design', 'dev', 'security', 'infra']
   .filter((skill) => Number(job.requirements?.[skill]) > 0);
 const requirementText = (job) => requirementSkills(job)
@@ -133,12 +144,6 @@ function renderHome() {
   if (S.money < monthlyCost() * 1.5) alerts.push(`<div class="alert"><span>資金が少なくなっている。このままだと、来月の給料が払えなくなる。</span></div>`);
   S.jobs.filter((j) => j.late).forEach((j) => alerts.push(`<div class="alert"><span>「${j.name}」が納期を過ぎている。早く完成させよう。</span></div>`));
   $('home-alerts').innerHTML = alerts.join('');
-
-  // 休職者のみ表示
-  const seats = S.employees.filter(isAbsent).map((e) =>
-    `<div class="seat seat-away">${avatar(e.skill, e.name + 'のドット絵')}<div><strong>${e.name}</strong> <span class="small muted">${SKILLS[e.skill]}</span><div class="small neg" data-away="${e.absentUntil}">休職中 あと${e.absentUntil - S.day}日</div></div></div>`
-  );
-  $('home-seats').innerHTML = seats.join('') || '<div class="card muted">現在、休職者はいません。</div>';
 
   // 進行中の案件
   const projects = S.jobs.length ? S.jobs.map(projectCard).join('') :
@@ -299,7 +304,7 @@ function renderEmployees() {
       const status = resting ? `営業休止中（あと${e.salesCooldownUntil - S.day}日）` : '営業活動中';
       return `<div class="employee-card">
         <div class="employee-card-head"><div class="employee-avatar">${avatar(e.skill, e.name + 'のドット絵')}</div><div><div class="small muted">社員 / 営業担当</div><strong class="employee-name">${e.name}</strong><span class="employee-skill">${SKILLS[e.skill]}</span></div></div>
-        <div class="employee-status">${status}</div><div class="employee-info"><span>営業力</span><strong>${e.salesSkill}/100</strong></div>
+        ${isAbsent(e) ? employeeStatusMarkup(e) : `<div class="employee-status">${status}</div>`}<div class="employee-info"><span>営業力</span><strong>${e.salesSkill}/100</strong></div>
         <div class="small">${employeeStats(e)}</div><div class="small muted">案件獲得率 ${salesSuccessRate(e.salesSkill)}%（基礎30%） / 獲得後1〜3か月休止</div>
         <div class="employee-actions">${salesButton(e)}</div></div>`;
     }).join('') || '<div class="card muted">営業担当がいません。社員一覧から担当者を設定してください。</div>';
@@ -309,12 +314,9 @@ function renderEmployees() {
     return;
   }
   const cards = S.employees.filter((e) => !e.sales).map((e) => {
-    const job = e.job ? jobById(e.job) : null;
-    const salesRest = e.sales && e.salesCooldownUntil > S.day ? `（休止中 あと${e.salesCooldownUntil - S.day}日）` : '';
-    const status = isAbsent(e) ? `欠勤中(あと${e.absentUntil - S.day}日)` : e.sales ? `営業担当${salesRest}` : job ? `「${job.name}」を担当中` : '待機中';
     return `<div class="employee-card">
       <div class="employee-card-head"><div class="employee-avatar">${avatar(e.skill, e.name + 'のドット絵')}</div><div><div class="small muted">社員</div><strong class="employee-name">${e.name}</strong><span class="employee-skill">${SKILLS[e.skill]}</span></div></div>
-      <div class="small employee-help">${SKILL_HELP[e.skill]}</div><div class="employee-status">${status}</div>
+      <div class="small employee-help">${SKILL_HELP[e.skill]}</div>${employeeStatusMarkup(e)}
       <div class="employee-info"><span>月給</span><strong>${yen(e.salary)}</strong></div><div class="small">営業力 ${e.salesSkill}/100</div><div class="small">${employeeStats(e)}</div>
       <div class="employee-actions">${salesButton(e)}</div></div>`;
   }).join('') || '<div class="card muted">営業担当以外の社員がいません。営業担当を見るボタンから確認できます。</div>';
@@ -339,12 +341,9 @@ function renderRecruit() {
   const slots = levelInfo().slots;
   const free = slots - S.employees.length;
   const staff = S.employees.map((e) => {
-    const job = e.job ? jobById(e.job) : null;
-    const salesRest = e.sales && e.salesCooldownUntil > S.day ? `（休止中 あと${e.salesCooldownUntil - S.day}日）` : '';
-    const status = isAbsent(e) ? `欠勤中(あと${e.absentUntil - S.day}日)` : e.sales ? `営業担当${salesRest}` : job ? `「${job.name}」を担当中` : '待機中';
     return `<div class="employee-card">
       <div class="employee-card-head"><div class="employee-avatar">${avatar(e.skill, e.name + 'のドット絵')}</div><div><div class="small muted">社員</div><strong class="employee-name">${e.name}</strong><span class="employee-skill">${SKILLS[e.skill]}</span></div></div>
-      <div class="small employee-help">${SKILL_HELP[e.skill]}</div><div class="employee-status">${status}</div>
+      <div class="small employee-help">${SKILL_HELP[e.skill]}</div>${employeeStatusMarkup(e)}
       <div class="employee-info"><span>月給</span><strong>${yen(e.salary)}</strong></div><div class="small">営業力 ${e.salesSkill}/100</div><div class="small">${employeeStats(e)}</div>
     </div>`;
   }).join('');
@@ -455,7 +454,7 @@ function updateLive() {
     if (l) { l.textContent = leftText(job); l.className = 'small ' + (left <= 7 ? 'neg' : 'muted'); }
   });
   document.querySelectorAll('[data-expire]').forEach((el) => { el.textContent = `募集あと${Math.max(0, Number(el.dataset.expire) - S.day)}日`; });
-  document.querySelectorAll('[data-away]').forEach((el) => { el.textContent = `欠勤中 あと${Math.max(0, Number(el.dataset.away) - S.day)}日`; });
+  document.querySelectorAll('[data-employee-away]').forEach((el) => { el.textContent = `休職中（あと${Math.max(0, Number(el.dataset.employeeAway) - S.day)}日）`; });
 }
 
 function render() {
