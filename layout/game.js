@@ -97,7 +97,7 @@ function newGame(
     tally: { honest: 0, hide: 0, incidents: 0 },
     counts: { accepted: 0, hired: 0, handled: 0 },
     missionRewards: {},
-    nextId: 1, playing: false, speedIdx: CONFIG.defaultSpeed, missionsOpen: false, keyHelpOpen: false, missionUnlockNotices: {},
+    nextId: 1, playing: false, speedIdx: CONFIG.defaultSpeed, missionsOpen: false, missionUnlockNotices: {},
     employeeView: 'staff', employeeDatabase, eventDatabase, projectDatabase, missionDatabase
   };
   MISSIONS = missionDatabase.map((mission) => ({

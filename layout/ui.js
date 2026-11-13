@@ -547,12 +547,13 @@ function renderModal() {
   const p = S && S.pending;
   const body = $('modal-body');
   const showMission = S && S.missionsOpen && !p && screenMode === null;
-  const showKeyHelp = S && S.keyHelpOpen && !p && !showMission && screenMode === null;
-  $('modal').classList.toggle('hidden', (!p && !showMission && !showKeyHelp) || screenMode !== null);
+  $('modal').classList.toggle('hidden', (!p && !showMission) || screenMode !== null);
   if (showMission) {
     $('modal-body').innerHTML = `<div class="modal-head"><span class="badge badge-low">ミッション</span><button class="btn-small" data-act="toggle-missions">閉じる</button></div>${missionPanel()}`;
     return;
   }
+<<<<<<< HEAD
+=======
   if (showKeyHelp) {
     $('modal-body').innerHTML = `<div class="modal-head"><span class="badge badge-low">キー操作</span><button class="btn-small" data-act="toggle-key-help">閉じる</button></div>
       <p class="muted">ゲーム中は次のキーでよく使う操作を実行できます。</p>
@@ -589,6 +590,7 @@ function renderModal() {
     $('modal').classList.remove('hidden');
     return;
   }
+>>>>>>> c90c97ea6b276968fd8f53879f82fc272ca1152b
   if (!p || screenMode !== null) return;
 
 
@@ -845,7 +847,6 @@ document.addEventListener('click', (ev) => {
     }
   }
   else if (a === 'toggle-missions') { S.missionsOpen = !S.missionsOpen; render(); }
-  else if (a === 'toggle-key-help') { S.keyHelpOpen = !S.keyHelpOpen; renderModal(); }
   else if (a === 'employee-view') { S.employeeView = el.dataset.view; render(); }
   else if (a === 'assign') { toggleAssign(Number(el.dataset.job), Number(el.dataset.emp)); render(); }
   else if (a === 'toggle-sales') { toggleSales(Number(el.dataset.id)); render(); }
@@ -951,14 +952,6 @@ document.addEventListener('keydown', (ev) => {
     activeTag === 'TEXTAREA' ||
     activeTag === 'SELECT'
   ) {
-    return;
-  }
-  if (S?.keyHelpOpen) {
-    if (ev.code === 'Escape') {
-      ev.preventDefault();
-      S.keyHelpOpen = false;
-      renderModal();
-    }
     return;
   }
   if (S?.pending && stage === 1 && Array.isArray(S.pending.choices)) {
