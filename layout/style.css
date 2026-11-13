@@ -144,6 +144,10 @@ button:focus-visible {
   font-size: 13px;
 }
 
+.hud-help {
+  margin-left: 2px;
+}
+
 /* ===== 時間バー ===== */
 .timebar {
   display: flex;
@@ -496,6 +500,30 @@ button:focus-visible {
 
 .modal .chips { margin: 4px 0 8px; }
 
+.key-help-list {
+  display: grid;
+  gap: 6px;
+  margin: 12px 0;
+}
+
+.key-help-list div {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 8px;
+  border: var(--line-thin);
+  background: var(--bg);
+}
+
+kbd {
+  min-width: 62px;
+  padding: 1px 6px;
+  border: var(--line-thin);
+  background: var(--paper);
+  text-align: center;
+  font: inherit;
+}
+
 .choice {
   display: block;
   width: 100%;
@@ -772,6 +800,7 @@ button:focus-visible {
 .inc-status .lines { margin: 4px 0; }
 .choice.has-letter { display: flex; align-items: center; gap: 10px; }
 .ch-letter { flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; border: var(--line-thin); background: var(--paper); font-size: 16px; }
+.ch-letter.space-key { width: auto; min-width: 52px; padding: 0 6px; font-size: 13px; }
 .ch-body { display: block; }
 @media (max-width: 700px) { .inc-grid { grid-template-columns: 1fr; } .inc-art { max-width: 260px; } }
 

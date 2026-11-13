@@ -515,9 +515,25 @@ async function initializeGame() {
 function renderModal() {
   const p = S && S.pending;
   const showMission = S && S.missionsOpen && !p && screenMode === null;
-  $('modal').classList.toggle('hidden', (!p && !showMission) || screenMode !== null);
+  const showKeyHelp = S && S.keyHelpOpen && !p && !showMission && screenMode === null;
+  $('modal').classList.toggle('hidden', (!p && !showMission && !showKeyHelp) || screenMode !== null);
   if (showMission) {
     $('modal-body').innerHTML = `<div class="modal-head"><span class="badge badge-low">ミッション</span><button class="btn-small" data-act="toggle-missions">閉じる</button></div>${missionPanel()}`;
+    return;
+  }
+  if (showKeyHelp) {
+    $('modal-body').innerHTML = `<div class="modal-head"><span class="badge badge-low">キー操作</span><button class="btn-small" data-act="toggle-key-help">閉じる</button></div>
+      <p class="muted">ゲーム中は次のキーでよく使う操作を実行できます。</p>
+      <div class="key-help-list">
+        <div><kbd>Space</kbd><span>時間を進める / 一時停止 / 続ける・OK</span></div>
+        <div><kbd>1</kbd><span>街</span></div>
+        <div><kbd>2</kbd><span>案件</span></div>
+        <div><kbd>3</kbd><span>社員一覧</span></div>
+        <div><kbd>4</kbd><span>投資</span></div>
+        <div><kbd>S</kbd><span>ゲーム速度を変更</span></div>
+        <div><kbd>R</kbd><span>最初からやり直す</span></div>
+      </div>
+      <p class="small muted">「最初からやり直す」は確認操作が必要です。</p>`;
     return;
   }
   if (!p || screenMode !== null) return;
@@ -527,7 +543,7 @@ function renderModal() {
     body.innerHTML = `<div class="modal-head"><span class="badge badge-low">結果</span></div><h3>${lastResult.title}</h3>
       <div class="result">${lastResult.text}</div>
       ${lastResult.lesson ? `<div class="lesson"><div class="small muted">ひとこと解説</div>${lastResult.lesson}</div>` : ''}
-      <button class="choice" data-act="continue"><strong>つづける</strong></button>`;
+      <button class="choice has-letter" data-act="continue"><span class="ch-letter space-key">Space</span><span class="ch-body"><strong>つづける</strong></span></button>`;
     return;
   }
 
@@ -537,7 +553,11 @@ function renderModal() {
     : `<div class="modal-head"><span class="badge badge-${badgeClass}">${p.badge}</span><span class="small muted">ゲーム一時停止中</span></div>`;
   const text = p.lines ? `<ul class="lines">${p.lines.map((l) => `<li>${l}</li>`).join('')}</ul>` : `<p class="muted">${p.body}</p>`;
   const chips = p.chips ? `<div class="chips">${p.chips.map((c) => `<span class="stag">${c}</span>`).join('')}</div>` : '';
-  const choices = p.choices.map((c, i) => `<button class="choice has-letter ${c.tag === 'hide' ? 'is-hide' : ''}" data-act="choice" data-i="${i}"><span class="ch-letter">${'ABCDEFG'[i]}</span><span class="ch-body"><strong>${c.label}</strong>${c.desc ? `<span class="small ${c.tag === 'hide' ? 'neg' : 'muted'}">${c.desc}</span>` : ''}</span></button>`).join('');
+  const choices = p.choices.map((c, i) => {
+    const keyLabel = p.choices.length === 1 ? 'Space' : i + 1;
+    const keyClass = p.choices.length === 1 ? 'space-key' : '';
+    return `<button class="choice has-letter ${c.tag === 'hide' ? 'is-hide' : ''}" data-act="choice" data-i="${i}"><span class="ch-letter ${keyClass}">${keyLabel}</span><span class="ch-body"><strong>${c.label}</strong>${c.desc ? `<span class="small ${c.tag === 'hide' ? 'neg' : 'muted'}">${c.desc}</span>` : ''}</span></button>`;
+  }).join('');
   body.innerHTML = head + (p.kind === 'incident' ? `<div class="inc-status"><h3>${p.title}</h3>${chips}${text}</div>` : `<h3>${p.title}</h3>${chips}${text}`) + choices;
 }
 
@@ -768,6 +788,7 @@ document.addEventListener('click', (ev) => {
     }
   }
   else if (a === 'toggle-missions') { S.missionsOpen = !S.missionsOpen; render(); }
+  else if (a === 'toggle-key-help') { S.keyHelpOpen = !S.keyHelpOpen; renderModal(); }
   else if (a === 'employee-view') { S.employeeView = el.dataset.view; render(); }
   else if (a === 'assign') { toggleAssign(Number(el.dataset.job), Number(el.dataset.emp)); render(); }
   else if (a === 'toggle-sales') { toggleSales(Number(el.dataset.id)); render(); }
@@ -811,6 +832,38 @@ document.addEventListener('keydown', (ev) => {
     activeTag === 'SELECT'
   ) {
     return;
+  }
+  if (S?.keyHelpOpen) {
+    if (ev.code === 'Escape') {
+      ev.preventDefault();
+      S.keyHelpOpen = false;
+      renderModal();
+    }
+    return;
+  }
+  if (S?.pending && stage === 1 && Array.isArray(S.pending.choices)) {
+    const choiceIndex = {
+      Digit1: 0,
+      Digit2: 1,
+      Digit3: 2
+    }[ev.code];
+    if (choiceIndex !== undefined && choiceIndex < S.pending.choices.length) {
+      ev.preventDefault();
+      onChoice(choiceIndex);
+      return;
+    }
+  }
+  if (S?.pending && ev.code === 'Space') {
+    if (stage === 2 && lastResult) {
+      ev.preventDefault();
+      nextPending();
+      return;
+    }
+    if (stage === 1 && S.pending.choices?.length === 1) {
+      ev.preventDefault();
+      onChoice(0);
+      return;
+    }
   }
   if (ev.code === 'Space') {
     ev.preventDefault();
