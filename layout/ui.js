@@ -18,7 +18,7 @@ const esc = (t) => String(t).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&
 function avatar(skill, label) {
   return `<svg class="px" viewBox="0 0 8 8" role="img" aria-label="${label}">` +
     '<rect class="skin" x="2" y="0" width="4" height="3"/><rect class="hair" x="2" y="0" width="4" height="1"/>' +
-    `<rect class="b-${skill}" x="1" y="3" width="6" height="3"/>` +
+    `<rect class="b-${skill}" x="1" y="3" width="6" height="3" fill="${skillColor(skill)}"/>` +
     '<rect class="legs" x="2" y="6" width="1" height="2"/><rect class="legs" x="5" y="6" width="1" height="2"/></svg>';
 }
 const skillTag = (sk, state) => `<span class="stag ${state || ''}" title="${SKILL_HELP[sk]}">${SKILLS[sk]}</span>`;
@@ -94,7 +94,11 @@ function seasonOf(day) {
   const month = dateOf(day).getMonth();
   return month >= 2 && month <= 4 ? 'spring' : month >= 5 && month <= 7 ? 'summer' : month >= 8 && month <= 10 ? 'autumn' : 'winter';
 }
-const SKILL_COLOR = { design: '#6dcfb2', dev: '#ffb59e', test: '#ffe08a', infra: '#9fd6f5', security: '#cbbcf3' };
+const SKILL_COLOR = { design: '#6dcfb2', dev: '#ffb59e', test: '#ffe08a', infra: '#9fd6f5', security: '#cbbcf3', sales: '#ff8fb1' };
+const SKILL_ORDER = ['design', 'dev', 'test', 'infra', 'security', 'sales'];   // 社員一覧の並び順(職種ごと)
+const skillColor = (skill) => SKILL_COLOR[skill] || '#d5d5d5';
+const bySkill = (list) => list.slice().sort((a, b) => (SKILL_ORDER.indexOf(a.skill) - SKILL_ORDER.indexOf(b.skill)) || (a.id - b.id));
+const skillLegend = () => '<div class="chips">色: ' + SKILL_ORDER.map((k) => `<span class="stag" style="background:${skillColor(k)}">${k === 'infra' ? 'テスト(運用保守)' : SKILLS[k]}</span>`).join('') + '</div>';
 // ----- 街の背景(山・ビル街・木・街灯など) -----
 const bgRect = (x, y, w, h, fill, extra = '') => `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${fill}" ${extra}/>`;
 const bgRnd = (i) => ((i * 9301 + 49297) % 233280) / 233280;   // 毎回同じ並びになる疑似乱数
@@ -629,11 +633,11 @@ function renderEmployees() {
     : `<button class="btn-small" data-act="toggle-sales" data-id="${e.id}">営業担当にする</button>`;
   const viewButton = (view) => `<button class="btn-small" data-act="employee-view" data-view="${view}">${view === 'sales' ? '営業担当を見る' : '社員一覧に戻る'}</button>`;
   if (S.employeeView === 'sales') {
-    const sales = S.employees.filter((e) => e.sales).map((e) => {
+    const sales = bySkill(S.employees.filter((e) => e.sales)).map((e) => {
       const resting = e.salesCooldownUntil > S.day;
       const status = resting ? `営業休止中（あと${e.salesCooldownUntil - S.day}日）` : '営業活動中';
       return `<div class="employee-card">
-        <div class="employee-card-head"><div class="employee-avatar">${avatar(e.skill, e.name + 'のドット絵')}</div><div><div class="small muted">社員 / 営業担当</div><strong class="employee-name">${e.name}</strong><span class="employee-skill">${SKILLS[e.skill]}</span></div></div>
+        <div class="employee-card-head" style="background:${skillColor(e.skill)}"><div class="employee-avatar">${avatar(e.skill, e.name + 'のドット絵')}</div><div><div class="small muted">社員 / 営業担当</div><strong class="employee-name">${e.name}</strong><span class="employee-skill">${SKILLS[e.skill]}</span></div></div>
         ${isAbsent(e) ? employeeStatusMarkup(e) : `<div class="employee-status">${status}</div>`}<div class="employee-info"><span>営業力</span><strong>${e.salesSkill}/100</strong></div>
         <div class="small">${employeeStats(e)}</div><div class="small muted">案件獲得率 ${salesSuccessRate(e.salesSkill)}%（基礎30%） / 獲得後1〜3か月休止</div>
         <div class="employee-actions">${salesButton(e)}</div></div>`;
@@ -643,14 +647,15 @@ function renderEmployees() {
       <h3>営業担当</h3><div class="employee-grid">${sales}</div>`;
     return;
   }
-  const cards = S.employees.filter((e) => !e.sales).map((e) => {
+  const cards = bySkill(S.employees.filter((e) => !e.sales)).map((e) => {
     return `<div class="employee-card">
-      <div class="employee-card-head"><div class="employee-avatar">${avatar(e.skill, e.name + 'のドット絵')}</div><div><div class="small muted">社員</div><strong class="employee-name">${e.name}</strong><span class="employee-skill">${SKILLS[e.skill]}</span></div></div>
+      <div class="employee-card-head" style="background:${skillColor(e.skill)}"><div class="employee-avatar">${avatar(e.skill, e.name + 'のドット絵')}</div><div><div class="small muted">社員</div><strong class="employee-name">${e.name}</strong><span class="employee-skill">${SKILLS[e.skill]}</span></div></div>
       <div class="small employee-help">${SKILL_HELP[e.skill]}</div>${employeeStatusMarkup(e)}
       <div class="employee-info"><span>月給</span><strong>${yen(e.salary)}</strong></div><div class="small">営業力 ${e.salesSkill}/100</div><div class="small">${employeeStats(e)}</div>
       <div class="employee-actions">${salesButton(e)}</div></div>`;
   }).join('') || '<div class="card muted">営業担当以外の社員がいません。営業担当を見るボタンから確認できます。</div>';
   $('employees-body').innerHTML = `<div class="row"><h2>社員一覧 <span class="muted small">${S.employees.length} / ${slots}人</span></h2><div>${viewButton('sales')} <button class="btn-small" data-go="upgrades">社員強化</button></div></div>
+    ${skillLegend()}
     <p class="small muted legend">社員のスキルや担当案件を確認できます。営業担当は毎月、基礎30%に営業力を加味した確率で1〜3件の案件を獲得し、獲得後1〜3か月休みます。</p><div class="employee-grid">${cards}</div>`;
 }
 
@@ -672,9 +677,9 @@ function renderRecruit() {
   }
   const slots = levelInfo().slots;
   const free = slots - S.employees.length;
-  const staff = S.employees.map((e) => {
+  const staff = bySkill(S.employees).map((e) => {
     return `<div class="employee-card">
-      <div class="employee-card-head"><div class="employee-avatar">${avatar(e.skill, e.name + 'のドット絵')}</div><div><div class="small muted">社員</div><strong class="employee-name">${e.name}</strong><span class="employee-skill">${SKILLS[e.skill]}</span></div></div>
+      <div class="employee-card-head" style="background:${skillColor(e.skill)}"><div class="employee-avatar">${avatar(e.skill, e.name + 'のドット絵')}</div><div><div class="small muted">社員</div><strong class="employee-name">${e.name}</strong><span class="employee-skill">${SKILLS[e.skill]}</span></div></div>
       <div class="small employee-help">${SKILL_HELP[e.skill]}</div>${employeeStatusMarkup(e)}
       <div class="employee-info"><span>月給</span><strong>${yen(e.salary)}</strong></div><div class="small">営業力 ${e.salesSkill}/100</div><div class="small">${employeeStats(e)}</div>
     </div>`;
@@ -702,7 +707,7 @@ function renderRecruit() {
 
 // ----- 社員強化一覧 -----
 function renderUpgrades() {
-  const cards = S.employees.map((e) => {
+  const cards = bySkill(S.employees).map((e) => {
     const statKey = EMPLOYEE_SPECIALTY_STATS[e.skill];
     const currentStat = statKey ? (e.stats?.[statKey] ?? 0) : 0;
     const maxed = currentStat >= 100;
