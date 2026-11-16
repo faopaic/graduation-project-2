@@ -219,6 +219,15 @@ button[data-key]::after {
   min-height: 440px;
 }
 
+/* 画面の大きさを固定(ホームの高さに合わせる)。中身が長いページは、枠の中でスクロールする */
+@media (min-width: 701px) {
+  .main {
+    /* ホームの高さに合わせる。ただし、ブラウザの高さに入りきらないときは、そこまで小さくする(下限 480px) */
+    height: max(480px, min(calc(min(100vw, 940px) / 2 + 410px), calc(100vh - 150px)));
+    overflow-y: auto;
+  }
+}
+
 .alert,
 .hint {
   display: flex;
@@ -361,7 +370,6 @@ button[data-key]::after {
 .chip .small { margin-left: 3px; color: var(--ink-sub); }
 .chip.on { background: var(--main); }
 .chip.busy { border-style: dashed; color: var(--ink-sub); }
-.chip.other-job { background: var(--hl); }
 .chip.away { background: var(--alert); }
 
 /* ===== 右の目標パネル ===== */
