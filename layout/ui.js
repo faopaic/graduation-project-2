@@ -490,6 +490,26 @@ function renderHome() {
     + '<button class="btn-small mission-toggle" data-act="toggle-missions">ミッションを見る</button>';
 }
 
+function renderTimeline() {
+  const timeline = $('event-timeline');
+  const timelineScrollTop = timeline ? timeline.scrollTop : 0;
+  const entries = S.log.map((entry) => {
+    const kind = entry.kind || 'info';
+    const kindLabel = kind === 'good' ? '達成' : kind === 'bad' ? '注意' : kind === 'warn' ? '警告' : '記録';
+    return `<li class="timeline-entry timeline-entry-${kind}">
+      <span class="timeline-date">${dateLabel(entry.day)}</span>
+      <span class="timeline-kind">${kindLabel}</span>
+      <span class="timeline-text">${entry.text}</span>
+    </li>`;
+  }).join('');
+  $('timeline-container').innerHTML = `<div class="timeline-panel panel">
+    <div class="panel-title">会社の歩み</div>
+    <button class="timeline-latest" data-act="timeline-latest" title="最新の歩みに移動" aria-label="最新の歩みに移動">↑</button>
+    <ol id="event-timeline" class="event-timeline">${entries || '<li class="timeline-empty">まだ記録がありません。</li>'}</ol>
+  </div>`;
+  $('event-timeline').scrollTop = timelineScrollTop;
+}
+
 function hintText() {
   if (S.counts.accepted === 0) return '最初の一歩: 下の「案件」ページで、最初の案件を受注しよう。まずは難易度が低い案件がおすすめ。';
   if (S.jobs.length === 0) return '案件がない間も、給料は出ていく。「案件」ページで、次の案件を受注しよう。';
@@ -804,6 +824,7 @@ function render() {
   renderRecruit();
   renderUpgrades();
   renderInvestEvent();
+  renderTimeline();
   renderTrack();
   updateLive();
   renderModal();
@@ -1137,6 +1158,10 @@ document.addEventListener('click', (ev) => {
     if (resetArmed) { resetArmed = false; el.textContent = '最初から'; restart(); return; }
     resetArmed = true; el.textContent = '本当に?';
     setTimeout(() => { resetArmed = false; el.textContent = '最初から'; }, 3000);
+    return;
+  }
+  if (a === 'timeline-latest') {
+    $('event-timeline').scrollTop = 0;
     return;
   }
   if (screenMode !== null) return;
