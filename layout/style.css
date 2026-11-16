@@ -795,6 +795,7 @@ button[data-key]::after {
 .inc-status .lines { margin: 4px 0; }
 .choice.has-letter { display: flex; align-items: center; gap: 10px; }
 .ch-letter { flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; border: var(--line-thin); background: var(--paper); font-size: 16px; }
+.ch-letter.space-key { width: auto; min-width: 62px; padding: 0 6px; }
 .ch-body { display: block; }
 @media (max-width: 700px) { .inc-grid { grid-template-columns: 1fr; } .inc-art { max-width: 260px; } }
 

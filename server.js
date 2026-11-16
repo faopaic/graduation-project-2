@@ -79,9 +79,9 @@ app.get('/api/events', async (req, res) => {
         triggerCondition: event.trigger_condition,
         occurrenceRate: Number(event.occurrence_rate) || 0,
         choices: [
-            { label: event.choice_a, effects: event.choice_a_effects },
-            { label: event.choice_b, effects: event.choice_b_effects },
-            { label: event.choice_c, effects: event.choice_c_effects }
+            { label: event.choice_a, effects: event.choice_a_effects, lesson: event.choice_a_comment },
+            { label: event.choice_b, effects: event.choice_b_effects, lesson: event.choice_b_comment },
+            { label: event.choice_c, effects: event.choice_c_effects, lesson: event.choice_c_comment }
         ].filter((choice) => choice.label)
     })));
 });

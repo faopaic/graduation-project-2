@@ -582,6 +582,7 @@ function buildDatabaseEvent(event, job) {
     choices: choices.map((choice) => ({
       label: choice.label,
       tag: 'other',
+      lesson: choice.lesson || '',
       apply() {
         const applied = applyDatabaseEventEffects(choice.effects || {}, job);
         return applied.length ? `${choice.label}。${applied.join('、')}。` : `${choice.label}。`;
@@ -720,5 +721,5 @@ function resolve(idx) {
   checkMissionRewards();
   S.dirty = true;
   checkEnd();
-  return { text, lesson: p.lesson || '', title: p.title, kind: p.kind };
+  return { text, lesson: c.lesson || p.lesson || '', title: p.title, kind: p.kind };
 }
