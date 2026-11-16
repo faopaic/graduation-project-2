@@ -361,6 +361,7 @@ button[data-key]::after {
 .chip .small { margin-left: 3px; color: var(--ink-sub); }
 .chip.on { background: var(--main); }
 .chip.busy { border-style: dashed; color: var(--ink-sub); }
+.chip.other-job { background: var(--hl); }
 .chip.away { background: var(--alert); }
 
 /* ===== 右の目標パネル ===== */
