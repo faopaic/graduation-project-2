@@ -664,15 +664,16 @@ function renderRecruit() {
   const priorityRecruiting = S.recruitContractActive;
   const eventTitle = priorityRecruiting ? '優先採用イベント' : '採用イベント';
   if (S.recruitStage === 'confirm') {
-    $('recruit-body').innerHTML = `<h2>${eventTitle}</h2>
-      <div class="card">
-        <p>${priorityRecruiting ? `${SKILLS[S.recruitContractJobType]}の求職者が紹介されました。` : '新しい求職者が来ました。候補者を確認して、採用活動を行いますか?'}</p>
-        <p class="small muted">採用しない場合でも、あとで別の採用イベントが発生します。</p>
-        <div class="row gap-top">
-          <button class="btn-main" data-act="open-recruit">候補者を見る</button>
-          <button class="btn-small" data-act="finish-recruit">今回は見送る</button>
-        </div>
-      </div>`;
+    $('recruit-body').innerHTML = `<div class="card recruit-event">
+      <div class="modal-head"><span class="badge badge-high">${eventTitle}</span><span class="small muted">ゲーム一時停止中</span></div>
+      <h3>${eventTitle}</h3>
+      <p class="muted">${priorityRecruiting ? `${SKILLS[S.recruitContractJobType]}の求職者が紹介されました。` : '新しい求職者が来ました。候補者を確認して、採用活動を行いますか?'}</p>
+      <p class="small muted">採用する場合は候補者一覧から採用者を選択できます。</p>
+      <div class="choices">
+        <button class="choice has-letter" data-act="open-recruit"><span class="ch-letter">1</span><span class="ch-body"><strong>採用する</strong></span></button>
+        <button class="choice has-letter is-hide" data-act="finish-recruit"><span class="ch-letter">2</span><span class="ch-body"><strong>見送る</strong></span></button>
+      </div>
+    </div>`;
     return;
   }
   const slots = levelInfo().slots;
@@ -883,9 +884,22 @@ function renderModal() {
   const p = S && S.pending;
   const body = $('modal-body');
   const showMission = S && S.missionsOpen && !p && screenMode === null;
-  $('modal').classList.toggle('hidden', (!p && !showMission) || screenMode !== null);
+  const showRecruitment = S && S.recruiting && S.recruitStage === 'confirm' && !p && screenMode === null;
+  $('modal').classList.toggle('hidden', (!p && !showMission && !showRecruitment) || screenMode !== null);
   if (showMission) {
     $('modal-body').innerHTML = `<div class="modal-head"><span class="badge badge-low">ミッション</span><button class="btn-small" data-act="toggle-missions">閉じる</button></div>${missionPanel()}`;
+    return;
+  }
+  if (showRecruitment) {
+    const priorityRecruiting = S.recruitContractActive;
+    const eventTitle = priorityRecruiting ? '優先採用イベント' : '採用イベント';
+    body.innerHTML = `<div class="inc-head"><span class="inc-title">⚠ ${eventTitle}が発生!</span><span class="small">ゲーム一時停止中</span></div>
+      <div class="inc-status"><h3>${eventTitle}</h3>
+        <p class="muted">${priorityRecruiting ? `${SKILLS[S.recruitContractJobType]}の求職者が紹介されました。` : '新しい求職者が来ました。候補者を確認して、採用活動を行いますか?'}</p>
+        <p class="small muted">採用する場合は候補者一覧から採用者を選択できます。</p>
+      </div>
+      <button class="choice has-letter" data-act="open-recruit"><span class="ch-letter">1</span><span class="ch-body"><strong>採用する</strong></span></button>
+      <button class="choice has-letter is-hide" data-act="finish-recruit"><span class="ch-letter">2</span><span class="ch-body"><strong>見送る</strong></span></button>`;
     return;
   }
   if (S.recruitSelectingJob) {
@@ -1088,7 +1102,6 @@ function afterTick() {
       S.pending = null;
     }
     S.playing = false;
-    showPage('recruit');
   }
   if (S.dirty) render(); else updateLive();
 }
@@ -1182,7 +1195,7 @@ document.addEventListener('click', (ev) => {
   }
   else if (a === 'finish-assignment') { S.assignmentJobId = null; showPage('home', true); render(); }
   else if (a === 'hire') { done(hire(Number(el.dataset.id))); }
-  else if (a === 'open-recruit') { S.recruitStage = 'candidates'; render(); }
+  else if (a === 'open-recruit') { S.recruitStage = 'candidates'; showPage('recruit', true); render(); }
   else if (a === 'open-staff') { S.recruitStage = 'staff'; render(); }
   else if (a === 'back-recruit') { S.recruitStage = 'candidates'; render(); }
   else if (a === 'finish-recruit') {
@@ -1281,6 +1294,18 @@ document.addEventListener('keydown', (ev) => {
     activeTag === 'SELECT'
   ) {
     return;
+  }
+  if (S?.recruiting && S.recruitStage === 'confirm') {
+    if (ev.code === 'Digit1') {
+      ev.preventDefault();
+      document.querySelector('[data-act="open-recruit"]')?.click();
+      return;
+    }
+    if (ev.code === 'Digit2') {
+      ev.preventDefault();
+      document.querySelector('[data-act="finish-recruit"]')?.click();
+      return;
+    }
   }
   if (S?.pending && stage === 1 && Array.isArray(S.pending.choices)) {
     const choiceIndex = {

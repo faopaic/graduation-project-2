@@ -363,6 +363,47 @@ function hire(id) {
   return { ok: true, msg: `${c.name}が入社した。月の支出が${yen(c.salary)}増える` };
 }
 
+function availableDatabaseEmployees() {
+  return S.employeeDatabase.filter((record) =>
+    !S.employees.some((employee) => String(employee.sourceId) === String(record.id))
+  );
+}
+
+function recruitDatabaseEmployee(eventName) {
+  if (S.employees.length >= levelInfo().slots) return null;
+  const available = availableDatabaseEmployees();
+  if (!available.length) return null;
+
+  const nonSales = available.filter((record) => !record.sales && record.skill !== 'sales');
+  let record;
+  if (eventName === '優秀な人材の応募') {
+    const qualified = nonSales.filter((candidate) =>
+      Math.max(...Object.values(candidate.stats || {}).map((value) => Number(value) || 0), 0) >= 50
+    );
+    if (!qualified.length) return null;
+    record = pick(qualified);
+  } else {
+    record = pick(available);
+  }
+
+  const employee = addEmployee(
+    record.name,
+    record.skill,
+    record.salesSkill,
+    record.stats,
+    record.id,
+    record.salary,
+    record.sales
+  );
+  S.candidates = S.candidates.filter((candidate) => String(candidate.sourceId) !== String(record.id));
+  S.counts.hired++;
+  checkMissionRewards();
+  log(`${employee.name}(${SKILLS[employee.skill]})を採用した`);
+  autoAssign();
+  S.dirty = true;
+  return employee;
+}
+
 function runSales() {
   S.employees.filter((e) => e.sales && !isAbsent(e) && S.day >= e.salesCooldownUntil).forEach((e) => {
     if (rand() * 100 >= salesSuccessRate(e.salesSkill)) return;
@@ -584,7 +625,23 @@ function buildDatabaseEvent(event, job) {
       tag: 'other',
       lesson: choice.lesson || '',
       apply() {
-        const applied = applyDatabaseEventEffects(choice.effects || {}, job);
+        const effects = choice.effects || {};
+        const employeeCount = Math.max(0, Math.floor(Number(effects.employee) || 0));
+        if (
+          employeeCount > 0
+          && (S.employees.length + employeeCount > levelInfo().slots
+            || availableDatabaseEmployees().length < employeeCount)
+        ) {
+          return `${choice.label}。採用枠または採用可能な社員がいないため、採用できませんでした。`;
+        }
+        const recruited = [];
+        for (let i = 0; i < employeeCount; i++) {
+          const employee = recruitDatabaseEmployee(event.name);
+          if (!employee) return `${choice.label}。採用枠または採用可能な社員がいないため、採用できませんでした。`;
+          recruited.push(employee);
+        }
+        const applied = applyDatabaseEventEffects(effects, job);
+        recruited.forEach((employee) => applied.push(`${employee.name}を採用`));
         return applied.length ? `${choice.label}。${applied.join('、')}。` : `${choice.label}。`;
       }
     })),
