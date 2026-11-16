@@ -704,10 +704,9 @@ button[data-key]::after {
 .offer { border: var(--line); background: var(--paper); padding: 0 0 10px; display: flex; flex-direction: column; }
 .offer > *:not(.offer-head) { margin-left: 12px; margin-right: 12px; }
 .offer-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 10px 12px; border-bottom: var(--line); font-size: 15px; }
-.offer-web .offer-head { background: var(--sky); }
-.offer-app .offer-head { background: var(--main); }
-.offer-sys .offer-head { background: var(--lav); }
-.offer-big .offer-head { background: var(--hl); }
+.offer-diff-1 .offer-head { background: var(--sky); }
+.offer-diff-2 .offer-head { background: var(--lav); }
+.offer-diff-3 .offer-head { background: var(--hl); }
 .offer-tag { padding: 0 8px; border: var(--line-thin); background: var(--paper); font-size: 11px; white-space: nowrap; }
 .offer-big { margin-top: 6px; text-align: center; font-size: 12px; color: var(--alert-ink, #c2453a); }
 .offer-row { display: flex; align-items: baseline; gap: 10px; margin-top: 6px; }

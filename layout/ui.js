@@ -572,17 +572,21 @@ function renderJobs() {
   const info = levelInfo();
   const list = S.offers.map(offerCard).join('') || '<div class="card muted">いまは募集がない。しばらく待とう。</div>';
   $('jobs-body').innerHTML = `<h2>案件を選ぶ <span class="muted small">同時進行 ${S.jobs.length}/${info.jobs}件</span></h2>
+    <p class="small muted legend">案件は会社Lvに応じて募集されます。低難易度を5件成功すると中難易度、中難易度を3件成功すると高難易度が解放されます（現在: 会社Lv.${S.level} / 低難易度成功 ${S.lowDifficultySuccesses}/5 / 中難易度成功 ${S.mediumDifficultySuccesses}/3）。</p>
     <p class="small muted legend">割り当てた社員のスキル別能力値の合計が要求値以上: 緑=達成 / 赤=未達。スキルが合わない社員は、半分の力で手伝う。</p>${list}`;
 }
 
 function offerCard(o) {
-  const locked = S.rep < o.minRep;
+  const unlockReason = projectUnlockReason(o);
+  const locked = S.rep < o.minRep || Boolean(unlockReason);
   const req = requirementSkills(o).map((sk) => skillTag(sk,
     meetsRequirement(o, sk, S.employees) ? 'ok' : 'ng'
   )).join('');
   const kind = o.diff >= 3 ? 'big' : o.skills.length <= 2 ? 'web' : 'sys';
-  const right = locked ? `<span class="offer-lock">評判${o.minRep}で解放</span>` : `<button class="act" data-act="accept" data-id="${o.id}">受注する</button>`;
-  return `<div class="offer offer-${kind} ${locked ? 'locked' : ''}">
+  const difficultyClass = `offer-diff-${Number(o.diff)}`;
+  const lockReason = unlockReason || `評判${o.minRep}で解放`;
+  const right = locked ? `<span class="offer-lock">${lockReason}</span>` : `<button class="act" data-act="accept" data-id="${o.id}">受注する</button>`;
+  return `<div class="offer offer-${kind} ${difficultyClass} ${locked ? 'locked' : ''}">
     <div class="offer-head"><strong>${o.name}</strong><span class="offer-tag">${o.diff >= 3 ? '大規模' : '案件'}</span></div>
     ${o.diff >= 3 ? '<div class="offer-big">★ 大規模案件 ★</div>' : ''}
     <div class="offer-row"><span class="muted small">難易度</span><span class="stars">${'★'.repeat(o.diff)}${'☆'.repeat(3 - o.diff)}</span><span class="small">${DIFF_LABEL[o.diff]}</span></div>
