@@ -505,7 +505,7 @@ function tick() {
   S.offers = S.offers.filter((o) => o.expires > S.day);
   if (S.offers.length !== before) S.dirty = true;
   if (S.day >= S.nextOfferDay) { newOffer(); S.nextOfferDay = S.day + ri(14, 24); }
-  if (S.day >= S.nextCandDay) {
+  if (S.day >= S.nextCandDay && S.employees.length < levelInfo().slots) {
     refreshCandidates(S.recruitContractActive ? S.recruitContractJobType : null);
     S.nextCandDay = S.day + 60;
     S.recruitmentEvent = true;
