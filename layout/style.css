@@ -219,6 +219,14 @@ button[data-key]::after {
   min-height: 440px;
 }
 
+/* 画面の大きさを固定(ホームの高さに合わせる)。中身が長いページは、枠の中でスクロールする */
+@media (min-width: 701px) {
+  .main {
+    height: calc(min(100vw, 940px) / 2 + 410px);
+    overflow-y: auto;
+  }
+}
+
 .alert,
 .hint {
   display: flex;
@@ -296,7 +304,7 @@ button[data-key]::after {
 .px .b-design { fill: var(--main); }
 .px .b-dev { fill: var(--sub); }
 .px .b-test { fill: var(--hl); }
-
+.px .b-infra { fill: var(--sky); }
 .px .b-security { fill: var(--lav); }
 
 .who {
@@ -361,7 +369,6 @@ button[data-key]::after {
 .chip .small { margin-left: 3px; color: var(--ink-sub); }
 .chip.on { background: var(--main); }
 .chip.busy { border-style: dashed; color: var(--ink-sub); }
-.chip.other-job { background: var(--hl); }
 .chip.away { background: var(--alert); }
 
 /* ===== 右の目標パネル ===== */
@@ -659,7 +666,7 @@ button[data-key]::after {
 .town-scene .b-design { fill: var(--main); }
 .town-scene .b-dev { fill: var(--sub); }
 .town-scene .b-test { fill: var(--hl); }
-
+.town-scene .b-infra { fill: var(--sky); }
 .town-scene .b-security { fill: var(--lav); }
 .walker { animation: walk var(--t, 20s) linear infinite alternate; animation-delay: var(--delay, 0s); }
 @keyframes walk { from { transform: translateX(0); } to { transform: translateX(var(--w, 60px)); } }
