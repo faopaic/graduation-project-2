@@ -219,6 +219,15 @@ button[data-key]::after {
   min-height: 440px;
 }
 
+/* 画面の大きさを固定(ホームの高さに合わせる)。中身が長いページは、枠の中でスクロールする */
+@media (min-width: 701px) {
+  .main {
+    /* ホームの高さに合わせる。ただし、ブラウザの高さに入りきらないときは、そこまで小さくする(下限 480px) */
+    height: max(480px, min(calc(min(100vw, 940px) / 2 + 410px), calc(100vh - 150px)));
+    overflow-y: auto;
+  }
+}
+
 .alert,
 .hint {
   display: flex;
@@ -296,7 +305,7 @@ button[data-key]::after {
 .px .b-design { fill: var(--main); }
 .px .b-dev { fill: var(--sub); }
 .px .b-test { fill: var(--hl); }
-
+.px .b-infra { fill: var(--sky); }
 .px .b-security { fill: var(--lav); }
 
 .who {
@@ -339,6 +348,7 @@ button[data-key]::after {
 .fill {
   height: 100%;
   background: var(--main);
+  transition: width 0.3s ease-out;
 }
 
 .fill.fill-warn { background: var(--sub); }
@@ -361,7 +371,6 @@ button[data-key]::after {
 .chip .small { margin-left: 3px; color: var(--ink-sub); }
 .chip.on { background: var(--main); }
 .chip.busy { border-style: dashed; color: var(--ink-sub); }
-.chip.other-job { background: var(--hl); }
 .chip.away { background: var(--alert); }
 
 /* ===== 右の目標パネル ===== */
@@ -545,6 +554,57 @@ button[data-key]::after {
   background: var(--hl);
 }
 
+.timeline-panel {
+  position: fixed;
+  top: 110px;
+  left: calc(50% + 490px);
+  width: 300px;
+  min-width: 0;
+}
+.timeline-latest {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  padding: 0 7px;
+  line-height: 1.2;
+}
+.timeline-panel .panel-title { margin-bottom: 8px; }
+.event-timeline {
+  display: grid;
+  gap: 6px;
+  height: 480px;
+  margin: 0;
+  padding: 0 6px 0 0;
+  overflow-y: auto;
+  list-style: none;
+  align-content: start;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.event-timeline::-webkit-scrollbar { display: none; }
+.timeline-entry {
+  display: grid;
+  grid-template-columns: max-content max-content minmax(0, 1fr);
+  gap: 6px;
+  align-items: baseline;
+  padding: 5px 0;
+  border-bottom: var(--line-thin);
+  font-size: 12px;
+}
+.timeline-entry:last-child { border-bottom: 0; }
+.timeline-date,
+.timeline-kind { color: var(--muted); white-space: nowrap; }
+.timeline-kind {
+  padding: 1px 4px;
+  border: var(--line-thin);
+  background: var(--paper);
+}
+.timeline-entry-good .timeline-kind { background: var(--good); }
+.timeline-entry-bad .timeline-kind { background: var(--alert); }
+.timeline-entry-warn .timeline-kind { background: var(--hl); }
+.timeline-text { min-width: 0; overflow-wrap: anywhere; }
+.timeline-empty { padding: 8px 0; color: var(--muted); }
+
 .result {
   margin: 10px 0;
   padding: 10px 12px;
@@ -637,6 +697,15 @@ button[data-key]::after {
   .timeline { flex-basis: 100%; order: 3; }
 }
 
+@media (max-width: 1280px) {
+  .timeline-panel {
+    position: static;
+    width: auto;
+    margin-top: 12px;
+    height: auto;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; animation: none !important; }
 }
@@ -659,7 +728,7 @@ button[data-key]::after {
 .town-scene .b-design { fill: var(--main); }
 .town-scene .b-dev { fill: var(--sub); }
 .town-scene .b-test { fill: var(--hl); }
-
+.town-scene .b-infra { fill: var(--sky); }
 .town-scene .b-security { fill: var(--lav); }
 .walker { animation: walk var(--t, 20s) linear infinite alternate; animation-delay: var(--delay, 0s); }
 @keyframes walk { from { transform: translateX(0); } to { transform: translateX(var(--w, 60px)); } }
@@ -704,10 +773,9 @@ button[data-key]::after {
 .offer { border: var(--line); background: var(--paper); padding: 0 0 10px; display: flex; flex-direction: column; }
 .offer > *:not(.offer-head) { margin-left: 12px; margin-right: 12px; }
 .offer-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 10px 12px; border-bottom: var(--line); font-size: 15px; }
-.offer-web .offer-head { background: var(--sky); }
-.offer-app .offer-head { background: var(--main); }
-.offer-sys .offer-head { background: var(--lav); }
-.offer-big .offer-head { background: var(--hl); }
+.offer-diff-1 .offer-head { background: var(--sky); }
+.offer-diff-2 .offer-head { background: var(--lav); }
+.offer-diff-3 .offer-head { background: var(--hl); }
 .offer-tag { padding: 0 8px; border: var(--line-thin); background: var(--paper); font-size: 11px; white-space: nowrap; }
 .offer-big { margin-top: 6px; text-align: center; font-size: 12px; color: var(--alert-ink, #c2453a); }
 .offer-row { display: flex; align-items: baseline; gap: 10px; margin-top: 6px; }

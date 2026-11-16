@@ -27,6 +27,19 @@ let S = null;
 const levelInfo = () => LEVELS[S.level - 1];
 const empById = (id) => S.employees.find((e) => e.id === id);
 const jobById = (id) => S.jobs.find((j) => j.id === id);
+function projectUnlockReason(project) {
+  const requiredLevel = Math.min(3, Math.max(1, Number(project.diff) || 1));
+  const requirements = [];
+  if (S.level < requiredLevel) requirements.push(`会社Lv.${requiredLevel}`);
+  if (Number(project.diff) === 2 && S.lowDifficultySuccesses < 5) {
+    requirements.push(`低難易度案件を5件成功（${S.lowDifficultySuccesses}/5）`);
+  }
+  if (Number(project.diff) >= 3 && S.mediumDifficultySuccesses < 3) {
+    requirements.push(`中難易度案件を3件成功（${S.mediumDifficultySuccesses}/3）`);
+  }
+  return requirements.length ? `${requirements.join(' / ')}で解放` : '';
+}
+const isProjectUnlocked = (project) => !projectUnlockReason(project);
 const isAbsent = (e) => S.day < e.absentUntil;
 const isWorking = (e) => !isAbsent(e) || S.day < e.coveredUntil;
 function employeeStatValue(employee, skill) {
@@ -86,7 +99,9 @@ function newGame(
     day: 0, 
     money: getStartMoney(CONFIG.startMoney,difficulty),
     rep: CONFIG.startRep, level: 1,
-    done: 0, successes: 0, advancedSuccesses: 0, experience: 0, big: 0,
+    done: 0, successes: 0, advancedSuccesses: 0,
+    lowDifficultySuccesses: 0, mediumDifficultySuccesses: 0,
+    experience: 0, big: 0,
     recruitContractCount: 0,recruitContractActive: false,recruitContractJobType: null,recruitSelectingJob: false,
     difficulty,
     employees: [], jobs: [], offers: [], candidates: [],
@@ -108,8 +123,9 @@ function newGame(
   console.log('開始資金', S.money);
   const initialStaff = selectInitialStaff(employeeDatabase);
   initialStaff.forEach((s) => addEmployee(s.name, s.skill, s.salesSkill, s.stats, s.id || s.sourceId, s.salary, false));
-  const developmentProject = projectDatabase.find((template) => template.skills.includes('dev'));
-  const designProject = projectDatabase.find((template) => template.skills.includes('design'));
+  const availableProjects = projectDatabase.filter(isProjectUnlocked);
+  const developmentProject = availableProjects.find((template) => template.skills.includes('dev'));
+  const designProject = availableProjects.find((template) => template.skills.includes('design'));
   const initialProjects = [];
   if (developmentProject) initialProjects.push({ template: developmentProject });
   if (designProject && designProject.id !== developmentProject?.id) {
@@ -145,7 +161,7 @@ function newGame(
     }
     return Number(progress[conditionType]) || 0;
   }
-  const remainingProjects = projectDatabase.filter((template) =>
+  const remainingProjects = availableProjects.filter((template) =>
     !initialProjects.some((initial) => initial.template.id === template.id)
   );
   const randomProject = remainingProjects.length ? pick(remainingProjects) : null;
@@ -219,11 +235,15 @@ function newOffer(tid, skillsOverride) {
   if (tid) {
     t = S.projectDatabase.find((x) => x.id === tid);
   } else {
-    const ok = S.projectDatabase.filter((x) => x.minRep <= S.rep + 30 && S.offers.filter((o) => o.tid === x.id).length < 2);
+    const ok = S.projectDatabase.filter((x) =>
+      isProjectUnlocked(x)
+      && x.minRep <= S.rep + 30
+      && S.offers.filter((o) => o.tid === x.id).length < 2
+    );
     if (!ok.length) return;
     t = pick(ok);
   }
-  if (!t) return;
+  if (!t || !isProjectUnlocked(t)) return;
   const reward = Math.round(t.reward * (0.9 + rand() * 0.2) / 10000) * 10000;
   S.offers.push({
     id: newId(), tid: t.id, name: t.name, diff: t.diff, reward, days: t.days, work: t.work,
@@ -237,6 +257,8 @@ function newOffer(tid, skillsOverride) {
 function acceptOffer(id) {
   const o = S.offers.find((x) => x.id === id);
   if (!o) return { ok: false, msg: 'この案件は、募集が終わった' };
+  const unlockReason = projectUnlockReason(o);
+  if (unlockReason) return { ok: false, msg: unlockReason };
   if (S.rep < o.minRep) return { ok: false, msg: `評判が${o.minRep}になると受注できる` };
   if (S.jobs.length >= levelInfo().jobs) return { ok: false, msg: `同時に受けられるのは${levelInfo().jobs}件まで` };
   S.offers = S.offers.filter((x) => x.id !== id);
@@ -680,6 +702,8 @@ function completeJob(job) {
   if (success) {
     S.successes++;
     if (job.diff >= 2) S.advancedSuccesses++;
+    if (job.diff === 1) S.lowDifficultySuccesses++;
+    if (job.diff === 2) S.mediumDifficultySuccesses++;
     S.experience += job.diff * 10;
   }
   if (job.diff === 3 && success) S.big++;

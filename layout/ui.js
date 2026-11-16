@@ -28,7 +28,11 @@ const seg = (cur, max, cells) => {
   return '<div class="seg">' + Array.from({ length: cells }, (_, i) => `<span class="${i < on ? 'on' : ''}"></span>`).join('') + '</div>';
 };
 const leftText = (job) => { const l = remainDays(job); return l >= 0 ? `残り${l}日` : `${-l}日遅れ`; };
-const progressPct = (job) => Math.min(100, Math.floor(job.progress / job.work * 100));
+const progressPct = (job) => {
+  if (job.work <= 0) return 0;
+  if (job.progress >= job.work) return 100;
+  return Math.min(99, Math.max(0, Math.floor(job.progress / job.work * 100)));
+};
 const employeeStats = (e) => Object.entries(EMPLOYEE_STAT_LABELS)
   .map(([key, label]) => `${label} ${e.stats?.[key] ?? 0}/100`).join(' / ');
 const employeeStatus = (e) => {
@@ -490,6 +494,26 @@ function renderHome() {
     + '<button class="btn-small mission-toggle" data-act="toggle-missions">ミッションを見る</button>';
 }
 
+function renderTimeline() {
+  const timeline = $('event-timeline');
+  const timelineScrollTop = timeline ? timeline.scrollTop : 0;
+  const entries = S.log.map((entry) => {
+    const kind = entry.kind || 'info';
+    const kindLabel = kind === 'good' ? '達成' : kind === 'bad' ? '注意' : kind === 'warn' ? '警告' : '記録';
+    return `<li class="timeline-entry timeline-entry-${kind}">
+      <span class="timeline-date">${dateLabel(entry.day)}</span>
+      <span class="timeline-kind">${kindLabel}</span>
+      <span class="timeline-text">${entry.text}</span>
+    </li>`;
+  }).join('');
+  $('timeline-container').innerHTML = `<div class="timeline-panel panel">
+    <div class="panel-title">会社の歩み</div>
+    <button class="timeline-latest" data-act="timeline-latest" title="最新の歩みに移動" aria-label="最新の歩みに移動">↑</button>
+    <ol id="event-timeline" class="event-timeline">${entries || '<li class="timeline-empty">まだ記録がありません。</li>'}</ol>
+  </div>`;
+  $('event-timeline').scrollTop = timelineScrollTop;
+}
+
 function hintText() {
   if (S.counts.accepted === 0) return '最初の一歩: 下の「案件」ページで、最初の案件を受注しよう。まずは難易度が低い案件がおすすめ。';
   if (S.jobs.length === 0) return '案件がない間も、給料は出ていく。「案件」ページで、次の案件を受注しよう。';
@@ -572,17 +596,21 @@ function renderJobs() {
   const info = levelInfo();
   const list = S.offers.map(offerCard).join('') || '<div class="card muted">いまは募集がない。しばらく待とう。</div>';
   $('jobs-body').innerHTML = `<h2>案件を選ぶ <span class="muted small">同時進行 ${S.jobs.length}/${info.jobs}件</span></h2>
+    <p class="small muted legend">案件は会社Lvに応じて募集されます。低難易度を5件成功すると中難易度、中難易度を3件成功すると高難易度が解放されます（現在: 会社Lv.${S.level} / 低難易度成功 ${S.lowDifficultySuccesses}/5 / 中難易度成功 ${S.mediumDifficultySuccesses}/3）。</p>
     <p class="small muted legend">割り当てた社員のスキル別能力値の合計が要求値以上: 緑=達成 / 赤=未達。スキルが合わない社員は、半分の力で手伝う。</p>${list}`;
 }
 
 function offerCard(o) {
-  const locked = S.rep < o.minRep;
+  const unlockReason = projectUnlockReason(o);
+  const locked = S.rep < o.minRep || Boolean(unlockReason);
   const req = requirementSkills(o).map((sk) => skillTag(sk,
     meetsRequirement(o, sk, S.employees) ? 'ok' : 'ng'
   )).join('');
   const kind = o.diff >= 3 ? 'big' : o.skills.length <= 2 ? 'web' : 'sys';
-  const right = locked ? `<span class="offer-lock">評判${o.minRep}で解放</span>` : `<button class="act" data-act="accept" data-id="${o.id}">受注する</button>`;
-  return `<div class="offer offer-${kind} ${locked ? 'locked' : ''}">
+  const difficultyClass = `offer-diff-${Number(o.diff)}`;
+  const lockReason = unlockReason || `評判${o.minRep}で解放`;
+  const right = locked ? `<span class="offer-lock">${lockReason}</span>` : `<button class="act" data-act="accept" data-id="${o.id}">受注する</button>`;
+  return `<div class="offer offer-${kind} ${difficultyClass} ${locked ? 'locked' : ''}">
     <div class="offer-head"><strong>${o.name}</strong><span class="offer-tag">${o.diff >= 3 ? '大規模' : '案件'}</span></div>
     ${o.diff >= 3 ? '<div class="offer-big">★ 大規模案件 ★</div>' : ''}
     <div class="offer-row"><span class="muted small">難易度</span><span class="stars">${'★'.repeat(o.diff)}${'☆'.repeat(3 - o.diff)}</span><span class="small">${DIFF_LABEL[o.diff]}</span></div>
@@ -785,8 +813,10 @@ function updateLive() {
 
   S.jobs.forEach((job) => {
     const pct = progressPct(job), left = remainDays(job);
-    const bar = document.querySelector(`[data-bar="${job.id}"]`);
-    if (bar) { bar.style.width = pct + '%'; bar.classList.toggle('fill-warn', left <= 7); }
+    document.querySelectorAll(`[data-bar="${job.id}"]`).forEach((bar) => {
+      bar.style.width = pct + '%';
+      bar.classList.toggle('fill-warn', left <= 7);
+    });
     const p = document.querySelector(`[data-pct="${job.id}"]`);
     if (p) p.textContent = `進捗 ${pct}%`;
     const l = document.querySelector(`[data-left="${job.id}"]`);
@@ -805,6 +835,7 @@ function render() {
   renderRecruit();
   renderUpgrades();
   renderInvestEvent();
+  renderTimeline();
   renderTrack();
   updateLive();
   renderModal();
@@ -1150,6 +1181,10 @@ document.addEventListener('click', (ev) => {
     if (resetArmed) { resetArmed = false; el.textContent = '最初から'; restart(); return; }
     resetArmed = true; el.textContent = '本当に?';
     setTimeout(() => { resetArmed = false; el.textContent = '最初から'; }, 3000);
+    return;
+  }
+  if (a === 'timeline-latest') {
+    $('event-timeline').scrollTop = 0;
     return;
   }
   if (screenMode !== null) return;
