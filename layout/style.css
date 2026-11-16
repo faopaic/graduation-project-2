@@ -296,7 +296,7 @@ button[data-key]::after {
 .px .b-design { fill: var(--main); }
 .px .b-dev { fill: var(--sub); }
 .px .b-test { fill: var(--hl); }
-.px .b-infra { fill: var(--sky); }
+
 .px .b-security { fill: var(--lav); }
 
 .who {
@@ -659,7 +659,7 @@ button[data-key]::after {
 .town-scene .b-design { fill: var(--main); }
 .town-scene .b-dev { fill: var(--sub); }
 .town-scene .b-test { fill: var(--hl); }
-.town-scene .b-infra { fill: var(--sky); }
+
 .town-scene .b-security { fill: var(--lav); }
 .walker { animation: walk var(--t, 20s) linear infinite alternate; animation-delay: var(--delay, 0s); }
 @keyframes walk { from { transform: translateX(0); } to { transform: translateX(var(--w, 60px)); } }
