@@ -255,7 +255,7 @@ function acceptOffer(id) {
 
 // ----- 担当の割り振り -----
 function assign(job, e) {
-  if (e.sales) return;
+  if (e.sales || isAbsent(e)) return;
   unassign(e);
   e.job = job.id;
   job.staff.push(e.id);
@@ -269,7 +269,12 @@ function unassign(e) {
 function toggleAssign(jobId, empId) {
   const job = jobById(jobId), e = empById(empId);
   if (!job || !e) return;
-  if (e.job === job.id) unassign(e); else assign(job, e);
+  if (e.job === job.id) {
+    unassign(e);
+  } else {
+    if (isAbsent(e)) return;
+    assign(job, e);
+  }
   S.dirty = true;
 }
 
@@ -298,7 +303,7 @@ function salesSuccessRate(salesSkill) {
 function autoAssign(targetJob) {
   const jobs = targetJob ? [targetJob] : S.jobs;
   const idle = S.employees
-    .filter((e) => !e.job && !e.sales)
+    .filter((e) => !e.job && !e.sales && !isAbsent(e))
     .sort((a, b) => (b.lv || 0) - (a.lv || 0));
 
   jobs.forEach((job) => {
@@ -359,7 +364,7 @@ function hire(id) {
 }
 
 function runSales() {
-  S.employees.filter((e) => e.sales && S.day >= e.salesCooldownUntil).forEach((e) => {
+  S.employees.filter((e) => e.sales && !isAbsent(e) && S.day >= e.salesCooldownUntil).forEach((e) => {
     if (rand() * 100 >= salesSuccessRate(e.salesSkill)) return;
     const count = ri(1, 3);
     let added = 0;
@@ -464,6 +469,11 @@ function tick() {
   const date = dateOf(S.day);
 
   S.employees.forEach((e) => {
+    if (isAbsent(e) && e.job) {
+      unassign(e);
+      S.dirty = true;
+      log(`${e.name}が休職したため案件担当から外れた`, 'warn');
+    }
     if (e.absentUntil > 0 && S.day === e.absentUntil) { S.dirty = true; log(`${e.name}が復帰した`); }
   });
 
