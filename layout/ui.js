@@ -18,7 +18,7 @@ const esc = (t) => String(t).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&
 function avatar(skill, label) {
   return `<svg class="px" viewBox="0 0 8 8" role="img" aria-label="${label}">` +
     '<rect class="skin" x="2" y="0" width="4" height="3"/><rect class="hair" x="2" y="0" width="4" height="1"/>' +
-    `<rect class="b-${skill}" x="1" y="3" width="6" height="3" fill="${skillColor(skill)}"/>` +
+    `<rect class="b-${skill}" x="1" y="3" width="6" height="3" style="fill:${skillColor(skill)}"/>` +
     '<rect class="legs" x="2" y="6" width="1" height="2"/><rect class="legs" x="5" y="6" width="1" height="2"/></svg>';
 }
 const skillTag = (sk, state) => `<span class="stag ${state || ''}" title="${SKILL_HELP[sk]}">${SKILLS[sk]}</span>`;
@@ -94,11 +94,11 @@ function seasonOf(day) {
   const month = dateOf(day).getMonth();
   return month >= 2 && month <= 4 ? 'spring' : month >= 5 && month <= 7 ? 'summer' : month >= 8 && month <= 10 ? 'autumn' : 'winter';
 }
-const SKILL_COLOR = { design: '#6dcfb2', dev: '#ffb59e', test: '#ffe08a', infra: '#9fd6f5', security: '#cbbcf3', sales: '#ff8fb1' };
+const SKILL_COLOR = { design: '#6dcfb2', dev: '#ffb59e', test: '#ffe08a', infra: '#ffe08a', security: '#cbbcf3', sales: '#ff8fb1' };
 const SKILL_ORDER = ['design', 'dev', 'test', 'infra', 'security', 'sales'];   // 社員一覧の並び順(職種ごと)
 const skillColor = (skill) => SKILL_COLOR[skill] || '#d5d5d5';
 const bySkill = (list) => list.slice().sort((a, b) => (SKILL_ORDER.indexOf(a.skill) - SKILL_ORDER.indexOf(b.skill)) || (a.id - b.id));
-const skillLegend = () => '<div class="chips">色: ' + SKILL_ORDER.map((k) => `<span class="stag" style="background:${skillColor(k)}">${k === 'infra' ? 'テスト(運用保守)' : SKILLS[k]}</span>`).join('') + '</div>';
+const skillLegend = () => '<div class="chips">色: ' + SKILL_ORDER.filter((k) => k !== 'infra').map((k) => `<span class="stag" style="background:${skillColor(k)}">${SKILLS[k]}</span>`).join('') + '</div>';
 // ----- 街の背景(山・ビル街・木・街灯など) -----
 const bgRect = (x, y, w, h, fill, extra = '') => `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${fill}" ${extra}/>`;
 const bgRnd = (i) => ((i * 9301 + 49297) % 233280) / 233280;   // 毎回同じ並びになる疑似乱数
@@ -490,6 +490,26 @@ function renderHome() {
     + '<button class="btn-small mission-toggle" data-act="toggle-missions">ミッションを見る</button>';
 }
 
+function renderTimeline() {
+  const timeline = $('event-timeline');
+  const timelineScrollTop = timeline ? timeline.scrollTop : 0;
+  const entries = S.log.map((entry) => {
+    const kind = entry.kind || 'info';
+    const kindLabel = kind === 'good' ? '達成' : kind === 'bad' ? '注意' : kind === 'warn' ? '警告' : '記録';
+    return `<li class="timeline-entry timeline-entry-${kind}">
+      <span class="timeline-date">${dateLabel(entry.day)}</span>
+      <span class="timeline-kind">${kindLabel}</span>
+      <span class="timeline-text">${entry.text}</span>
+    </li>`;
+  }).join('');
+  $('timeline-container').innerHTML = `<div class="timeline-panel panel">
+    <div class="panel-title">会社の歩み</div>
+    <button class="timeline-latest" data-act="timeline-latest" title="最新の歩みに移動" aria-label="最新の歩みに移動">↑</button>
+    <ol id="event-timeline" class="event-timeline">${entries || '<li class="timeline-empty">まだ記録がありません。</li>'}</ol>
+  </div>`;
+  $('event-timeline').scrollTop = timelineScrollTop;
+}
+
 function hintText() {
   if (S.counts.accepted === 0) return '最初の一歩: 下の「案件」ページで、最初の案件を受注しよう。まずは難易度が低い案件がおすすめ。';
   if (S.jobs.length === 0) return '案件がない間も、給料は出ていく。「案件」ページで、次の案件を受注しよう。';
@@ -808,6 +828,7 @@ function render() {
   renderRecruit();
   renderUpgrades();
   renderInvestEvent();
+  renderTimeline();
   renderTrack();
   updateLive();
   renderModal();
@@ -1141,6 +1162,10 @@ document.addEventListener('click', (ev) => {
     if (resetArmed) { resetArmed = false; el.textContent = '最初から'; restart(); return; }
     resetArmed = true; el.textContent = '本当に?';
     setTimeout(() => { resetArmed = false; el.textContent = '最初から'; }, 3000);
+    return;
+  }
+  if (a === 'timeline-latest') {
+    $('event-timeline').scrollTop = 0;
     return;
   }
   if (screenMode !== null) return;
