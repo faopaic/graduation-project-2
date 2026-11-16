@@ -28,7 +28,11 @@ const seg = (cur, max, cells) => {
   return '<div class="seg">' + Array.from({ length: cells }, (_, i) => `<span class="${i < on ? 'on' : ''}"></span>`).join('') + '</div>';
 };
 const leftText = (job) => { const l = remainDays(job); return l >= 0 ? `残り${l}日` : `${-l}日遅れ`; };
-const progressPct = (job) => Math.min(100, Math.floor(job.progress / job.work * 100));
+const progressPct = (job) => {
+  if (job.work <= 0) return 0;
+  if (job.progress >= job.work) return 100;
+  return Math.min(99, Math.max(0, Math.floor(job.progress / job.work * 100)));
+};
 const employeeStats = (e) => Object.entries(EMPLOYEE_STAT_LABELS)
   .map(([key, label]) => `${label} ${e.stats?.[key] ?? 0}/100`).join(' / ');
 const employeeStatus = (e) => {
@@ -808,8 +812,10 @@ function updateLive() {
 
   S.jobs.forEach((job) => {
     const pct = progressPct(job), left = remainDays(job);
-    const bar = document.querySelector(`[data-bar="${job.id}"]`);
-    if (bar) { bar.style.width = pct + '%'; bar.classList.toggle('fill-warn', left <= 7); }
+    document.querySelectorAll(`[data-bar="${job.id}"]`).forEach((bar) => {
+      bar.style.width = pct + '%';
+      bar.classList.toggle('fill-warn', left <= 7);
+    });
     const p = document.querySelector(`[data-pct="${job.id}"]`);
     if (p) p.textContent = `進捗 ${pct}%`;
     const l = document.querySelector(`[data-left="${job.id}"]`);
