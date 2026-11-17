@@ -498,18 +498,22 @@ function renderHome() {
 function renderTimeline() {
   const timeline = $('event-timeline');
   const timelineScrollTop = timeline ? timeline.scrollTop : 0;
-  const entries = S.log.map((entry) => {
+  const kindLabels = { good: '達成', bad: '注意', warn: '警告' };
+  const entries = S.log.map((entry, index) => {
     const kind = entry.kind || 'info';
-    const kindLabel = kind === 'good' ? '達成' : kind === 'bad' ? '注意' : kind === 'warn' ? '警告' : '記録';
-    return `<li class="timeline-entry timeline-entry-${kind}">
-      <span class="timeline-date">${dateLabel(entry.day)}</span>
-      <span class="timeline-kind">${kindLabel}</span>
-      <span class="timeline-text">${entry.text}</span>
+    const d = dateOf(entry.day);
+    const dateText = `${Math.min(5, Math.floor(entry.day / 365) + 1)}年目 ${d.getMonth() + 1}/${d.getDate()}`;
+    const tagText = index === 0 ? 'NEW' : (kindLabels[kind] || '記録');
+    return `<li class="tl-item tl-${kind}">
+      <span class="tl-dot"></span>
+      <div class="tl-card${index === 0 ? ' tl-new' : ''}">
+        <div class="tl-date"><span>${dateText}</span><span class="tl-tag">${tagText}</span></div>
+        <div class="tl-text">${entry.text}</div>
+      </div>
     </li>`;
   }).join('');
-  $('timeline-container').innerHTML = `<div class="timeline-panel panel">
-    <div class="panel-title">会社の歩み</div>
-    <button class="timeline-latest" data-act="timeline-latest" title="最新の歩みに移動" aria-label="最新の歩みに移動">↑</button>
+  $('timeline-container').innerHTML = `<div class="timeline-panel">
+    <div class="tl-head"><b>会社の歩み</b><button class="timeline-latest" data-act="timeline-latest" title="最新の歩みに移動" aria-label="最新の歩みに移動">↑</button></div>
     <ol id="event-timeline" class="event-timeline">${entries || '<li class="timeline-empty">まだ記録がありません。</li>'}</ol>
   </div>`;
   $('event-timeline').scrollTop = timelineScrollTop;
