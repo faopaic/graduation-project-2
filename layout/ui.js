@@ -12,6 +12,7 @@ let screenMode = 'title';  // 'title' | 'end' | null
 let resetArmed = false;
 let selectedDifficulty = 'normal'; // 難易度
 let companyName = '';   // 会社名(タイトル画面で入力)
+let debugEventSelecting = false;
 const esc = (t) => String(t).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 // ----- 部品 -----
@@ -916,9 +917,18 @@ function renderModal() {
   const body = $('modal-body');
   const showMission = S && S.missionsOpen && !p && screenMode === null;
   const showRecruitment = S && S.recruiting && S.recruitStage === 'confirm' && !p && screenMode === null;
-  $('modal').classList.toggle('hidden', (!p && !showMission && !showRecruitment) || screenMode !== null);
+  const showDebugEvent = debugEventSelecting && S && !p && !S.recruiting && screenMode === null;
+  $('modal').classList.toggle('hidden', (!p && !showMission && !showRecruitment && !showDebugEvent) || screenMode !== null);
   if (showMission) {
     $('modal-body').innerHTML = `<div class="modal-head"><span class="badge badge-low">ミッション</span><button class="btn-small" data-act="toggle-missions">閉じる</button></div>${missionPanel()}`;
+    return;
+  }
+  if (showDebugEvent) {
+    const events = S.eventDatabase.filter((event) => event?.id && event?.name);
+    body.innerHTML = `<div class="modal-head"><span class="badge badge-low">デバッグ</span><button class="btn-small" data-act="close-debug-event">閉じる</button></div>
+      <h3>発生させるイベントを選択</h3>
+      <p class="small muted">F4で開くデバッグ画面です。</p>
+      ${events.map((event, index) => `<button class="choice" data-act="debug-select-event" data-id="${esc(event.id)}"><span class="ch-body"><strong>${index + 1}. ${esc(event.name)}</strong></span></button>`).join('')}`;
     return;
   }
   if (showRecruitment) {
@@ -1115,6 +1125,32 @@ function restart() {
   render();
   showTitle();
 }
+S
+
+
+
+
+
+//デバッグ用コード(完成後コメントアウト)
+///////////////////////////////////////////////////////////////////////////
+// DEBUG EVENT HOTKEY: remove this function to remove debugging.
+function debugEventPrompt() {
+  if (!['localhost', '127.0.0.1'].includes(location.hostname)) return;
+  if (screenMode !== null || S.pending || S.recruiting) return;
+  if (!S.eventDatabase.some((event) => event?.id && event?.name)) {
+    toast('イベントデータがありません', 'bad');
+    return;
+  }
+  debugEventSelecting = true;
+  renderModal();
+}
+/////////////////////////////////////////////////////////////////////////
+
+
+
+
+
+
 
 // ----- 時間を進める -----
 function loop() {
@@ -1257,6 +1293,20 @@ document.addEventListener('click', (ev) => {
     showPage('home', true);
     render();
   }
+  else if (a === 'debug-select-event') {
+    debugEventSelecting = false;
+    if (!triggerDebugEvent(el.dataset.id)) {
+      toast('イベントを発生できません', 'bad');
+      render();
+      return;
+    }
+    showPage('home', true);
+    render();
+  }
+  else if (a === 'close-debug-event') {
+    debugEventSelecting = false;
+    renderModal();
+  }
   else if (a === 'choice') { onChoice(Number(el.dataset.i)); }
   else if (a === 'continue') { nextPending(); }
   else if (a === 'recruit-contract') {
@@ -1322,6 +1372,12 @@ document.addEventListener('input', (ev) => {
 
 // ----- キーボード操作 -----
 document.addEventListener('keydown', (ev) => {
+  // DEBUG EVENT HOTKEY: remove this block and debugEventPrompt to remove debugging.
+  if (ev.code === 'F4') {
+    ev.preventDefault();
+    debugEventPrompt();
+    return;
+  }
   const activeTag = document.activeElement?.tagName;
   if (
     activeTag === 'INPUT' ||

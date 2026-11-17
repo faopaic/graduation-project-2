@@ -593,10 +593,22 @@ function tick() {
 }
 
 function makeIncident(forceId) {
-  if (!S.jobs.length || !S.eventDatabase.length) return null;
-  const job = pick(S.jobs);
-  const event = pickWeighted(S.eventDatabase, (item) => item.occurrenceRate);
+  if (!S.eventDatabase.length || (!forceId && !S.jobs.length)) return null;
+  const job = S.jobs.length ? pick(S.jobs) : null;
+  const event = forceId
+    ? S.eventDatabase.find((item) => String(item.id) === String(forceId))
+    : pickWeighted(S.eventDatabase, (item) => item.occurrenceRate);
   return event ? buildDatabaseEvent(event, job) : null;
+}
+
+function triggerDebugEvent(eventId) {
+  if (S.pending || S.recruiting) return false;
+  const event = makeIncident(eventId);
+  if (!event) return false;
+  S.playing = false;
+  S.pending = event;
+  S.dirty = true;
+  return true;
 }
 
 function pickWeighted(items, weightOf) {
