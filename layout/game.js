@@ -597,8 +597,19 @@ function makeIncident(forceId) {
   const job = S.jobs.length ? pick(S.jobs) : null;
   const event = forceId
     ? S.eventDatabase.find((item) => String(item.id) === String(forceId))
-    : pickWeighted(S.eventDatabase, (item) => item.occurrenceRate);
+    : pickWeighted(
+      S.eventDatabase.filter((item) => (
+        S.employees.length < levelInfo().slots || !eventRequiresRecruitment(item)
+      )),
+      (item) => item.occurrenceRate
+    );
   return event ? buildDatabaseEvent(event, job) : null;
+}
+
+function eventRequiresRecruitment(event) {
+  return (event.choices || []).some((choice) =>
+    Number(choice?.effects?.employee) > 0
+  );
 }
 
 function triggerDebugEvent(eventId) {
