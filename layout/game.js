@@ -145,7 +145,8 @@ function newGame(
   employeeDatabase,
   eventDatabase,
   projectDatabase,
-  missionDatabase
+  missionDatabase,
+  companyName
 ) {
   const difficulty = S?.difficulty || 'normal';
   S = {
@@ -155,6 +156,7 @@ function newGame(
     done: 0, successes: 0, advancedSuccesses: 0,
     lowDifficultySuccesses: 0, mediumDifficultySuccesses: 0,
     experience: 0, big: 0,
+    companyName: companyName || 'PEACE株式会社',
     recruitContractCount: 0,recruitContractActive: false,recruitContractJobType: null,recruitSelectingJob: false,
     difficulty,
     employees: [], jobs: [], offers: [], candidates: [],
@@ -222,7 +224,7 @@ function newGame(
   if (randomProject) initialProjects.push({ template: randomProject });
   initialProjects.slice(0, 3).forEach(({ template, skills }) => newOffer(template.id, skills));
   refreshCandidates();
-  log('PEACE株式会社を設立した。まずは案件を受注しよう。');
+  log(`${S.companyName}を設立した。まずは案件を受注しよう。`);
   return S;
 }
 function selectInitialStaff(employeeDatabase) {

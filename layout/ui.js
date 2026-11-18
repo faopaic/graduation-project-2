@@ -516,7 +516,7 @@ function renderTimeline() {
       <span class="tl-dot"></span>
       <div class="tl-card${index === 0 ? ' tl-new' : ''}">
         <div class="tl-date"><span>${dateText}</span><span class="tl-tag">${tagText}</span></div>
-        <div class="tl-text">${entry.text}</div>
+        <div class="tl-text">${esc(entry.text)}</div>
       </div>
     </li>`;
   }).join('');
@@ -1146,9 +1146,8 @@ function showEnd() {
 
 function startGame() {
   const difficulty = selectedDifficulty;
-  newGame(S.employeeDatabase, S.eventDatabase, S.projectDatabase, S.missionDatabase);
+  newGame(S.employeeDatabase, S.eventDatabase, S.projectDatabase, S.missionDatabase, companyName);
   S.difficulty = difficulty;
-  S.companyName = companyName;
   if (difficulty === 'hard') {
     S.money = Math.floor(CONFIG.startMoney * 0.9);
   }
