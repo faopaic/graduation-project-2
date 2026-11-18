@@ -1097,16 +1097,16 @@ function showEnd() {
   const goals = goalList();
   const years = (S.day / 365).toFixed(1);
   let title, lead;
-  let rank = 'C';
+  let rank = o.type === 'timeout' ? 'E' : 'C';
   if (o.type === 'clear') {
     rank = getClearRank();
     title = `ゲームクリア！ 評価 ${rank}`;
     lead = `${years}年で、すべての目標を達成した。会社は大きく成長した。`;
   }
   else if (o.type === 'bankrupt') { title = 'ゲームオーバー'; lead = `${dateLabel(o.day)}、資金が尽きて、会社を続けられなくなった。`; }
-  else if (o.type === 'retire') {
-    title = '15年経過';
-    lead = '15年が経過したため、社長を引退した。';
+  else if (o.type === 'timeout') {
+    title = '5年経過';
+    lead = '5年以内にすべての目標を達成できなかったため、評価は最低ランクです。';
   }
   const t = S.tally;
   const avg = goals.reduce((sum, goal) => sum + goal.ratio, 0) / goals.length;

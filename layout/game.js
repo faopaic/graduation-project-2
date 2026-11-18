@@ -815,9 +815,10 @@ const goalsMet = () => goalList().every((x) => x.met);
 // ----- クリア評価 -----
 function getClearRank() {
   const years = S.day / 365;
-  if (years < 5) return 'A';
-  if (years < 6) return 'B';
-  if (years < 8) return 'C';
+  if (years < 1) return 'S';
+  if (years < 2) return 'A';
+  if (years < 3) return 'B';
+  if (years < 4) return 'C';
   return 'D';
 }
 function checkEnd() {
@@ -828,8 +829,8 @@ function checkEnd() {
   else if (goalsMet()) {
     S.over = { type: 'clear' };
   }
-  else if (S.day >= 365 * 15) {
-    S.over = { type: 'retire' };
+  else if (S.day >= CONFIG.totalDays) {
+    S.over = { type: 'timeout' };
   }
   if (S.over) S.over.day = S.day;
 }
