@@ -53,6 +53,8 @@ const EMPLOYEE_STAT_UPGRADE_RATE_POINTS = [
   { stat: 50, rate: 0.6 },
   { stat: 100, rate: 0.2 }
 ];
+const EMPLOYEE_SEVERANCE_MONTHS = 3;
+const EMPLOYEE_FIRE_REPUTATION_PENALTY = 20;
 
 const SKILLS = {
   design: '設計',

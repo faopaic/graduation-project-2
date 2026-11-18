@@ -664,6 +664,9 @@ function renderEmployees() {
   const salesButton = (e) => e.sales
     ? `<button class="btn-small" data-act="toggle-sales" data-id="${e.id}">営業担当を外す</button>`
     : `<button class="btn-small" data-act="toggle-sales" data-id="${e.id}">営業担当にする</button>`;
+  const fireButton = (e) => S.employees.length <= 1
+    ? '<span class="small muted">社員は最低1人必要です</span>'
+    : `<button class="btn-small" data-act="arm-fire-employee" data-id="${e.id}">解雇する（退職金 ${yen(e.salary * EMPLOYEE_SEVERANCE_MONTHS)}）</button>`;
   const viewButton = (view) => `<button class="btn-small" data-act="employee-view" data-view="${view}">${view === 'sales' ? '営業担当を見る' : '社員一覧に戻る'}</button>`;
   if (S.employeeView === 'sales') {
     const sales = bySkill(S.employees.filter((e) => e.sales)).map((e) => {
@@ -673,10 +676,11 @@ function renderEmployees() {
         <div class="employee-card-head" style="background:${skillColor(e.skill)}"><div class="employee-avatar">${avatar(e.skill, e.name + 'のドット絵')}</div><div><div class="small muted">社員 / 営業担当</div><strong class="employee-name">${e.name}</strong><span class="employee-skill">${SKILLS[e.skill]}</span></div></div>
         ${isAbsent(e) ? employeeStatusMarkup(e) : `<div class="employee-status">${status}</div>`}<div class="employee-info"><span>営業力</span><strong>${e.salesSkill}/100</strong></div>
         <div class="small">${employeeStats(e)}</div><div class="small muted">案件獲得率 ${salesSuccessRate(e.salesSkill)}%（基礎30%） / 獲得後1〜3か月休止</div>
-        <div class="employee-actions">${salesButton(e)}</div></div>`;
+        <div class="employee-actions">${salesButton(e)}${fireButton(e)}</div></div>`;
     }).join('') || '<div class="card muted">営業担当がいません。社員一覧から担当者を設定してください。</div>';
     $('employees-body').innerHTML = `<div class="row"><h2>社員一覧 <span class="muted small">${S.employees.length} / ${slots}人</span></h2><div>${viewButton('staff')} <button class="btn-small" data-go="upgrades">社員強化</button></div></div>
       <p class="small muted legend">営業担当は毎月、基礎30%に営業力を加味した確率で案件を獲得します。営業力は将来データベースの値に差し替えられます。</p>
+      <p class="small muted legend">解雇には月給の${EMPLOYEE_SEVERANCE_MONTHS}か月分の退職金が必要です。解雇すると評判が${EMPLOYEE_FIRE_REPUTATION_PENALTY}下がります。</p>
       <h3>営業担当</h3><div class="employee-grid">${sales}</div>`;
     return;
   }
@@ -685,11 +689,12 @@ function renderEmployees() {
       <div class="employee-card-head" style="background:${skillColor(e.skill)}"><div class="employee-avatar">${avatar(e.skill, e.name + 'のドット絵')}</div><div><div class="small muted">社員</div><strong class="employee-name">${e.name}</strong><span class="employee-skill">${SKILLS[e.skill]}</span></div></div>
       <div class="small employee-help">${SKILL_HELP[e.skill]}</div>${employeeStatusMarkup(e)}
       <div class="employee-info"><span>月給</span><strong>${yen(e.salary)}</strong></div><div class="small">営業力 ${e.salesSkill}/100</div><div class="small">${employeeStats(e)}</div>
-      <div class="employee-actions">${salesButton(e)}</div></div>`;
+      <div class="employee-actions">${salesButton(e)}${fireButton(e)}</div></div>`;
   }).join('') || '<div class="card muted">営業担当以外の社員がいません。営業担当を見るボタンから確認できます。</div>';
   $('employees-body').innerHTML = `<div class="row"><h2>社員一覧 <span class="muted small">${S.employees.length} / ${slots}人</span></h2><div>${viewButton('sales')} <button class="btn-small" data-go="upgrades">社員強化</button></div></div>
     ${skillLegend()}
-    <p class="small muted legend">社員のスキルや担当案件を確認できます。営業担当は毎月、基礎30%に営業力を加味した確率で1〜3件の案件を獲得し、獲得後1〜3か月休みます。</p><div class="employee-grid">${cards}</div>`;
+    <p class="small muted legend">社員のスキルや担当案件を確認できます。営業担当は毎月、基礎30%に営業力を加味した確率で1〜3件の案件を獲得し、獲得後1〜3か月休みます。</p>
+    <p class="small muted legend">解雇には月給の${EMPLOYEE_SEVERANCE_MONTHS}か月分の退職金が必要です。解雇すると評判が${EMPLOYEE_FIRE_REPUTATION_PENALTY}下がります。</p><div class="employee-grid">${cards}</div>`;
 }
 
 // ----- 採用イベント -----
@@ -922,7 +927,30 @@ function renderModal() {
   const showMission = S && S.missionsOpen && !p && screenMode === null;
   const showRecruitment = S && S.recruiting && S.recruitStage === 'confirm' && !p && screenMode === null;
   const showDebugEvent = debugEventSelecting && S && !p && !S.recruiting && screenMode === null;
-  $('modal').classList.toggle('hidden', (!p && !showMission && !showRecruitment && !showDebugEvent) || screenMode !== null);
+  const showEmployeeFire = S && S.employeeFiringArmed !== null && !p && !S.recruiting && screenMode === null;
+  $('modal').classList.toggle('hidden', (!p && !showMission && !showRecruitment && !showDebugEvent && !showEmployeeFire) || screenMode !== null);
+  if (showEmployeeFire) {
+    const employee = empById(S.employeeFiringArmed);
+    if (!employee) {
+      S.employeeFiringArmed = null;
+      $('modal').classList.add('hidden');
+      return;
+    }
+    const severance = employee.salary * EMPLOYEE_SEVERANCE_MONTHS;
+    const canFire = S.employees.length > 1 && S.money >= severance;
+    body.innerHTML = `<div class="modal-head"><span class="badge badge-high">解雇確認</span></div>
+      <h3>${esc(employee.name)}を解雇しますか？</h3>
+      <p class="muted">退職金として資金を${yen(severance)}支払います。</p>
+      <p class="small ${canFire ? 'muted' : 'neg'}">現在の資金 ${yen(S.money)} / 評判 -${EMPLOYEE_FIRE_REPUTATION_PENALTY}</p>
+      ${S.employees.length <= 1 ? '<p class="small neg">社員が一人以下になるため解雇できません。</p>' : (S.money < severance ? '<p class="small neg">退職金が不足しているため解雇できません。</p>' : '')}
+      <button class="choice has-letter" data-act="confirm-fire-employee" data-id="${employee.id}" ${canFire ? '' : 'disabled'}>
+        <span class="ch-letter">1</span><span class="ch-body"><strong>解雇する</strong></span>
+      </button>
+      <button class="choice has-letter is-hide" data-act="cancel-fire-employee">
+        <span class="ch-letter">2</span><span class="ch-body"><strong>キャンセル</strong></span>
+      </button>`;
+    return;
+  }
   if (showMission) {
     $('modal-body').innerHTML = `<div class="modal-head"><span class="badge badge-low">ミッション</span><button class="btn-small" data-act="toggle-missions">閉じる</button></div>${missionPanel()}`;
     return;
@@ -1258,6 +1286,22 @@ document.addEventListener('click', (ev) => {
   else if (a === 'employee-view') { S.employeeView = el.dataset.view; render(); }
   else if (a === 'assign') { toggleAssign(Number(el.dataset.job), Number(el.dataset.emp)); render(); }
   else if (a === 'toggle-sales') { toggleSales(Number(el.dataset.id)); render(); }
+  else if (a === 'arm-fire-employee') {
+    if (S.employees.length <= 1) {
+      toast('社員が一人以下になるため解雇できません', 'bad');
+      render();
+      return;
+    }
+    S.employeeFiringArmed = Number(el.dataset.id);
+    render();
+  }
+  else if (a === 'cancel-fire-employee') {
+    S.employeeFiringArmed = null;
+    render();
+  }
+  else if (a === 'confirm-fire-employee') {
+    done(fireEmployee(Number(el.dataset.id)));
+  }
   else if (a === 'accept') {
     const r = acceptOffer(Number(el.dataset.id));
     done(r);

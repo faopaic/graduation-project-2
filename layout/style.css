@@ -886,7 +886,7 @@ button[data-key]::after {
 .employee-status { padding: 5px 8px; border: var(--line-thin); background: var(--bg); }
 .employee-info { display: flex; justify-content: space-between; align-items: baseline; }
 .employee-info strong { font-size: 18px; color: var(--ok); }
-.employee-actions { display: flex; justify-content: flex-end; margin-top: auto; padding-top: 3px; }
+.employee-actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 5px; margin-top: auto; padding-top: 3px; }
 
 @media (max-width: 700px) {
   .employee-grid { grid-template-columns: 1fr; }
