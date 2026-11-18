@@ -13,6 +13,7 @@ let resetArmed = false;
 let selectedDifficulty = 'normal'; // 難易度
 let companyName = '';   // 会社名(タイトル画面で入力)
 let debugEventSelecting = false;
+let debugPreviewMode = false;
 const esc = (t) => String(t).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 // ----- 部品 -----
@@ -929,6 +930,11 @@ function renderModal() {
   const showDebugEvent = debugEventSelecting && S && !p && !S.recruiting && screenMode === null;
   const showEmployeeFire = S && S.employeeFiringArmed !== null && !p && !S.recruiting && screenMode === null;
   $('modal').classList.toggle('hidden', (!p && !showMission && !showRecruitment && !showDebugEvent && !showEmployeeFire) || screenMode !== null);
+  if (showDebugEvent) {
+    $('modal-body').parentElement.classList.add('modal-wide');
+  } else {
+    $('modal-body').parentElement.classList.remove('modal-wide');
+  }
   if (showEmployeeFire) {
     const employee = empById(S.employeeFiringArmed);
     if (!employee) {
@@ -957,9 +963,84 @@ function renderModal() {
   }
   if (showDebugEvent) {
     const events = S.eventDatabase.filter((event) => event?.id && event?.name);
+    const investFields = ['backup', 'security', 'qa'].map((key) =>
+      `<label class="debug-field">${esc(INVEST[key].name)}<input type="number" data-debug="invest.${key}" min="0" max="${INVEST[key].costs.length}" value="${S.invest[key]}"></label>`
+    ).join('');
+    const employeeFields = S.employees.map((employee) => {
+      const stats = Object.keys(DEFAULT_EMPLOYEE_STATS).map((key) =>
+        `<label class="debug-field">${esc(EMPLOYEE_STAT_LABELS[key])}<input type="number" data-debug="employee.${employee.id}.stats.${key}" min="0" max="100" value="${Number(employee.stats[key]) || 0}"></label>`
+      ).join('');
+      return `<div class="debug-group"><strong>${esc(employee.name)} (ID ${employee.id})</strong>
+        <div class="debug-grid">
+          <label class="debug-field">月給<input type="number" data-debug="employee.${employee.id}.salary" min="0" value="${employee.salary}"></label>
+          <label class="debug-field">営業力<input type="number" data-debug="employee.${employee.id}.salesSkill" min="0" max="100" value="${employee.salesSkill}"></label>
+          ${stats}
+        </div>
+        <button class="btn-small" data-act="debug-remove-employee" data-id="${employee.id}">この社員を削除</button></div>`;
+    }).join('');
+    const employeeOptions = S.employeeDatabase.map((record) =>
+      `<option value="${esc(record.id)}">${esc(record.name)} / ${esc(SKILLS[record.skill] || record.skill)} / 月給 ${yen(record.salary)}</option>`
+    ).join('');
+    const jobFields = S.jobs.map((job) =>
+      `<div class="debug-group"><strong>${esc(job.name)} (ID ${job.id})</strong>
+        <div class="debug-grid">
+          <label class="debug-field">進捗<input type="number" data-debug="job.${job.id}.progress" min="0" max="${job.work}" value="${Math.round(job.progress)}"></label>
+          <label class="debug-field">仕事量<input type="number" data-debug="job.${job.id}.work" min="1" value="${job.work}"></label>
+          <label class="debug-field">品質ボーナス<input type="number" data-debug="job.${job.id}.qBonus" value="${job.qBonus}"></label>
+          <label class="debug-field">バグ減点<input type="number" data-debug="job.${job.id}.qDebt" min="0" value="${job.qDebt}"></label>
+        </div></div>`
+    ).join('') || '<p class="small muted">進行中の案件はありません。</p>';
     body.innerHTML = `<div class="modal-head"><span class="badge badge-low">デバッグ</span><button class="btn-small" data-act="close-debug-event">閉じる</button></div>
-      <h3>発生させるイベントを選択</h3>
-      <p class="small muted">F4で開くデバッグ画面です。</p>
+      <h3>ゲームパラメータ</h3>
+      <p class="small muted">F4で開くデバッグ画面です。変更後は「適用」を押してください。</p>
+      <div class="debug-grid">
+        <label class="debug-field">経過日<input type="number" data-debug="day" min="0" max="${CONFIG.totalDays}" value="${S.day}"></label>
+        <label class="debug-field">資金<input type="number" data-debug="money" value="${S.money}"></label>
+        <label class="debug-field">評判<input type="number" data-debug="rep" min="0" max="100" value="${S.rep}"></label>
+        <label class="debug-field">会社レベル<input type="number" data-debug="level" min="1" max="${LEVELS.length}" value="${S.level}"></label>
+        <label class="debug-field">経験値<input type="number" data-debug="experience" min="0" value="${S.experience}"></label>
+        <label class="debug-field">社員数を指定<input type="number" data-debug="employeesCount" min="0" value="${S.employees.length}"></label>
+        <label class="debug-field">完成案件数<input type="number" data-debug="done" min="0" value="${S.done}"></label>
+        <label class="debug-field">成功案件数<input type="number" data-debug="successes" min="0" value="${S.successes}"></label>
+        <label class="debug-field">上級成功案件数<input type="number" data-debug="advancedSuccesses" min="0" value="${S.advancedSuccesses}"></label>
+        <label class="debug-field">受注案件数<input type="number" data-debug="counts.accepted" min="0" value="${S.counts.accepted}"></label>
+        <label class="debug-field">採用人数<input type="number" data-debug="counts.hired" min="0" value="${S.counts.hired}"></label>
+        <label class="debug-field">対応障害数<input type="number" data-debug="counts.handled" min="0" value="${S.counts.handled}"></label>
+        <label class="debug-field">低難度成功<input type="number" data-debug="lowDifficultySuccesses" min="0" value="${S.lowDifficultySuccesses}"></label>
+        <label class="debug-field">中難度成功<input type="number" data-debug="mediumDifficultySuccesses" min="0" value="${S.mediumDifficultySuccesses}"></label>
+        <label class="debug-field">高難度成功<input type="number" data-debug="big" min="0" value="${S.big}"></label>
+        <label class="debug-field">次の障害日<input type="number" data-debug="nextIncidentDay" min="0" value="${S.nextIncidentDay}"></label>
+        <label class="debug-field">再生速度<input type="number" data-debug="speedIdx" min="0" max="${CONFIG.speeds.length - 1}" value="${S.speedIdx}"></label>
+        ${investFields}
+      </div>
+      <button class="btn-main" data-act="apply-debug-state">パラメータを適用</button>
+      <h3>画面を表示</h3>
+      <div class="debug-grid">
+        <button class="btn-main" data-act="debug-show-screen" data-screen="title">開始画面</button>
+        <button class="btn-main" data-act="debug-show-screen" data-screen="town">街画面</button>
+        <button class="btn-main" data-act="debug-show-screen" data-screen="dashboard">ダッシュボード</button>
+        <button class="btn-main" data-act="debug-show-screen" data-screen="jobs">案件一覧</button>
+        <button class="btn-main" data-act="debug-show-screen" data-screen="assignment">担当割り当て</button>
+        <button class="btn-main" data-act="debug-show-screen" data-screen="employees">社員一覧</button>
+        <button class="btn-main" data-act="debug-show-screen" data-screen="investment">投資画面</button>
+        <button class="btn-main" data-act="debug-show-screen" data-screen="recruit">採用画面</button>
+        <button class="btn-main" data-act="debug-show-screen" data-screen="clear">クリア画面</button>
+        <button class="btn-main" data-act="debug-show-screen" data-screen="bankrupt">ゲームオーバー画面</button>
+        <button class="btn-main" data-act="debug-show-screen" data-screen="timeout">タイムアウト画面</button>
+        <button class="btn-main" data-act="debug-show-screen" data-screen="level">レベルアップ画面</button>
+        <button class="btn-main" data-act="debug-show-screen" data-screen="job-report">案件完了画面</button>
+        <button class="btn-main" data-act="debug-show-screen" data-screen="mission">ミッション画面</button>
+      </div>
+      <h3>社員を追加・削除</h3>
+      <div class="debug-group">
+        <label class="debug-field">追加する社員
+          <select id="debug-employee-select">${employeeOptions}</select>
+        </label>
+        <button class="btn-main" data-act="debug-add-employee">選択した社員を追加</button>
+      </div>
+      ${employeeFields ? `<h3>在籍社員</h3>${employeeFields}` : '<p class="small muted">在籍社員はいません。</p>'}
+      <h3>進行中の案件</h3>${jobFields}
+      <h3>発生させるイベント</h3>
       ${events.map((event, index) => `<button class="choice" data-act="debug-select-event" data-id="${esc(event.id)}"><span class="ch-body"><strong>${index + 1}. ${esc(event.name)}</strong></span></button>`).join('')}`;
     return;
   }
@@ -1003,7 +1084,8 @@ function renderModal() {
     body.innerHTML = `<div class="modal-head"><span class="badge badge-low">結果</span></div><h3>${lastResult.title}</h3>
       <div class="result">${lastResult.text}</div>
       ${lastResult.lesson ? `<div class="lesson"><div class="small muted">ひとこと解説</div>${lastResult.lesson}</div>` : ''}
-      <button class="choice has-letter" data-act="continue"><span class="ch-letter space-key">Space</span><span class="ch-body"><strong>つづける</strong></span></button>`;
+      <button class="choice has-letter" data-act="continue"><span class="ch-letter space-key">Space</span><span class="ch-body"><strong>つづける</strong></span></button>
+      ${debugPreviewMode ? '<button class="btn-small" data-act="debug-preview-back">デバッグ画面へ戻る</button>' : ''}`;
     return;
   }
 
@@ -1018,7 +1100,8 @@ function renderModal() {
     const keyClass = p.choices.length === 1 ? 'space-key' : '';
     return `<button class="choice has-letter ${c.tag === 'hide' ? 'is-hide' : ''}" data-act="choice" data-i="${i}"><span class="ch-letter ${keyClass}">${keyLabel}</span><span class="ch-body"><strong>${c.label}</strong>${c.desc ? `<span class="small ${c.tag === 'hide' ? 'neg' : 'muted'}">${c.desc}</span>` : ''}</span></button>`;
   }).join('');
-  body.innerHTML = head + (p.kind === 'incident' ? `<div class="inc-status"><h3>${p.title}</h3>${chips}${text}</div>` : `<h3>${p.title}</h3>${chips}${text}`) + choices;
+  body.innerHTML = head + (p.kind === 'incident' ? `<div class="inc-status"><h3>${p.title}</h3>${chips}${text}</div>` : `<h3>${p.title}</h3>${chips}${text}`) + choices
+    + (debugPreviewMode ? '<button class="btn-small" data-act="debug-preview-back">デバッグ画面へ戻る</button>' : '');
 }
 
 function onChoice(i) {
@@ -1059,7 +1142,8 @@ function showTitle() {
     <div class="goal-row"><span>大規模案件(難易度 高)の成功</span><span>${g.big}件</span></div></div>
     <ol class="steps"><li>「案件」で仕事を受注する</li><li>社員を割り振って、「再生」で時間を進める</li><li>起きた障害に、どう対応するか決める</li><li>お金がたまったら、「採用」と「投資」で会社を強くする</li></ol>
     <p class="small muted">資金が0を下回るとゲームオーバー。障害への対応しだいで、評判も資金も変わる。</p>
-    <button class="btn-main" id="start-btn" data-act="start" ${companyName ? '' : 'disabled'}>ゲームスタート</button>`;
+    <button class="btn-main" id="start-btn" data-act="start" ${companyName ? '' : 'disabled'} ${debugPreviewMode ? 'disabled' : ''}>ゲームスタート</button>
+    ${debugPreviewMode ? '<button class="btn-small" data-act="debug-preview-back">デバッグ画面へ戻る</button>' : ''}`;
   updateDifficultyPreview();
   $('screen').classList.remove('hidden');
   $('modal').classList.add('hidden');
@@ -1127,7 +1211,8 @@ function showEnd() {
       <tr><td>対応した障害</td><td>${t.incidents}回(隠した: ${t.hide}回)</td></tr>
       <tr><td>会社Lv</td><td>${S.level}</td></tr></table>
     <div class="lesson"><div class="small muted">あなたの判断</div>${style}</div>
-    <button class="btn-main" data-act="restart">もう一度あそぶ</button>`;
+    <button class="btn-main" data-act="restart" ${debugPreviewMode ? 'disabled' : ''}>もう一度あそぶ</button>
+    ${debugPreviewMode ? '<button class="btn-small" data-act="debug-preview-back">デバッグ画面へ戻る</button>' : ''}`;
   $('screen').classList.remove('hidden');
   $('modal').classList.add('hidden');
 }
@@ -1146,7 +1231,7 @@ function startGame() {
   $('screen').classList.add('hidden');
   stage = 1;
   lastResult = null;
-  showPage('town');
+  showPage('home');
   render();
 }
 
@@ -1175,6 +1260,87 @@ function debugEventPrompt() {
   }
   debugEventSelecting = true;
   renderModal();
+}
+
+function showDebugScreen(type) {
+  clearTimeout(timer);
+  S.playing = false;
+  debugEventSelecting = false;
+  S.pending = null;
+  stage = 1;
+  lastResult = null;
+  debugPreviewMode = true;
+
+  if (type === 'title') {
+    $('modal').classList.add('hidden');
+    showTitle();
+    return;
+  }
+  const pageTypes = {
+    town: 'town',
+    dashboard: 'home',
+    jobs: 'jobs',
+    assignment: 'assignment',
+    employees: 'employees',
+    investment: 'invest-event',
+    recruit: 'recruit'
+  };
+  if (pageTypes[type]) {
+    debugPreviewMode = false;
+    screenMode = null;
+    $('screen').classList.add('hidden');
+    if (type === 'recruit') {
+      S.recruiting = true;
+      S.recruitmentEvent = true;
+      S.recruitStage = 'confirm';
+    }
+    showPage(pageTypes[type], true);
+    render();
+    return;
+  }
+  if (type === 'clear' || type === 'bankrupt' || type === 'timeout') {
+    S.over = { type, day: type === 'bankrupt' ? S.day : CONFIG.totalDays };
+    showEnd();
+    return;
+  }
+  if (type === 'level') {
+    screenMode = null;
+    S.pending = {
+      kind: 'notice',
+      badge: 'レベルアップ',
+      title: '会社が Lv.2 に成長した',
+      body: '案件の成功と経験が認められました。社員の席と同時に受けられる案件が増えました。',
+      choices: [{ label: 'OK', tag: 'other', apply() { return ''; } }]
+    };
+    stage = 1;
+    render();
+    return;
+  }
+  if (type === 'job-report') {
+    screenMode = null;
+    S.pending = {
+      kind: 'report',
+      badge: '案件完了',
+      title: '「デバッグ案件」が完成した',
+      lines: [
+        '納期: 間に合った',
+        '品質: 85点(良い)',
+        '報酬: ¥2,000,000',
+        '評判: +16',
+        '案件成功: 経験値 +30'
+      ],
+      choices: [{ label: 'OK', tag: 'other', apply() { return ''; } }]
+    };
+    stage = 1;
+    render();
+    return;
+  }
+  if (type === 'mission') {
+    debugPreviewMode = false;
+    S.missionsOpen = true;
+    screenMode = null;
+    renderModal();
+  }
 }
 /////////////////////////////////////////////////////////////////////////
 
@@ -1253,6 +1419,19 @@ document.addEventListener('click', (ev) => {
   }
   if (a === 'timeline-latest') {
     $('event-timeline').scrollTop = 0;
+    return;
+  }
+  if (a === 'debug-preview-back') {
+    debugPreviewMode = false;
+    S.over = null;
+    screenMode = null;
+    S.pending = null;
+    stage = 1;
+    lastResult = null;
+    $('screen').classList.add('hidden');
+    debugEventSelecting = true;
+    render();
+    renderModal();
     return;
   }
   if (screenMode !== null) return;
@@ -1355,6 +1534,99 @@ document.addEventListener('click', (ev) => {
     debugEventSelecting = false;
     renderModal();
   }
+  else if (a === 'debug-show-screen') {
+    showDebugScreen(el.dataset.screen);
+  }
+  else if (a === 'apply-debug-state') {
+    document.querySelectorAll('[data-debug]').forEach((input) => {
+      const path = input.dataset.debug;
+      const value = Number(input.value);
+      if (!path || !Number.isFinite(value)) return;
+      if (path.includes('.')) {
+        const parts = path.split('.');
+        if (parts[0] === 'invest') {
+          const key = parts[1];
+          if (S.invest[key] !== undefined) S.invest[key] = clamp(Math.floor(value), 0, INVEST[key].costs.length);
+        } else if (parts[0] === 'counts') {
+          if (S.counts[parts[1]] !== undefined) S.counts[parts[1]] = Math.max(0, Math.floor(value));
+        } else if (parts[0] === 'employee') {
+          const employee = empById(Number(parts[1]));
+          if (!employee) return;
+          if (parts[2] === 'stats') employee.stats[parts[3]] = clamp(Math.floor(value), 0, 100);
+          else if (parts[2] === 'salary') employee.salary = Math.max(0, Math.floor(value));
+          else if (parts[2] === 'salesSkill') employee.salesSkill = clamp(Math.floor(value), 0, 100);
+        } else if (parts[0] === 'job') {
+          const job = jobById(Number(parts[1]));
+          if (!job) return;
+          if (parts[2] === 'progress') job.progress = clamp(value, 0, job.work);
+          else if (parts[2] === 'work') job.work = Math.max(1, Math.floor(value));
+          else if (parts[2] === 'qBonus') job.qBonus = Math.floor(value);
+          else if (parts[2] === 'qDebt') job.qDebt = Math.max(0, Math.floor(value));
+        }
+      } else if (path === 'employeesCount') {
+        const desiredCount = Math.max(0, Math.floor(value));
+        while (S.employees.length > desiredCount) {
+          const employee = S.employees[S.employees.length - 1];
+          unassign(employee);
+          S.employees.pop();
+        }
+        while (S.employees.length < desiredCount) {
+          const record = S.employeeDatabase[S.employees.length % S.employeeDatabase.length];
+          if (!record) break;
+          addEmployee(
+            record.name,
+            record.skill,
+            record.salesSkill,
+            record.stats,
+            record.id,
+            record.salary,
+            record.sales
+          );
+        }
+      } else if (Object.prototype.hasOwnProperty.call(S, path)) {
+        if (path === 'day') S.day = clamp(Math.floor(value), 0, CONFIG.totalDays);
+        else if (path === 'level') S.level = clamp(Math.floor(value), 1, LEVELS.length);
+        else if (path === 'rep') S.rep = clamp(Math.floor(value), 0, 100);
+        else if (path === 'speedIdx') S.speedIdx = clamp(Math.floor(value), 0, CONFIG.speeds.length - 1);
+        else if (path === 'money') S.money = Math.floor(value);
+        else S[path] = Math.max(0, Math.floor(value));
+      }
+    });
+    S.dirty = true;
+    S.playing = false;
+    render();
+    toast('デバッグパラメータを適用しました', 'good');
+  }
+  else if (a === 'debug-add-employee') {
+    const select = $('debug-employee-select');
+    const record = S.employeeDatabase.find((item) => String(item.id) === String(select?.value));
+    if (!record) {
+      toast('追加する社員を選択してください', 'bad');
+      return;
+    }
+    const employee = addEmployee(
+      record.name,
+      record.skill,
+      record.salesSkill,
+      record.stats,
+      record.id,
+      record.salary,
+      record.sales
+    );
+    S.counts.hired++;
+    S.dirty = true;
+    render();
+    toast(`${employee.name}をデバッグで追加しました`, 'good');
+  }
+  else if (a === 'debug-remove-employee') {
+    const employee = empById(Number(el.dataset.id));
+    if (!employee) return;
+    unassign(employee);
+    S.employees = S.employees.filter((item) => item.id !== employee.id);
+    S.dirty = true;
+    render();
+    toast(`${employee.name}をデバッグで削除しました`, 'good');
+  }
   else if (a === 'choice') { onChoice(Number(el.dataset.i)); }
   else if (a === 'continue') { nextPending(); }
   else if (a === 'recruit-contract') {
@@ -1436,6 +1708,19 @@ document.addEventListener('keydown', (ev) => {
   }
   if (ev.code === 'Escape') {
     ev.preventDefault();
+    if (debugPreviewMode) {
+      debugPreviewMode = false;
+      S.over = null;
+      screenMode = null;
+      S.pending = null;
+      stage = 1;
+      lastResult = null;
+      $('screen').classList.add('hidden');
+      debugEventSelecting = true;
+      render();
+      renderModal();
+      return;
+    }
     if (S && S.employeeFiringArmed !== null) {
       S.employeeFiringArmed = null;
       render();
@@ -1456,7 +1741,7 @@ document.addEventListener('keydown', (ev) => {
       renderModal();
       return;
     }
-    showPage('town');
+    showPage('home');
     return;
   }
   if (S?.recruiting && S.recruitStage === 'confirm') {

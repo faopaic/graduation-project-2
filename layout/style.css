@@ -888,6 +888,44 @@ button[data-key]::after {
 .employee-info strong { font-size: 18px; color: var(--ok); }
 .employee-actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 5px; margin-top: auto; padding-top: 3px; }
 
+.debug-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 8px 0 12px;
+}
+.debug-field {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 12px;
+}
+.debug-field input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 5px 7px;
+  border: var(--line-thin);
+  background: var(--paper);
+  color: var(--ink);
+}
+.debug-field select {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 5px 7px;
+  border: var(--line-thin);
+  background: var(--paper);
+  color: var(--ink);
+}
+.debug-group {
+  margin: 8px 0;
+  padding: 8px;
+  border: var(--line-thin);
+  background: var(--bg);
+}
+@media (max-width: 700px) {
+  .debug-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
 @media (max-width: 700px) {
   .employee-grid { grid-template-columns: 1fr; }
 }
