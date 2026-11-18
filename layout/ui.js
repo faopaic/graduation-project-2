@@ -48,6 +48,14 @@ const employeeStatusMarkup = (e) => {
   const away = isAbsent(e);
   return `<div class="employee-status ${away ? 'employee-status-away' : ''}"${away ? ` data-employee-away="${e.absentUntil}"` : ''}>${employeeStatus(e)}</div>`;
 };
+const employeeSatisfactionMarkup = (e) => {
+  const satisfaction = clamp(Number(e.satisfaction) || 0, 0, 100);
+  const level = satisfaction < EMPLOYEE_RESIGN_THRESHOLD ? 'low' : satisfaction < EMPLOYEE_LOW_SATISFACTION_THRESHOLD ? 'warn' : 'good';
+  return `<div class="employee-satisfaction">
+    <div class="employee-satisfaction-row"><span>社員満足度</span><strong class="satisfaction-${level}">${satisfaction}/100</strong></div>
+    <div class="satisfaction-bar"><span class="satisfaction-${level}" style="width:${satisfaction}%"></span></div>
+  </div>`;
+};
 const requirementSkills = (job) => ['design', 'dev', 'security', 'infra']
   .filter((skill) => Number(job.requirements?.[skill]) > 0);
 const requirementText = (job) => requirementSkills(job)
@@ -473,7 +481,7 @@ function renderTown() {
   if (S.money < monthlyCost() * 1.5) alerts.push('<div class="alert"><span>資金が少なくなっている。このままだと、来月の給料が払えなくなる。</span></div>');
   S.jobs.filter((j) => j.late).forEach((j) => alerts.push(`<div class="alert"><span>「${j.name}」が納期を過ぎている。早く完成させよう。</span></div>`));
   const projects = S.jobs.length ? S.jobs.map((j) => `<div class="town-job"><div class="row"><strong class="small">${j.name}</strong><span class="small ${remainDays(j) <= 7 ? 'neg' : 'muted'}" data-left="${j.id}">${leftText(j)}</span></div><div class="bar"><div class="fill" data-bar="${j.id}" style="width:${progressPct(j)}%"></div></div></div>`).join('') : '<div class="small muted">進行中の案件はない。下の「案件」から受注しよう。</div>';
-  $('town-body').innerHTML = townScene() + `<div class="town-grid"><div>${alerts.join('')}<div class="panel"><div class="panel-title">いまの会社</div><div class="goal-row"><span>資金</span><span data-live="money">${yen(S.money)}</span></div><div class="goal-row"><span>評判</span><span data-live="rep">${S.rep} / 100</span></div><div class="goal-row"><span>社員</span><span data-live="staff">${S.employees.length} / ${levelInfo().slots}人</span></div><div class="goal-row"><span>会社Lv</span><span>Lv.${S.level}</span></div></div>${levelPanel()}</div><div class="panel"><div class="panel-title">進行中の案件</div>${projects}</div></div>`;
+  $('town-body').innerHTML = townScene() + `<div class="town-grid"><div>${alerts.join('')}<div class="panel"><div class="panel-title">いまの会社</div><div class="goal-row"><span>資金</span><span data-live="money">${yen(S.money)}</span></div><div class="goal-row"><span>評判</span><span data-live="rep">${S.rep} / 100</span></div><div class="goal-row"><span>社員</span><span data-live="staff">${S.employees.length} / ${levelInfo().slots}人</span></div><div class="goal-row"><span>社員満足度（平均）</span><span>${averageEmployeeSatisfaction()} / 100</span></div><div class="goal-row"><span>会社Lv</span><span>Lv.${S.level}</span></div></div>${levelPanel()}</div><div class="panel"><div class="panel-title">進行中の案件</div>${projects}</div></div>`;
 }
 
 function renderHome() {
@@ -509,7 +517,7 @@ function renderTimeline() {
       <span class="tl-dot"></span>
       <div class="tl-card${index === 0 ? ' tl-new' : ''}">
         <div class="tl-date"><span>${dateText}</span><span class="tl-tag">${tagText}</span></div>
-        <div class="tl-text">${entry.text}</div>
+        <div class="tl-text">${esc(entry.text)}</div>
       </div>
     </li>`;
   }).join('');
@@ -675,12 +683,14 @@ function renderEmployees() {
       const status = resting ? `営業休止中（あと${e.salesCooldownUntil - S.day}日）` : '営業活動中';
       return `<div class="employee-card">
         <div class="employee-card-head" style="background:${skillColor(e.skill)}"><div class="employee-avatar">${avatar(e.skill, e.name + 'のドット絵')}</div><div><div class="small muted">社員 / 営業担当</div><strong class="employee-name">${e.name}</strong><span class="employee-skill">${SKILLS[e.skill]}</span></div></div>
-        ${isAbsent(e) ? employeeStatusMarkup(e) : `<div class="employee-status">${status}</div>`}<div class="employee-info"><span>営業力</span><strong>${e.salesSkill}/100</strong></div>
+        ${isAbsent(e) ? employeeStatusMarkup(e) : `<div class="employee-status">${status}</div>`}${employeeSatisfactionMarkup(e)}<div class="employee-info"><span>営業力</span><strong>${e.salesSkill}/100</strong></div>
         <div class="small">${employeeStats(e)}</div><div class="small muted">案件獲得率 ${salesSuccessRate(e.salesSkill)}%（基礎30%） / 獲得後1〜3か月休止</div>
         <div class="employee-actions">${salesButton(e)}${fireButton(e)}</div></div>`;
     }).join('') || '<div class="card muted">営業担当がいません。社員一覧から担当者を設定してください。</div>';
     $('employees-body').innerHTML = `<div class="row"><h2>社員一覧 <span class="muted small">${S.employees.length} / ${slots}人</span></h2><div>${viewButton('staff')} <button class="btn-small" data-go="upgrades">社員強化</button></div></div>
+      <div class="employee-satisfaction-summary">全社員の平均満足度 <strong>${averageEmployeeSatisfaction()} / 100</strong></div>
       <p class="small muted legend">営業担当は毎月、基礎30%に営業力を加味した確率で案件を獲得します。営業力は将来データベースの値に差し替えられます。</p>
+      <p class="small muted legend">給与支払いで上がり、担当中は仕事の負荷で下がります。待機中は回復し、イベントでも上下します。60未満では作業効率が下がり、20未満ではデータベースの退職希望イベントが発生しやすくなり、選択に応じて退職リスクが変わります。</p>
       <p class="small muted legend">解雇には月給の${EMPLOYEE_SEVERANCE_MONTHS}か月分の退職金が必要です。解雇すると評判が${EMPLOYEE_FIRE_REPUTATION_PENALTY}下がります。</p>
       <h3>営業担当</h3><div class="employee-grid">${sales}</div>`;
     return;
@@ -688,13 +698,15 @@ function renderEmployees() {
   const cards = bySkill(S.employees.filter((e) => !e.sales)).map((e) => {
     return `<div class="employee-card">
       <div class="employee-card-head" style="background:${skillColor(e.skill)}"><div class="employee-avatar">${avatar(e.skill, e.name + 'のドット絵')}</div><div><div class="small muted">社員</div><strong class="employee-name">${e.name}</strong><span class="employee-skill">${SKILLS[e.skill]}</span></div></div>
-      <div class="small employee-help">${SKILL_HELP[e.skill]}</div>${employeeStatusMarkup(e)}
+      <div class="small employee-help">${SKILL_HELP[e.skill]}</div>${employeeStatusMarkup(e)}${employeeSatisfactionMarkup(e)}
       <div class="employee-info"><span>月給</span><strong>${yen(e.salary)}</strong></div><div class="small">営業力 ${e.salesSkill}/100</div><div class="small">${employeeStats(e)}</div>
       <div class="employee-actions">${salesButton(e)}${fireButton(e)}</div></div>`;
   }).join('') || '<div class="card muted">営業担当以外の社員がいません。営業担当を見るボタンから確認できます。</div>';
   $('employees-body').innerHTML = `<div class="row"><h2>社員一覧 <span class="muted small">${S.employees.length} / ${slots}人</span></h2><div>${viewButton('sales')} <button class="btn-small" data-go="upgrades">社員強化</button></div></div>
+    <div class="employee-satisfaction-summary">全社員の平均満足度 <strong>${averageEmployeeSatisfaction()} / 100</strong></div>
     ${skillLegend()}
     <p class="small muted legend">社員のスキルや担当案件を確認できます。営業担当は毎月、基礎30%に営業力を加味した確率で1〜3件の案件を獲得し、獲得後1〜3か月休みます。</p>
+    <p class="small muted legend">給与支払いで上がり、担当中は仕事の負荷で下がります。待機中は回復し、イベントでも上下します。60未満では作業効率が下がり、20未満ではデータベースの退職希望イベントが発生しやすくなり、選択に応じて退職リスクが変わります。</p>
     <p class="small muted legend">解雇には月給の${EMPLOYEE_SEVERANCE_MONTHS}か月分の退職金が必要です。解雇すると評判が${EMPLOYEE_FIRE_REPUTATION_PENALTY}下がります。</p><div class="employee-grid">${cards}</div>`;
 }
 
@@ -1219,9 +1231,8 @@ function showEnd() {
 
 function startGame() {
   const difficulty = selectedDifficulty;
-  newGame(S.employeeDatabase, S.eventDatabase, S.projectDatabase, S.missionDatabase);
+  newGame(S.employeeDatabase, S.eventDatabase, S.projectDatabase, S.missionDatabase, companyName);
   S.difficulty = difficulty;
-  S.companyName = companyName;
   if (difficulty === 'hard') {
     S.money = Math.floor(CONFIG.startMoney * 0.9);
   }
