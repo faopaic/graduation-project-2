@@ -920,6 +920,10 @@ button[data-key]::after {
   background: var(--paper);
   color: var(--ink);
 }
+.debug-field input[type="range"] {
+  padding: 0;
+  accent-color: var(--main);
+}
 .debug-field select {
   width: 100%;
   box-sizing: border-box;
