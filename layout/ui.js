@@ -1434,6 +1434,31 @@ document.addEventListener('keydown', (ev) => {
   ) {
     return;
   }
+  if (ev.code === 'Escape') {
+    ev.preventDefault();
+    if (S && S.employeeFiringArmed !== null) {
+      S.employeeFiringArmed = null;
+      render();
+      return;
+    }
+    if (debugEventSelecting) {
+      debugEventSelecting = false;
+      renderModal();
+      return;
+    }
+    if (S?.recruitSelectingJob) {
+      S.recruitSelectingJob = false;
+      renderModal();
+      return;
+    }
+    if (S?.missionsOpen) {
+      S.missionsOpen = false;
+      renderModal();
+      return;
+    }
+    showPage('town');
+    return;
+  }
   if (S?.recruiting && S.recruitStage === 'confirm') {
     if (ev.code === 'Digit1') {
       ev.preventDefault();
@@ -1477,7 +1502,7 @@ document.addEventListener('keydown', (ev) => {
   }
   if (ev.code === 'Digit1') {
     ev.preventDefault();
-    showPage('town');
+    showPage('home');
     return;
   }
   if (ev.code === 'Digit2') {
