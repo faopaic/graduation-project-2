@@ -113,7 +113,8 @@ function newGame(
     counts: { accepted: 0, hired: 0, handled: 0 },
     missionRewards: {},
     nextId: 1, playing: false, speedIdx: CONFIG.defaultSpeed, missionsOpen: false, missionUnlockNotices: {},
-    employeeView: 'staff', employeeDatabase, eventDatabase, projectDatabase, missionDatabase
+    employeeView: 'staff', employeeFiringArmed: null,
+    employeeDatabase, eventDatabase, projectDatabase, missionDatabase
   };
   MISSIONS = missionDatabase.map((mission) => ({
     ...mission,
@@ -310,6 +311,31 @@ function toggleSales(empId) {
     e.sales = true;
   }
   S.dirty = true;
+}
+
+function fireEmployee(empId) {
+  const employee = empById(empId);
+  if (!employee) return { ok: false, msg: '社員が見つかりません' };
+  if (S.employees.length <= 1) return { ok: false, msg: '社員が一人以下になるため解雇できません' };
+  if (S.pending || S.recruiting) return { ok: false, msg: 'イベント中は社員を解雇できません' };
+
+  const severance = employee.salary * EMPLOYEE_SEVERANCE_MONTHS;
+  if (S.money < severance) {
+    return { ok: false, msg: `退職金が不足しています。必要資金は${yen(severance)}です` };
+  }
+
+  unassign(employee);
+  S.employees = S.employees.filter((e) => e.id !== empId);
+  addMoney(-severance);
+  addRep(-EMPLOYEE_FIRE_REPUTATION_PENALTY);
+  if (S.employeeFiringArmed === empId) S.employeeFiringArmed = null;
+  S.dirty = true;
+
+  const message = `${employee.name}を解雇しました（退職金 ${yen(severance)}・評判 -${EMPLOYEE_FIRE_REPUTATION_PENALTY}）`;
+  log(message, 'bad');
+  notify(message, 'bad');
+  checkMissionRewards();
+  return { ok: true, msg: message };
 }
 
 function salesSuccessRate(salesSkill) {
