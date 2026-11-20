@@ -1008,7 +1008,10 @@ function renderModal() {
       <h3>ゲームパラメータ</h3>
       <p class="small muted">F4で開くデバッグ画面です。変更後は「適用」を押してください。</p>
       <div class="debug-grid">
-        <label class="debug-field">経過日<input type="number" data-debug="day" min="0" max="${CONFIG.totalDays}" value="${S.day}"></label>
+        <label class="debug-field">経過日
+          <input type="range" data-debug="day" data-debug-range-label="day-value" min="0" max="${CONFIG.totalDays}" value="${S.day}">
+          <span id="day-value" class="small muted">${S.day}日目（${Math.min(5, Math.floor(S.day / 365) + 1)}年目）</span>
+        </label>
         <label class="debug-field">資金<input type="number" data-debug="money" value="${S.money}"></label>
         <label class="debug-field">評判<input type="number" data-debug="rep" min="0" max="100" value="${S.rep}"></label>
         <label class="debug-field">会社レベル<input type="number" data-debug="level" min="1" max="${LEVELS.length}" value="${S.level}"></label>
@@ -1700,6 +1703,13 @@ document.addEventListener('click', (ev) => {
 
 // ----- 会社名の入力 -----
 document.addEventListener('input', (ev) => {
+  if (ev.target.dataset?.debugRangeLabel === 'day-value') {
+    const day = Number(ev.target.value);
+    const label = $('day-value');
+    if (label) {
+      label.textContent = `${day}日目（${Math.min(5, Math.floor(day / 365) + 1)}年目）`;
+    }
+  }
   if (ev.target.id !== 'company-name') return;
   companyName = ev.target.value.trim();
   const btn = $('start-btn');
@@ -1714,6 +1724,11 @@ document.addEventListener('keydown', (ev) => {
   if (ev.code === 'F4') {
     ev.preventDefault();
     debugEventPrompt();
+    return;
+  }
+  if (ev.code === 'Enter' && debugEventSelecting) {
+    ev.preventDefault();
+    document.querySelector('[data-act="apply-debug-state"]')?.click();
     return;
   }
   const activeTag = document.activeElement?.tagName;
