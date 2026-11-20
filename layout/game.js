@@ -969,6 +969,7 @@ function checkLevel() {
   if (next && S.successes >= next.needSuccess && S.experience >= next.needExp) {
     S.experience -= next.needExp;
     S.level++;
+    S.successes = 0;
     checkMissionRewards();
     S.dirty = true;
     log(`会社が Lv.${S.level} になった`, 'good');
