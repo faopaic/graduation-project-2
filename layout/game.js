@@ -27,10 +27,23 @@ let S = null;
 const levelInfo = () => LEVELS[S.level - 1];
 const empById = (id) => S.employees.find((e) => e.id === id);
 const jobById = (id) => S.jobs.find((j) => j.id === id);
+const BACKUP_INCIDENTS = new Set(['システム障害の発生', '重要データの誤削除', '災害による業務への影響']);
+const SECURITY_INCIDENTS = new Set(['社用PCの紛失', 'メールの誤送信', 'ウイルス感染', 'パスワードの流出']);
+const QA_INCIDENTS = new Set(['社員の業務ミス']);
+const isBackupIncident = (event) => BACKUP_INCIDENTS.has(event?.name);
+const isSecurityIncident = (event) => SECURITY_INCIDENTS.has(event?.name);
+const isQaIncident = (event) => QA_INCIDENTS.has(event?.name);
+function eventOccurrenceRate(event) {
+  let rate = Math.max(0, Number(event.occurrenceRate) || 0);
+  if (isBackupIncident(event)) rate *= 1 - 0.25 * S.invest.backup;
+  if (isSecurityIncident(event)) rate *= 1 - 0.30 * S.invest.security;
+  if (isQaIncident(event)) rate *= 1 - 0.25 * S.invest.qa;
+  return rate;
+}
 function projectUnlockReason(project) {
   const requiredLevel = Math.min(3, Math.max(1, Number(project.diff) || 1));
   const requirements = [];
-  if (S.level < requiredLevel) requirements.push(`会社Lv.${requiredLevel}`);
+  if (S.level < requiredLevel) requirements.push(`会社レベル${requiredLevel}`);
   if (Number(project.diff) === 2 && S.lowDifficultySuccesses < 5) {
     requirements.push(`低難易度案件を5件成功（${S.lowDifficultySuccesses}/5）`);
   }
@@ -65,8 +78,8 @@ function meetsRequirement(job, skill, employees) {
 }
 const remainDays = (job) => job.deadline - S.day;
 const monthlyCost = () => S.employees.reduce((s, e) => s + e.salary, 0) + CONFIG.officeCost;
-const averageEmployeeSatisfaction = () => S.employees.length
-  ? Math.round(S.employees.reduce((total, e) => total + e.satisfaction, 0) / S.employees.length)
+const averageEmployeeMorale = () => S.employees.length
+  ? Math.round(S.employees.reduce((total, e) => total + e.morale, 0) / S.employees.length)
   : 0;
 const newId = () => S.nextId++;
 const addMoney = (n) => { S.money += n; };
@@ -74,11 +87,12 @@ const addRep = (n) => { S.rep = Math.max(0, S.rep + n); };
 const addProgress = (job, frac) => { job.progress = clamp(job.progress + frac * job.work, 0, job.work * 0.99); };
 const schedule = (afterDays, type, data) => { S.schedule.push(Object.assign({ day: S.day + afterDays, type }, data)); };
 
-function adjustEmployeeSatisfaction(amount) {
-  S.employees.forEach((e) => {
-    e.satisfaction = clamp(e.satisfaction + amount, 0, 100);
-  });
-  if (S.employees.length) S.dirty = true;
+function adjustEmployeeMorale(employee, amount) {
+  const current = employee ? empById(employee.id) : null;
+  if (!current) return false;
+  current.morale = clamp(current.morale + amount, 0, 100);
+  S.dirty = true;
+  return true;
 }
 
 function resignEmployee(employee) {
@@ -86,7 +100,7 @@ function resignEmployee(employee) {
   if (!current) return false;
   unassign(current);
   S.employees = S.employees.filter((e) => e.id !== current.id);
-  const message = `${current.name}は社員満足度の低下により退職した`;
+  const message = `${current.name}は士気の低下により退職した`;
   log(message, 'warn');
   notify(message, 'warn');
   S.dirty = true;
@@ -94,16 +108,16 @@ function resignEmployee(employee) {
 }
 
 function employeeResignationChance(employee) {
-  const satisfaction = clamp(Number(employee.satisfaction) || 0, 0, 100);
-  if (satisfaction >= EMPLOYEE_RESIGN_THRESHOLD) return 0;
+  const morale = clamp(Number(employee.morale) || 0, 0, 100);
+  if (morale >= EMPLOYEE_RESIGN_MORALE_THRESHOLD) return 0;
   return clamp(
-    (EMPLOYEE_RESIGN_THRESHOLD - satisfaction) * 0.01 + (Number(employee.retirementRisk) || 0) / 100,
+    (EMPLOYEE_RESIGN_MORALE_THRESHOLD - morale) * 0.01 + (Number(employee.retirementRisk) || 0) / 100,
     0,
     1
   );
 }
 
-function updateEmployeeSatisfaction() {
+function updateEmployeeMorale() {
   const salaryPaid = S.money >= 0;
   let changed = false;
   const resignationCandidates = [];
@@ -111,9 +125,9 @@ function updateEmployeeSatisfaction() {
     const job = e.job ? jobById(e.job) : null;
     const activeWork = e.job || (e.sales && S.day >= e.salesCooldownUntil);
     const workloadChange = job?.late ? -5 : activeWork ? -2 : !isAbsent(e) ? 1 : 0;
-    const previous = e.satisfaction;
-    e.satisfaction = clamp(e.satisfaction + (salaryPaid ? 1 : 0) + workloadChange, 0, 100);
-    if (e.satisfaction !== previous) changed = true;
+    const previous = e.morale;
+    e.morale = clamp(e.morale + (salaryPaid ? 1 : 0) + workloadChange, 0, 100);
+    if (e.morale !== previous) changed = true;
 
     const resignationChance = employeeResignationChance(e);
     if (resignationChance > 0 && rand() < resignationChance) {
@@ -156,7 +170,7 @@ function newGame(
     done: 0, successes: 0, advancedSuccesses: 0,
     lowDifficultySuccesses: 0, mediumDifficultySuccesses: 0,
     experience: 0, big: 0,
-    companyName: companyName || 'PEACE株式会社',
+    companyName: companyName || '',
     recruitContractCount: 0,recruitContractActive: false,recruitContractJobType: null,recruitSelectingJob: false,
     difficulty,
     employees: [], jobs: [], offers: [], candidates: [],
@@ -224,7 +238,7 @@ function newGame(
   if (randomProject) initialProjects.push({ template: randomProject });
   initialProjects.slice(0, 3).forEach(({ template, skills }) => newOffer(template.id, skills));
   refreshCandidates();
-  log(`${S.companyName}を設立した。まずは案件を受注しよう。`);
+  log(`${S.companyName ? `「${S.companyName}」という会社を` : '会社を'}設立した。まずは案件を受注しよう。`);
   return S;
 }
 function selectInitialStaff(employeeDatabase) {
@@ -252,7 +266,7 @@ function addEmployee(name, skill, salesSkill, stats, sourceId, salary, sales) {
   const e = {
     id: newId(), sourceId, name, skill, salary: salary ?? SALARY[1], job: null, sales: Boolean(sales),
     salesSkill: salesSkill ?? DEFAULT_SALES_SKILL, salesCooldownUntil: 0,
-    satisfaction: EMPLOYEE_START_SATISFACTION,
+    morale: EMPLOYEE_START_MORALE,
     retirementRisk: 0,
     stats: Object.fromEntries(Object.keys(DEFAULT_EMPLOYEE_STATS).map((key) => [
       key, clamp(Number(rawStats[key]) || 0, 0, 100)
@@ -314,11 +328,11 @@ function newOffer(tid, skillsOverride) {
 
 function acceptOffer(id) {
   const o = S.offers.find((x) => x.id === id);
-  if (!o) return { ok: false, msg: 'この案件は、募集が終わった' };
+  if (!o) return { ok: false, msg: 'この案件の募集は終了しました。' };
   const unlockReason = projectUnlockReason(o);
   if (unlockReason) return { ok: false, msg: unlockReason };
-  if (S.rep < o.minRep) return { ok: false, msg: `評判が${o.minRep}になると受注できる` };
-  if (S.jobs.length >= levelInfo().jobs) return { ok: false, msg: `同時に受けられるのは${levelInfo().jobs}件まで` };
+  if (S.rep < o.minRep) return { ok: false, msg: `評判が${o.minRep}以上になると受注できます。` };
+  if (S.jobs.length >= levelInfo().jobs) return { ok: false, msg: `同時に受注できる案件は${levelInfo().jobs}件までです。` };
   S.offers = S.offers.filter((x) => x.id !== id);
   const job = {
     id: newId(), tid: o.tid, name: o.name, diff: o.diff, reward: o.reward, work: o.work,
@@ -330,7 +344,7 @@ function acceptOffer(id) {
   checkMissionRewards();
   log(`「${job.name}」を受注した`);
   S.dirty = true;
-  return { ok: true, msg: `「${job.name}」を受注した。納期は${job.deadline - S.day}日後` };
+  return { ok: true, msg: `「${job.name}」を受注しました。納期まで${job.deadline - S.day}日です。` };
 }
 
 // ----- 担当の割り振り -----
@@ -373,7 +387,7 @@ function toggleSales(empId) {
 function fireEmployee(empId) {
   const employee = empById(empId);
   if (!employee) return { ok: false, msg: '社員が見つかりません' };
-  if (S.employees.length <= 1) return { ok: false, msg: '社員が一人以下になるため解雇できません' };
+  if (S.employees.length <= 1) return { ok: false, msg: '社員が1人しかいないため、これ以上解雇できません。' };
   if (S.pending || S.recruiting) return { ok: false, msg: 'イベント中は社員を解雇できません' };
 
   const severance = employee.salary * EMPLOYEE_SEVERANCE_MONTHS;
@@ -456,8 +470,8 @@ function makeCandidate(skill) {
 }
 function hire(id) {
   const c = S.candidates.find((x) => x.id === id);
-  if (!c) return { ok: false, msg: 'この人は、ほかの会社に決まった' };
-  if (S.employees.length >= levelInfo().slots) return { ok: false, msg: '席がいっぱい。会社Lvが上がると、席が増える' };
+  if (!c) return { ok: false, msg: 'この候補者はすでに採用されました。' };
+  if (S.employees.length >= levelInfo().slots) return { ok: false, msg: '社員枠が埋まっています。会社レベルが上がると、社員枠が増えます。' };
   S.candidates = S.candidates.filter((x) => x.id !== id);
   addEmployee(c.name, c.skill, c.salesSkill, c.stats, c.sourceId, c.salary, c.sales);
   S.counts.hired++;
@@ -465,7 +479,7 @@ function hire(id) {
   log(`${c.name}(${SKILLS[c.skill]})を採用した`);
   autoAssign();
   S.dirty = true;
-  return { ok: true, msg: `${c.name}が入社した。月の支出が${yen(c.salary)}増える` };
+  return { ok: true, msg: `${c.name}が入社しました。月間支出が${yen(c.salary)}増えます。` };
 }
 
 function availableDatabaseEmployees() {
@@ -594,12 +608,12 @@ function jobPower(job) {
   job.staff.forEach((id) => {
     const e = empById(id);
     if (!e || !isWorking(e)) return;
-    const satisfaction = clamp(Number(e.satisfaction) || 0, 0, 100);
-    const satisfactionMultiplier = satisfaction >= EMPLOYEE_LOW_SATISFACTION_THRESHOLD
+    const morale = clamp(Number(e.morale) || 0, 0, 100);
+    const moraleMultiplier = morale >= EMPLOYEE_LOW_MORALE_THRESHOLD
       ? 1
-      : 0.7 + satisfaction / 200;
+      : 0.7 + morale / 200;
     if (!job.skills.includes(e.skill)) {
-      p += 0.5 * satisfactionMultiplier;
+      p += 0.5 * moraleMultiplier;
       return;
     }
     const statKey = EMPLOYEE_SPECIALTY_STATS[e.skill];
@@ -607,7 +621,7 @@ function jobPower(job) {
     const basePower = 0.5 + stat / 100;
     const required = Number(job.requirements?.[e.skill]) || 0;
     const abilityShortage = required > 0 && abilityTotal(staff, e.skill) < required;
-    p += basePower * (abilityShortage ? 0.7 : 1) * satisfactionMultiplier;
+    p += basePower * (abilityShortage ? 0.7 : 1) * moraleMultiplier;
   });
   if (S.boost[job.id] && S.day < S.boost[job.id]) p *= 1.4;
   return p;
@@ -648,7 +662,7 @@ function tick() {
     const c = monthlyCost();
     S.money -= c;
     log(`給料と運営費 ${yen(c)} を支払った`);
-    resignationCandidate = updateEmployeeSatisfaction();
+    resignationCandidate = updateEmployeeMorale();
     runSales();
   }
 
@@ -703,13 +717,25 @@ function makeIncident(forceId) {
   const event = forceId
     ? S.eventDatabase.find((item) => String(item.id) === String(forceId))
     : pickWeighted(
-      S.eventDatabase.filter((item) => (
-        !isResignationEvent(item) &&
-        (S.employees.length < levelInfo().slots || !eventRequiresRecruitment(item))
-      )),
-      (item) => item.occurrenceRate
-    );
-  return event ? buildDatabaseEvent(event, job) : null;
+        S.eventDatabase.filter((item) => (
+          !isResignationEvent(item) &&
+          (S.employees.length < levelInfo().slots || !eventRequiresRecruitment(item))
+        )),
+        eventOccurrenceRate
+      );
+  if (!event) return null;
+  const targetEmployee = event.type === 'incident'
+    ? selectIncidentEmployee(job)
+    : eventChangesIndividualMorale(event) && S.employees.length
+      ? pick(S.employees)
+      : null;
+  return buildDatabaseEvent(event, job, null, targetEmployee);
+}
+
+function selectIncidentEmployee(job) {
+  const assignedEmployees = (job?.staff || []).map(empById).filter(Boolean);
+  const candidates = assignedEmployees.length ? assignedEmployees : S.employees;
+  return candidates.length ? pick(candidates) : null;
 }
 
 function isResignationEvent(event) {
@@ -719,6 +745,14 @@ function isResignationEvent(event) {
 function eventRequiresRecruitment(event) {
   return (event.choices || []).some((choice) =>
     Number(choice?.effects?.employee) > 0
+  );
+}
+
+function eventChangesIndividualMorale(event) {
+  return (event.choices || []).some((choice) =>
+    Number(choice?.effects?.morale || 0) !== 0
+    || Number(choice?.effects?.reputation || 0) !== 0
+    || Number(choice?.effects?.retirement_risk || 0) !== 0
   );
 }
 
@@ -741,10 +775,13 @@ function pickWeighted(items, weightOf) {
   return items[index] || null;
 }
 
-function applyDatabaseEventEffects(effects, job, targetEmployee) {
+function applyDatabaseEventEffects(effects, job, targetEmployee, event) {
   const applied = [];
   const employee = targetEmployee ? empById(targetEmployee.id) : null;
-  const money = Number(effects?.money || 0) + Number(effects?.sales || 0) + Number(effects?.profit || 0);
+  const rawMoney = Number(effects?.money || 0);
+  const securityCostRate = isSecurityIncident(event) ? 1 - 0.20 * S.invest.security : 1;
+  const adjustedMoney = rawMoney < 0 ? Math.round(rawMoney * securityCostRate) : rawMoney;
+  const money = adjustedMoney + Number(effects?.sales || 0) + Number(effects?.profit || 0);
   if (money) {
     addMoney(money);
     applied.push(`資金 ${money >= 0 ? '+' : ''}${yen(money)}`);
@@ -753,19 +790,13 @@ function applyDatabaseEventEffects(effects, job, targetEmployee) {
   if (reputation) {
     addRep(reputation);
     applied.push(`評判 ${reputation >= 0 ? '+' : ''}${reputation}`);
-    adjustEmployeeSatisfaction(Math.sign(reputation) * 3);
-    applied.push(`社員満足度 ${reputation > 0 ? '+3' : '-3'}`);
+    if (employee && adjustEmployeeMorale(employee, Math.sign(reputation) * 3)) {
+      applied.push(`${employee.name}の士気 ${reputation > 0 ? '+3' : '-3'}`);
+    }
   }
   const morale = Number(effects?.morale || 0);
-  if (morale) {
-    if (employee) {
-      employee.satisfaction = clamp(employee.satisfaction + morale, 0, 100);
-      S.dirty = true;
-      applied.push(`${employee.name}の満足度 ${morale >= 0 ? '+' : ''}${morale}`);
-    } else {
-      adjustEmployeeSatisfaction(morale);
-      applied.push(`社員満足度 ${morale >= 0 ? '+' : ''}${morale}`);
-    }
+  if (morale && employee && adjustEmployeeMorale(employee, morale)) {
+    applied.push(`${employee.name}の士気 ${morale >= 0 ? '+' : ''}${morale}`);
   }
   const retirementRisk = Number(effects?.retirement_risk || 0);
   if (retirementRisk && employee) {
@@ -776,21 +807,38 @@ function applyDatabaseEventEffects(effects, job, targetEmployee) {
   const workload = Number(effects?.workload || 0);
   if (job && workload) {
     job.work = Math.max(job.progress + 1, job.work + workload);
-    applied.push(`仕事量 ${workload >= 0 ? '+' : ''}${workload}`);
+    applied.push(`作業量 ${workload >= 0 ? '+' : ''}${workload}`);
   }
   const quality = Number(effects?.development || 0) + Number(effects?.security || 0) + Number(effects?.efficiency || 0);
   if (job && quality) {
     job.qBonus += Math.round(quality / 10);
     applied.push(`品質 ${quality >= 0 ? '+' : ''}${Math.round(quality / 10)}`);
   }
+  if (
+    job
+    && isBackupIncident(event)
+    && (Number(effects?.business_continuity) < 0 || Number(effects?.data_integrity) < 0)
+    && job.progress > 0
+  ) {
+    const lossRate = BACKUP_LOSS[S.invest.backup];
+    job.progress *= 1 - lossRate;
+    applied.push(`案件の現在進捗を${Math.round(lossRate * 100)}%失った`);
+  }
   return applied;
 }
 
-function buildDatabaseEvent(event, job, resignationEmployee) {
+function buildDatabaseEvent(event, job, resignationEmployee, incidentEmployee) {
   const choices = (event.choices || []).filter((choice) => choice?.label);
   if (!choices.length) return null;
+  const targetEmployee = incidentEmployee || resignationEmployee;
+  const targets = event.type === 'incident' || resignationEmployee || incidentEmployee
+    ? {
+      job: event.type === 'incident' || resignationEmployee ? job?.name || 'なし' : null,
+      employees: targetEmployee ? [targetEmployee.name] : []
+    }
+    : null;
   const resignationDetails = resignationEmployee
-    ? ` ${resignationEmployee.name}（社員満足度 ${resignationEmployee.satisfaction}/100）から退職の相談があった。`
+    ? ` ${resignationEmployee.name}（士気 ${resignationEmployee.morale}/100）から退職の相談があった。`
     : '';
   return {
     kind: 'incident',
@@ -798,6 +846,7 @@ function buildDatabaseEvent(event, job, resignationEmployee) {
     badge: event.type === 'incident' ? 'インシデント' : '会社イベント',
     title: event.name,
     body: `${event.description}${event.triggerCondition ? `（発生条件: ${event.triggerCondition}）` : ''}${resignationDetails}`,
+    targets,
     choices: choices.map((choice) => ({
       label: choice.label,
       tag: 'other',
@@ -818,7 +867,7 @@ function buildDatabaseEvent(event, job, resignationEmployee) {
           if (!employee) return `${choice.label}。採用枠または採用可能な社員がいないため、採用できませんでした。`;
           recruited.push(employee);
         }
-        const applied = applyDatabaseEventEffects(effects, job, resignationEmployee);
+        const applied = applyDatabaseEventEffects(effects, job, targetEmployee, event);
         const target = resignationEmployee ? empById(resignationEmployee.id) : null;
         const resignationChance = target ? employeeResignationChance(target) : 0;
         if (resignationChance > 0 && rand() < resignationChance) {
@@ -876,13 +925,13 @@ function completeJob(job) {
   log(`「${job.name}」が完成した。報酬 ${yen(pay)}`, 'good');
   S.dirty = true;
 
-  const label = q >= 80 ? '良い' : q >= 60 ? 'ふつう' : '低い';
+  const label = q >= 80 ? '良好' : q >= 60 ? '標準' : '低い';
   const lines = [
-    lateDays === 0 ? `納期: 間に合った(${job.deadline - S.day}日前)` : `納期: ${lateDays}日遅れた(報酬が${Math.round((1 - rf) * 100)}%減った)`,
-    `品質: ${q}点(${label})${qf < 1 ? ` 報酬が${Math.round((1 - qf) * 100)}%減った` : ''}`,
+    lateDays === 0 ? `納期：${job.deadline === S.day ? '納期当日に完成' : `納期より${job.deadline - S.day}日早く完成`}` : `納期：${lateDays}日遅れ（報酬が${Math.round((1 - rf) * 100)}%減額）`,
+    `品質：${q}点（${label}）${qf < 1 ? ` 報酬が${Math.round((1 - qf) * 100)}%減額` : ''}`,
     `報酬: ${yen(pay)}`,
     `評判: ${rep >= 0 ? '+' : ''}${rep}`,
-    success ? `案件成功: 経験値 +${job.diff * 10}` : '案件成功にならなかった'
+    success ? `案件成功：経験値 +${job.diff * 10}` : '成功条件を達成できませんでした'
   ];
   if (missing.length) lines.push(`スキル不足: ${missing.map((sk) => SKILLS[sk]).join('、')}の担当がいなかったため、品質が下がった`);
   if (mismatchedRequirements) lines.push(`職種不一致: 要求能力値は満たしていたが、職種が一致しないスキルが${mismatchedRequirements}件あり、品質が${mismatchedRequirements * 10}点下がった`);
@@ -905,7 +954,7 @@ function checkLevel() {
     log(`会社が Lv.${S.level} になった`, 'good');
     raise({
       kind: 'notice', badge: 'レベルアップ', title: `会社が Lv.${S.level} に成長した`,
-      body: `案件の成功と経験が認められた。社員の席が${next.slots}つに、同時に受けられる案件が${next.jobs}件に増えた。`,
+      body: `案件の成功と経験が認められ、社員枠が${next.slots}人に、同時に受注できる案件が${next.jobs}件に増えた。`,
       choices: [{ label: 'やった', tag: 'other', apply() { return ''; } }]
     });
   }

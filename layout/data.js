@@ -55,9 +55,9 @@ const EMPLOYEE_STAT_UPGRADE_RATE_POINTS = [
 ];
 const EMPLOYEE_SEVERANCE_MONTHS = 3;
 const EMPLOYEE_FIRE_REPUTATION_PENALTY = 20;
-const EMPLOYEE_START_SATISFACTION = 70;
-const EMPLOYEE_LOW_SATISFACTION_THRESHOLD = 60;
-const EMPLOYEE_RESIGN_THRESHOLD = 20;
+const EMPLOYEE_START_MORALE = 70;
+const EMPLOYEE_LOW_MORALE_THRESHOLD = 60;
+const EMPLOYEE_RESIGN_MORALE_THRESHOLD = 20;
 
 const SKILLS = {
   design: '設計',
@@ -81,7 +81,7 @@ const SALARY = { 1: 220000, 2: 300000, 3: 400000 };   // レベル別の月給
 
 let MISSIONS = [];
 
-// 会社のレベル。slots = 社員の席の数、jobs = 同時に受けられる案件の数
+// 会社のレベル。slots = 社員枠、jobs = 同時に受注できる案件数
 const LEVELS = [
   { lv: 1, slots: 5, jobs: 2 },
   { lv: 2, slots: 7, jobs: 3, needSuccess: 2, needExp: 20 },
@@ -96,20 +96,20 @@ const INVEST = {
   backup: {
     name: 'バックアップ体制',
     costs: [200000, 400000, 700000],
-    help: 'サーバー障害が起きにくくなり、起きても失う作業が少なくなる。',
-    now: (lv) => lv === 0 ? 'まだ何もしていない' : `障害の確率 -${25 * lv}% / 障害で失う進捗 ${BACKUP_LOSS[lv] * 100}%`
+    help: 'サーバー障害の発生を抑え、発生時に失われる作業量を軽減します。',
+    now: (lv) => lv === 0 ? '未導入' : `障害発生率 -${25 * lv}% / 発生時の進捗損失 ${BACKUP_LOSS[lv] * 100}%`
   },
   security: {
     name: 'セキュリティ対策',
     costs: [300000, 600000, 1000000],
-    help: '情報漏えいが起きにくくなり、対応の費用も安くなる。',
-    now: (lv) => lv === 0 ? 'まだ何もしていない' : `情報漏えいの確率 -${30 * lv}% / 対応費用 -${20 * lv}%`
+    help: '情報漏えいの発生を抑え、発生時の対応費用を軽減します。',
+    now: (lv) => lv === 0 ? '未導入' : `情報漏えい発生率 -${30 * lv}% / 対応費用 -${20 * lv}%`
   },
   qa: {
-    name: '品質管理(テスト環境)',
+    name: '品質管理（テスト環境）',
     costs: [250000, 500000, 800000],
-    help: 'バグが起きにくくなり、完成品の品質も上がる。',
-    now: (lv) => lv === 0 ? 'まだ何もしていない' : `バグの確率 -${25 * lv}% / 品質 +${5 * lv}点`
+    help: '業務ミスの発生を抑え、案件完成時の品質を高めます。',
+    now: (lv) => lv === 0 ? '未導入' : `業務ミス発生率 -${25 * lv}% / 完成時の品質 +${5 * lv}点`
   },
   recruitContract: {
     name: '人材紹介会社との特別契約',
@@ -118,9 +118,9 @@ const INVEST = {
     help: '次回の採用で、指定した職種の候補者だけを紹介してもらう。',
     now: (used, active, jobType) => {
       if (active) {
-        return `待機中 (${jobType})`;
+        return `紹介待ち：${SKILLS[jobType] || jobType}`;
       }
-      return `利用回数 ${used}/3`;
+      return `利用済み ${used}/3回`;
     }
   }
 };
