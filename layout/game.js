@@ -185,7 +185,21 @@ function newGame(
     employeeView: 'staff', employeeFiringArmed: null,
     employeeDatabase, eventDatabase, projectDatabase, missionDatabase
   };
-  MISSIONS = missionDatabase.map((mission) => ({
+  const challengeMissions = [...new Map(
+    missionDatabase
+      .filter((mission) => mission.tier === 'チャレンジ')
+      .filter((mission) => ['exp', 'money', 'reputation'].includes(mission.rewardType))
+      .map((mission) => [mission.id, mission])
+  ).values()];
+  for (let i = challengeMissions.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [challengeMissions[i], challengeMissions[j]] = [challengeMissions[j], challengeMissions[i]];
+  }
+  const selectedChallengeMissions = challengeMissions
+    .slice(0, 3)
+    .map((mission) => ({ ...mission, tier: 'チャレンジ' }));
+
+  MISSIONS = [...FIXED_MISSIONS, ...selectedChallengeMissions].map((mission) => ({
     ...mission,
     met: (state) => missionProgress(mission.conditionType, state) >= mission.target
   }));
@@ -227,7 +241,9 @@ function newGame(
       advancedSuccesses: state.advancedSuccesses
     };
     if (conditionType === 'max_investments' || conditionType === 'all_investments_max') {
-      return Object.keys(INVEST).every((key) => state.invest[key] >= INVEST[key].costs.length) ? 1 : 0;
+      return ['backup', 'security', 'qa'].every((key) =>
+        state.invest[key] >= INVEST[key].costs.length
+      ) ? 1 : 0;
     }
     return Number(progress[conditionType]) || 0;
   }
@@ -283,8 +299,13 @@ function checkMissionRewards() {
     S.missionRewards[mission.id] = true;
     const reward = mission.rewardAmount;
     if (mission.rewardType === 'money') S.money += reward;
+    else if (mission.rewardType === 'reputation') addRep(reward);
     else S.experience += reward;
-    const rewardLabel = mission.rewardType === 'money' ? `資金 +${yen(reward)}` : `経験値 +${reward}`;
+    const rewardLabel = mission.rewardType === 'money'
+      ? `資金 +${yen(reward)}`
+      : mission.rewardType === 'reputation'
+        ? `評判 +${reward}`
+        : `経験値 +${reward}`;
     log(`ミッション「${mission.label}」達成。${rewardLabel}`, 'good');
     notify(`ミッション達成: ${mission.label} (${rewardLabel})`, 'good');
   });
