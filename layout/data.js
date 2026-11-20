@@ -81,6 +81,24 @@ const SALARY = { 1: 220000, 2: 300000, 3: 400000 };   // レベル別の月給
 
 let MISSIONS = [];
 
+const FIXED_MISSIONS = [
+  { id: 'first-accept', tier: '初級', label: '最初の案件を受注する', conditionType: 'accepted', target: 1, rewardType: 'exp', rewardAmount: 5 },
+  { id: 'first-complete', tier: '初級', label: '案件を1つ完成させる', conditionType: 'done', target: 1, rewardType: 'exp', rewardAmount: 5 },
+  { id: 'first-hire', tier: '初級', label: '社員を1人採用する', conditionType: 'hired', target: 1, rewardType: 'exp', rewardAmount: 5 },
+  { id: 'first-incident', tier: '初級', label: '障害に対応する', conditionType: 'handled', target: 1, rewardType: 'exp', rewardAmount: 5 },
+  { id: 'level-two', tier: '初級', label: '会社Lv.2に成長する', conditionType: 'level', target: 2, rewardType: 'exp', rewardAmount: 5 },
+
+  { id: 'mid-accept-seven', tier: '中級', label: '案件を7件受注する', conditionType: 'accepted', target: 7, rewardType: 'exp', rewardAmount: 20 },
+  { id: 'mid-invest-seven', tier: '中級', label: '投資を7回行う', conditionType: 'invest_total', target: 7, rewardType: 'exp', rewardAmount: 20 },
+  { id: 'mid-staff-eight', tier: '中級', label: '社員を8人に増やす', conditionType: 'employees', target: 8, rewardType: 'exp', rewardAmount: 20 },
+  { id: 'mid-success-seven', tier: '中級', label: '案件を7件成功させる', conditionType: 'successes', target: 7, rewardType: 'exp', rewardAmount: 20 },
+
+  { id: 'high-level-five', tier: '上級', label: '会社Lv.5に成長する', conditionType: 'level', target: 5, rewardType: 'money', rewardAmount: 2000000 },
+  { id: 'high-staff-ten', tier: '上級', label: '社員を10人に増やす', conditionType: 'employees', target: 10, rewardType: 'money', rewardAmount: 2000000 },
+  { id: 'high-success-ten', tier: '上級', label: '案件を10件成功させる', conditionType: 'successes', target: 10, rewardType: 'money', rewardAmount: 3000000 },
+  { id: 'high-big-success-three', tier: '上級', label: '大規模案件を3件成功させる', conditionType: 'big', target: 3, rewardType: 'money', rewardAmount: 5000000 }
+];
+
 // 会社のレベル。slots = 社員枠、jobs = 同時に受注できる案件数
 const LEVELS = [
   { lv: 1, slots: 5, jobs: 2 },

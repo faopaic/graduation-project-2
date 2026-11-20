@@ -222,8 +222,9 @@ button[data-key]::after {
 /* 画面の大きさを固定(ホームの高さに合わせる)。中身が長いページは、枠の中でスクロールする */
 @media (min-width: 701px) {
   .main {
-    /* ホームの高さに合わせる。ただし、ブラウザの高さに入りきらないときは、そこまで小さくする(下限 480px) */
-    height: max(480px, min(calc(min(100vw, 940px) / 2 + 410px), calc(100vh - 150px)));
+    /* ホームの高さに合わせ、画面に収まらないときはメイン欄を縮める */
+    height: max(0px, min(calc(min(100vw, 940px) / 2 + 410px), calc(100vh - 220px)));
+    min-height: 0;
     overflow-y: auto;
   }
 }
@@ -428,6 +429,13 @@ button[data-key]::after {
 .mission li::before { content: "□ "; }
 .mission li.done::before { content: "■ "; }
 .mission li.done { color: var(--ok); }
+
+.mission-unlock-status {
+  margin-top: 4px;
+  color: var(--ok);
+  font-size: 12px;
+  text-align: center;
+}
 
 /* ===== 案件・採用・投資 ===== */
 .job { margin-bottom: 10px; }
