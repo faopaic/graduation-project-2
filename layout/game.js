@@ -178,7 +178,18 @@ function newGame(
     boost: {}, schedule: [], queue: [], pending: null, over: null, dirty: true,
     nextIncidentDay: CONFIG.firstIncidentDay, nextOfferDay: 14, nextCandDay: 60,
     log: [], notices: [], marks: [], recruitmentEvent: false, recruiting: false, recruitStage: 'confirm', assignmentJobId: null,
-    tally: { honest: 0, hide: 0, incidents: 0 },
+    tally: {
+      honest: 0,
+      hide: 0,
+      incidents: 0,
+      managementEvents: 0,
+      money: 0,
+      rep: 0,
+      morale: 0,
+      employees: 0,
+      jobProgress: 0,
+      workload: 0
+    },
     counts: { accepted: 0, hired: 0, handled: 0 },
     missionRewards: {},
     nextId: 1, playing: false, speedIdx: CONFIG.defaultSpeed, missionsOpen: false, missionUnlockNotices: {},
@@ -842,6 +853,7 @@ function buildDatabaseEvent(event, job, resignationEmployee, incidentEmployee) {
     : '';
   return {
     kind: 'incident',
+    category: event.type === 'incident' ? 'incident' : 'management',
     id: `database-event-${event.id}`,
     badge: event.type === 'incident' ? 'インシデント' : '会社イベント',
     title: event.name,
@@ -851,6 +863,7 @@ function buildDatabaseEvent(event, job, resignationEmployee, incidentEmployee) {
       label: choice.label,
       tag: 'other',
       lesson: choice.lesson || '',
+      effects: choice.effects || {},
       apply() {
         const effects = choice.effects || {};
         const employeeCount = Math.max(0, Math.floor(Number(effects.employee) || 0));
@@ -1004,10 +1017,22 @@ function resolve(idx) {
   if (!p || p.done) return null;
   const c = p.choices[idx];
   if (!c || typeof c.apply !== 'function') return null;
+  const beforeMoney = S.money;
+  const beforeRep = S.rep;
+  const beforeEmployees = S.employees.length;
+  const beforeMorale = S.employees.reduce((sum, employee) => sum + (Number(employee.morale) || 0), 0);
+  const beforeProgress = S.jobs.reduce((sum, job) => sum + (Number(job.progress) || 0), 0);
   const text = c.apply() || '';
+  S.tally.money += S.money - beforeMoney;
+  S.tally.rep += S.rep - beforeRep;
+  S.tally.employees += S.employees.length - beforeEmployees;
+  S.tally.morale += S.employees.reduce((sum, employee) => sum + (Number(employee.morale) || 0), 0) - beforeMorale;
+  S.tally.jobProgress += S.jobs.reduce((sum, job) => sum + (Number(job.progress) || 0), 0) - beforeProgress;
+  S.tally.workload += Number(c.effects?.workload) || 0;
   p.done = true;
   if (p.kind === 'incident') {
-    S.tally.incidents++;
+    if (p.category === 'incident') S.tally.incidents++;
+    else S.tally.managementEvents++;
     S.counts.handled++;
     if (c.tag === 'hide') S.tally.hide++;
     if (c.tag === 'honest') S.tally.honest++;
