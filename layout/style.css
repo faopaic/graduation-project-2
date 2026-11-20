@@ -884,18 +884,18 @@ button[data-key]::after {
 .employee-skill { font-size: 12px; color: var(--ink-sub); }
 .employee-help { padding-bottom: 5px; border-bottom: 1px dashed #d6cfa8; }
 .employee-status { padding: 5px 8px; border: var(--line-thin); background: var(--bg); }
-.employee-satisfaction-summary { display: flex; justify-content: space-between; align-items: center; margin: 8px 0; padding: 8px 10px; border: var(--line-thin); background: var(--bg); }
-.employee-satisfaction-summary strong { font-size: 18px; }
-.employee-satisfaction { display: grid; gap: 4px; }
-.employee-satisfaction-row { display: flex; justify-content: space-between; align-items: center; }
-.satisfaction-good { color: var(--ok); }
-.satisfaction-warn { color: #b27800; }
-.satisfaction-low { color: var(--alert-ink, #c2453a); }
-.satisfaction-bar { height: 8px; border: var(--line-thin); background: #fff; }
-.satisfaction-bar span { display: block; height: 100%; }
-.satisfaction-bar .satisfaction-good { background: var(--ok); }
-.satisfaction-bar .satisfaction-warn { background: #e6b338; }
-.satisfaction-bar .satisfaction-low { background: var(--alert); }
+.employee-morale-summary { display: flex; justify-content: space-between; align-items: center; margin: 8px 0; padding: 8px 10px; border: var(--line-thin); background: var(--bg); }
+.employee-morale-summary strong { font-size: 18px; }
+.employee-morale { display: grid; gap: 4px; }
+.employee-morale-row { display: flex; justify-content: space-between; align-items: center; }
+.morale-good { color: var(--ok); }
+.morale-warn { color: #b27800; }
+.morale-low { color: var(--alert-ink, #c2453a); }
+.morale-bar { height: 8px; border: var(--line-thin); background: #fff; }
+.morale-bar span { display: block; height: 100%; }
+.morale-bar .morale-good { background: var(--ok); }
+.morale-bar .morale-warn { background: #e6b338; }
+.morale-bar .morale-low { background: var(--alert); }
 .employee-info { display: flex; justify-content: space-between; align-items: baseline; }
 .employee-info strong { font-size: 18px; color: var(--ok); }
 .employee-actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 5px; margin-top: auto; padding-top: 3px; }

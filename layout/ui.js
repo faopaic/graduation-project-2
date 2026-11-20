@@ -48,12 +48,12 @@ const employeeStatusMarkup = (e) => {
   const away = isAbsent(e);
   return `<div class="employee-status ${away ? 'employee-status-away' : ''}"${away ? ` data-employee-away="${e.absentUntil}"` : ''}>${employeeStatus(e)}</div>`;
 };
-const employeeSatisfactionMarkup = (e) => {
-  const satisfaction = clamp(Number(e.satisfaction) || 0, 0, 100);
-  const level = satisfaction < EMPLOYEE_RESIGN_THRESHOLD ? 'low' : satisfaction < EMPLOYEE_LOW_SATISFACTION_THRESHOLD ? 'warn' : 'good';
-  return `<div class="employee-satisfaction">
-    <div class="employee-satisfaction-row"><span>社員満足度</span><strong class="satisfaction-${level}">${satisfaction}/100</strong></div>
-    <div class="satisfaction-bar"><span class="satisfaction-${level}" style="width:${satisfaction}%"></span></div>
+const employeeMoraleMarkup = (e) => {
+  const morale = clamp(Number(e.morale) || 0, 0, 100);
+  const level = morale < EMPLOYEE_RESIGN_MORALE_THRESHOLD ? 'low' : morale < EMPLOYEE_LOW_MORALE_THRESHOLD ? 'warn' : 'good';
+  return `<div class="employee-morale">
+    <div class="employee-morale-row"><span>士気</span><strong class="morale-${level}">${morale}/100</strong></div>
+    <div class="morale-bar"><span class="morale-${level}" style="width:${morale}%"></span></div>
   </div>`;
 };
 const requirementSkills = (job) => ['design', 'dev', 'security', 'infra']
@@ -440,7 +440,7 @@ function townScene() {
   const rows = Math.min(4, Math.max(2, S.level + 1));
   const bx = 70, bw = 60, bh = 12 + rows * 10.5, by = 72 - bh;
   const backdrop = townBackdrop(theme, seasonOf(S.day), monthIdx, { bx, bw, by });
-  const rawName = S.companyName || 'PEACE株式会社';
+  const rawName = companyName;
   const nameSize = rawName.length > 8 ? 3.4 : 4.3;
   const month = dateOf(S.day).getMonth() + 1;
   const windows = Array.from({ length: rows * 4 }, (_, i) => {
@@ -468,9 +468,9 @@ function townScene() {
     ${backdrop.back}
     <rect y="72" width="200" height="28" fill="${theme.grass}"/><rect y="72" width="200" height="1.5" fill="#2e504a"/><rect y="85" width="200" height="12" fill="#d5d5d5"/>
     ${backdrop.fore}
-    <g class="company" data-go="company"><rect x="${bx}" y="${by}" width="${bw}" height="${bh}" fill="#2e504a"/><rect x="${bx + 1}" y="${by + 1}" width="${bw - 2}" height="${bh - 1}" fill="#fff7ea"/><rect class="roof" x="${bx - 3}" y="${by - 4}" width="${bw + 6}" height="5" fill="${theme.roof}"/><rect x="${bx + 8}" y="${by - 16}" width="${bw - 16}" height="11" fill="#fafffd" stroke="#2e504a" stroke-width=".8"/><text x="${bx + bw / 2}" y="${by - 8}" font-size="${nameSize}" text-anchor="middle" fill="#2e504a">${esc(rawName)}</text>${windows}<rect x="${bx + 24}" y="58" width="12" height="14" fill="#2e504a"/><rect x="${bx + 25}" y="59" width="10" height="13" fill="#6dcfb2"/><rect x="${bx + 33}" y="65" width="1" height="1" fill="#2e504a"/></g>
+    <g class="company" data-go="company"><rect x="${bx}" y="${by}" width="${bw}" height="${bh}" fill="#2e504a"/><rect x="${bx + 1}" y="${by + 1}" width="${bw - 2}" height="${bh - 1}" fill="#fff7ea"/><rect class="roof" x="${bx - 3}" y="${by - 4}" width="${bw + 6}" height="5" fill="${theme.roof}"/><rect x="${bx + 8}" y="${by - 16}" width="${bw - 16}" height="11" fill="#fafffd" stroke="#2e504a" stroke-width=".8"/>${rawName ? `<text x="${bx + bw / 2}" y="${by - 8}" font-size="${nameSize}" text-anchor="middle" fill="#2e504a">${esc(rawName)}</text>` : ''}${windows}<rect x="${bx + 24}" y="58" width="12" height="14" fill="#2e504a"/><rect x="${bx + 25}" y="59" width="10" height="13" fill="#6dcfb2"/><rect x="${bx + 33}" y="65" width="1" height="1" fill="#2e504a"/></g>
     ${backdrop.front}${decor}${walkers}<rect x="3" y="3" width="27" height="8" fill="#fafffd" stroke="#2e504a" stroke-width=".6"/><text x="16.5" y="9" font-size="4.4" text-anchor="middle" fill="#2e504a">${theme.name}・${month}月</text>
-  </svg><div class="small muted" style="text-align:center;margin-top:4px">▲ 会社をクリックすると、中が見られる</div>`;
+  </svg><div class="small muted" style="text-align:center;margin-top:4px">▲ 会社をクリックすると、社内画面を開けます。</div>`;
 }
 function renderTown() {
   const theme = SEASONS[seasonOf(S.day)];
@@ -478,10 +478,10 @@ function renderTown() {
   const alerts = [];
   const hint = hintText();
   if (hint) alerts.push(`<div class="hint">${hint}</div>`);
-  if (S.money < monthlyCost() * 1.5) alerts.push('<div class="alert"><span>資金が少なくなっている。このままだと、来月の給料が払えなくなる。</span></div>');
-  S.jobs.filter((j) => j.late).forEach((j) => alerts.push(`<div class="alert"><span>「${j.name}」が納期を過ぎている。早く完成させよう。</span></div>`));
-  const projects = S.jobs.length ? S.jobs.map((j) => `<div class="town-job"><div class="row"><strong class="small">${j.name}</strong><span class="small ${remainDays(j) <= 7 ? 'neg' : 'muted'}" data-left="${j.id}">${leftText(j)}</span></div><div class="bar"><div class="fill" data-bar="${j.id}" style="width:${progressPct(j)}%"></div></div></div>`).join('') : '<div class="small muted">進行中の案件はない。下の「案件」から受注しよう。</div>';
-  $('town-body').innerHTML = townScene() + `<div class="town-grid"><div>${alerts.join('')}<div class="panel"><div class="panel-title">いまの会社</div><div class="goal-row"><span>資金</span><span data-live="money">${yen(S.money)}</span></div><div class="goal-row"><span>評判</span><span data-live="rep">${S.rep} / 100</span></div><div class="goal-row"><span>社員</span><span data-live="staff">${S.employees.length} / ${levelInfo().slots}人</span></div><div class="goal-row"><span>社員満足度（平均）</span><span>${averageEmployeeSatisfaction()} / 100</span></div><div class="goal-row"><span>会社Lv</span><span>Lv.${S.level}</span></div></div>${levelPanel()}</div><div class="panel"><div class="panel-title">進行中の案件</div>${projects}</div></div>`;
+  if (S.money < monthlyCost() * 1.5) alerts.push('<div class="alert"><span>資金が少なくなっています。このままでは、来月の給与を支払えない可能性があります。</span></div>');
+  S.jobs.filter((j) => j.late).forEach((j) => alerts.push(`<div class="alert"><span>「${j.name}」は納期を過ぎています。早めに完成させましょう。</span></div>`));
+  const projects = S.jobs.length ? S.jobs.map((j) => `<div class="town-job"><div class="row"><strong class="small">${j.name}</strong><span class="small ${remainDays(j) <= 7 ? 'neg' : 'muted'}" data-left="${j.id}">${leftText(j)}</span></div><div class="bar"><div class="fill" data-bar="${j.id}" style="width:${progressPct(j)}%"></div></div></div>`).join('') : '<div class="small muted">進行中の案件はありません。「案件」から受注できます。</div>';
+  $('town-body').innerHTML = townScene() + `<div class="town-grid"><div>${alerts.join('')}<div class="panel"><div class="panel-title">いまの会社</div><div class="goal-row"><span>資金</span><span data-live="money">${yen(S.money)}</span></div><div class="goal-row"><span>評判</span><span data-live="rep">${S.rep} / 100</span></div><div class="goal-row"><span>社員</span><span data-live="staff">${S.employees.length} / ${levelInfo().slots}人</span></div><div class="goal-row"><span>社員の平均士気</span><span>${averageEmployeeMorale()} / 100</span></div><div class="goal-row"><span>会社Lv</span><span>Lv.${S.level}</span></div></div>${levelPanel()}</div><div class="panel"><div class="panel-title">進行中の案件</div>${projects}</div></div>`;
 }
 
 function renderHome() {
@@ -489,15 +489,15 @@ function renderHome() {
   const alerts = [];
   const hint = hintText();
   if (hint) alerts.push(`<div class="hint">${hint}</div>`);
-  if (S.money < monthlyCost() * 1.5) alerts.push(`<div class="alert"><span>資金が少なくなっている。このままだと、来月の給料が払えなくなる。</span></div>`);
-  S.jobs.filter((j) => j.late).forEach((j) => alerts.push(`<div class="alert"><span>「${j.name}」が納期を過ぎている。早く完成させよう。</span></div>`));
+  if (S.money < monthlyCost() * 1.5) alerts.push('<div class="alert"><span>資金が少なくなっています。このままでは、来月の給与を支払えない可能性があります。</span></div>');
+  S.jobs.filter((j) => j.late).forEach((j) => alerts.push(`<div class="alert"><span>「${j.name}」は納期を過ぎています。早めに完成させましょう。</span></div>`));
   $('home-alerts').innerHTML = alerts.join('');
 
   // 進行中の案件
   const projects = S.jobs.length ? S.jobs.map(projectCard).join('') :
     '<div class="card muted">まだ案件がありません。「案件」ページから受注しよう。</div>';
   $('home-projects').innerHTML = projects
-    + '<div class="town-menu"><button class="btn-small" data-act="auto">おまかせ配置</button></div>';
+    +     '<div class="town-menu"><button class="btn-small" data-act="auto">自動で割り当て</button></div>';
 
   // 右パネル
   $('home-side').innerHTML = levelPanel() + goalPanel()
@@ -529,10 +529,10 @@ function renderTimeline() {
 }
 
 function hintText() {
-  if (S.counts.accepted === 0) return '最初の一歩: 下の「案件」ページで、最初の案件を受注しよう。まずは難易度が低い案件がおすすめ。';
-  if (S.jobs.length === 0) return '案件がない間も、給料は出ていく。「案件」ページで、次の案件を受注しよう。';
-  if (S.jobs.some((j) => j.staff.length === 0)) return '担当者がいない案件がある。案件の「担当」で、社員を選んで割り振ろう。';
-  if (!S.playing && S.day === 0) return '準備ができたら、上の「▶ 再生」を押して、時間を進めよう。';
+  if (S.counts.accepted === 0) return 'まずは「案件」ページで案件を受注しましょう。最初は難易度の低い案件がおすすめです。';
+  if (S.jobs.length === 0) return '案件がない間も給与は発生します。「案件」ページで次の案件を受注しましょう。';
+  if (S.jobs.some((j) => j.staff.length === 0)) return '担当者が決まっていない案件があります。「担当」で社員を割り当てましょう。';
+  if (!S.playing && S.day === 0) return '準備ができたら、上の「再生」ボタンを押して時間を進めましょう。';
   return '';
 }
 
@@ -543,18 +543,17 @@ function projectCard(job) {
   const req = requirementSkills(job).map((sk) => skillTag(sk,
     meetsRequirement(job, sk, assigned) ? 'ok' : 'ng'
   )).join('');
-  const chips = S.employees.map((e) => {
-    const mine = e.job === job.id, otherJob = Boolean(e.job && !mine), busy = e.sales || otherJob, away = isAbsent(e);
-    if (e.sales) return `<span class="chip busy" title="営業担当中">${e.name}<span class="small">営業担当</span></span>`;
+  const chips = S.employees.filter((e) => !e.sales).map((e) => {
+    const mine = e.job === job.id, otherJob = Boolean(e.job && !mine), busy = otherJob, away = isAbsent(e);
     return `<button class="chip ${mine ? 'on' : ''} ${busy ? 'busy' : ''} ${otherJob ? 'other-job' : ''} ${away ? 'away' : ''}" data-act="assign" data-job="${job.id}" data-emp="${e.id}" title="${SKILLS[e.skill]}">${e.name}<span class="small">${SKILLS[e.skill]}</span></button>`;
   }).join('');
   return `<div class="card proj">
     <div class="row"><strong>${job.name}</strong><span class="small ${left <= 7 ? 'neg' : 'muted'}" data-left="${job.id}">${leftText(job)}</span></div>
     <div class="bar"><div class="fill ${left <= 7 ? 'fill-warn' : ''}" data-bar="${job.id}" style="width:${pct}%"></div></div>
     <div class="small"><span data-pct="${job.id}">進捗 ${pct}%</span> / 報酬 ${yen(job.reward)}</div>
-    <div class="req small">要求能力値: ${requirementText(job)}</div>
-    <div class="req small">割り当て能力値: ${requirementProgressText(job, assigned)}</div>
-    <div class="req small">必要能力値を満たしたスキル(緑) / 未達(赤): ${req}</div>
+    <div class="req small">必要能力値: ${requirementText(job)}</div>
+    <div class="req small">担当社員の能力値: ${requirementProgressText(job, assigned)}</div>
+    <div class="req small">必要能力値の達成状況（緑：達成／赤：未達）: ${req}</div>
     <div class="chips">担当: ${chips}</div>
   </div>`;
 }
@@ -563,9 +562,9 @@ function levelPanel() {
   const next = LEVELS[S.level];
   if (!next) {
     const current = levelInfo();
-    return `<div class="panel"><div class="panel-title">会社Lv.${current.lv} に成長した</div><div class="small">席が${current.slots}つ、案件は同時に${current.jobs}件まで受けられる。</div></div>`;
+    return `    <div class="panel"><div class="panel-title">会社レベル${current.lv}</div><div class="small">社員枠は${current.slots}人、同時に受注できる案件は${current.jobs}件です。</div></div>`;
   }
-  return `<div class="panel"><div class="panel-title">会社Lv.${next.lv}までの条件</div>
+  return `<div class="panel"><div class="panel-title">会社レベル${next.lv}までの条件</div>
     <div class="goal-row"><span>案件成功</span><span>${S.successes} / ${next.needSuccess}</span></div>${seg(S.successes, next.needSuccess, next.needSuccess)}
     <div class="goal-row"><span>経験値</span><span>${S.experience} / ${next.needExp}</span></div>${seg(S.experience, next.needExp, 10)}</div>`;
 }
@@ -608,10 +607,10 @@ function missionPanel() {
 // ----- 案件 -----
 function renderJobs() {
   const info = levelInfo();
-  const list = S.offers.map(offerCard).join('') || '<div class="card muted">いまは募集がない。しばらく待とう。</div>';
+  const list = S.offers.map(offerCard).join('') || '<div class="card muted">現在、募集中の案件はありません。しばらくお待ちください。</div>';
   $('jobs-body').innerHTML = `<h2>案件を選ぶ <span class="muted small">同時進行 ${S.jobs.length}/${info.jobs}件</span></h2>
-    <p class="small muted legend">案件は会社Lvに応じて募集されます。低難易度を5件成功すると中難易度、中難易度を3件成功すると高難易度が解放されます（現在: 会社Lv.${S.level} / 低難易度成功 ${S.lowDifficultySuccesses}/5 / 中難易度成功 ${S.mediumDifficultySuccesses}/3）。</p>
-    <p class="small muted legend">割り当てた社員のスキル別能力値の合計が要求値以上: 緑=達成 / 赤=未達。スキルが合わない社員は、半分の力で手伝う。</p>${list}`;
+    <p class="small muted legend">案件は会社レベルに応じて募集されます。難易度「低」の案件を5件成功すると「中」が、難易度「中」の案件を3件成功すると「高」が解放されます（現在：会社レベル${S.level}／低の成功 ${S.lowDifficultySuccesses}/5件／中の成功 ${S.mediumDifficultySuccesses}/3件）。</p>
+    <p class="small muted legend">案件に割り当てた社員の能力値をスキルごとに合算し、必要値を満たしているか確認できます（緑：達成／赤：未達）。異なるスキルの社員も、半分の作業力で参加します。</p>${list}`;
 }
 
 function offerCard(o) {
@@ -622,16 +621,16 @@ function offerCard(o) {
   )).join('');
   const kind = o.diff >= 3 ? 'big' : o.skills.length <= 2 ? 'web' : 'sys';
   const difficultyClass = `offer-diff-${Number(o.diff)}`;
-  const lockReason = unlockReason || `評判${o.minRep}で解放`;
+  const lockReason = unlockReason || `評判が${o.minRep}以上で解放`;
   const right = locked ? `<span class="offer-lock">${lockReason}</span>` : `<button class="act" data-act="accept" data-id="${o.id}">受注する</button>`;
   return `<div class="offer offer-${kind} ${difficultyClass} ${locked ? 'locked' : ''}">
     <div class="offer-head"><strong>${o.name}</strong><span class="offer-tag">${o.diff >= 3 ? '大規模' : '案件'}</span></div>
     ${o.diff >= 3 ? '<div class="offer-big">★ 大規模案件 ★</div>' : ''}
     <div class="offer-row"><span class="muted small">難易度</span><span class="stars">${'★'.repeat(o.diff)}${'☆'.repeat(3 - o.diff)}</span><span class="small">${DIFF_LABEL[o.diff]}</span></div>
     <div class="offer-row"><span class="muted small">報酬</span><span class="offer-reward">${yen(o.reward)}</span></div>
-    <div class="offer-row"><span class="muted small">納期</span><span>${o.days}日</span><span class="muted small">仕事量 ${o.work}</span></div>
-    <div class="req">要求能力値: ${requirementText(o)}</div><div class="req">${req}</div><div class="small muted">リスク: ${o.risk}</div>
-    <div class="offer-foot"><span class="small muted" data-expire="${o.expires}">募集あと${o.expires - S.day}日</span>${right}</div>
+    <div class="offer-row"><span class="muted small">納期まで</span><span>${o.days}日</span><span class="muted small">作業量 ${o.work}</span></div>
+    <div class="req">必要能力値: ${requirementText(o)}</div><div class="req">${req}</div><div class="small muted">リスク: ${o.risk}</div>
+    <div class="offer-foot"><span class="small muted" data-expire="${o.expires}">募集終了まであと${o.expires - S.day}日</span>${right}</div>
   </div>`;
 }
 
@@ -656,15 +655,15 @@ function renderAssignment() {
   )).join('');
   $('assignment-body').innerHTML = `<h2>担当を決める</h2>
     <div class="card job"><strong>${job.name}</strong>
-      <div class="small">報酬 ${yen(job.reward)} / 納期 ${job.deadline - S.day}日 / 仕事量 ${job.work}</div>
-      <div class="req small">要求能力値: ${requirementText(job)}</div>
-      <div class="req small">割り当て能力値: ${requirementProgressText(job, assigned)}</div>
-      <div class="req small">必要能力値を満たしたスキル(緑) / 未達(赤): ${req}</div>
+      <div class="small">報酬 ${yen(job.reward)} / 納期まで${job.deadline - S.day}日 / 作業量 ${job.work}</div>
+      <div class="req small">必要能力値: ${requirementText(job)}</div>
+      <div class="req small">担当社員の能力値: ${requirementProgressText(job, assigned)}</div>
+      <div class="req small">必要能力値の達成状況（緑：達成／赤：未達）: ${req}</div>
       <div class="chips">担当: ${chips || '<span class="muted">社員がいません</span>'}</div>
     </div>
-    <p class="small muted legend">社員を選ぶと、この案件の担当になります。担当中の社員を選ぶと、担当を外します。</p>
-    <button class="btn-small" data-act="auto-assignment">おまかせ配置</button>
-    <button class="btn-main" data-act="finish-assignment">担当を決め終える</button>`;
+    <p class="small muted legend">社員を選ぶと、この案件に割り当てられます。担当中の社員を選ぶと、割り当てが解除されます。</p>
+    <button class="btn-small" data-act="auto-assignment">自動で割り当て</button>
+    <button class="btn-main" data-act="finish-assignment">割り当てを完了</button>`;
 }
 
 // ----- 社員一覧 -----
@@ -683,14 +682,14 @@ function renderEmployees() {
       const status = resting ? `営業休止中（あと${e.salesCooldownUntil - S.day}日）` : '営業活動中';
       return `<div class="employee-card">
         <div class="employee-card-head" style="background:${skillColor(e.skill)}"><div class="employee-avatar">${avatar(e.skill, e.name + 'のドット絵')}</div><div><div class="small muted">社員 / 営業担当</div><strong class="employee-name">${e.name}</strong><span class="employee-skill">${SKILLS[e.skill]}</span></div></div>
-        ${isAbsent(e) ? employeeStatusMarkup(e) : `<div class="employee-status">${status}</div>`}${employeeSatisfactionMarkup(e)}<div class="employee-info"><span>営業力</span><strong>${e.salesSkill}/100</strong></div>
+        ${isAbsent(e) ? employeeStatusMarkup(e) : `<div class="employee-status">${status}</div>`}${employeeMoraleMarkup(e)}<div class="employee-info"><span>営業力</span><strong>${e.salesSkill}/100</strong></div>
         <div class="small">${employeeStats(e)}</div><div class="small muted">案件獲得率 ${salesSuccessRate(e.salesSkill)}%（基礎30%） / 獲得後1〜3か月休止</div>
         <div class="employee-actions">${salesButton(e)}${fireButton(e)}</div></div>`;
     }).join('') || '<div class="card muted">営業担当がいません。社員一覧から担当者を設定してください。</div>';
     $('employees-body').innerHTML = `<div class="row"><h2>社員一覧 <span class="muted small">${S.employees.length} / ${slots}人</span></h2><div>${viewButton('staff')} <button class="btn-small" data-go="upgrades">社員強化</button></div></div>
-      <div class="employee-satisfaction-summary">全社員の平均満足度 <strong>${averageEmployeeSatisfaction()} / 100</strong></div>
-      <p class="small muted legend">営業担当は毎月、基礎30%に営業力を加味した確率で案件を獲得します。営業力は将来データベースの値に差し替えられます。</p>
-      <p class="small muted legend">給与支払いで上がり、担当中は仕事の負荷で下がります。待機中は回復し、イベントでも上下します。60未満では作業効率が下がり、20未満ではデータベースの退職希望イベントが発生しやすくなり、選択に応じて退職リスクが変わります。</p>
+      <div class="employee-morale-summary">全社員の平均士気 <strong>${averageEmployeeMorale()} / 100</strong></div>
+      <p class="small muted legend">営業担当は毎月、営業力に応じた確率で案件を獲得します。案件を獲得すると、1〜3か月間は営業を休みます。</p>
+      <p class="small muted legend">士気は社員ごとに変動します。給与支払いで上がり、担当中は仕事の負荷で下がり、待機中は回復します。イベントでも対象社員の士気が上下します。60未満では作業効率が下がり、20未満では退職希望イベントが発生しやすくなります。</p>
       <p class="small muted legend">解雇には月給の${EMPLOYEE_SEVERANCE_MONTHS}か月分の退職金が必要です。解雇すると評判が${EMPLOYEE_FIRE_REPUTATION_PENALTY}下がります。</p>
       <h3>営業担当</h3><div class="employee-grid">${sales}</div>`;
     return;
@@ -698,15 +697,15 @@ function renderEmployees() {
   const cards = bySkill(S.employees.filter((e) => !e.sales)).map((e) => {
     return `<div class="employee-card">
       <div class="employee-card-head" style="background:${skillColor(e.skill)}"><div class="employee-avatar">${avatar(e.skill, e.name + 'のドット絵')}</div><div><div class="small muted">社員</div><strong class="employee-name">${e.name}</strong><span class="employee-skill">${SKILLS[e.skill]}</span></div></div>
-      <div class="small employee-help">${SKILL_HELP[e.skill]}</div>${employeeStatusMarkup(e)}${employeeSatisfactionMarkup(e)}
+      <div class="small employee-help">${SKILL_HELP[e.skill]}</div>${employeeStatusMarkup(e)}${employeeMoraleMarkup(e)}
       <div class="employee-info"><span>月給</span><strong>${yen(e.salary)}</strong></div><div class="small">営業力 ${e.salesSkill}/100</div><div class="small">${employeeStats(e)}</div>
       <div class="employee-actions">${salesButton(e)}${fireButton(e)}</div></div>`;
-  }).join('') || '<div class="card muted">営業担当以外の社員がいません。営業担当を見るボタンから確認できます。</div>';
+  }).join('') || '<div class="card muted">営業担当以外の社員はいません。「営業担当を見る」から確認できます。</div>';
   $('employees-body').innerHTML = `<div class="row"><h2>社員一覧 <span class="muted small">${S.employees.length} / ${slots}人</span></h2><div>${viewButton('sales')} <button class="btn-small" data-go="upgrades">社員強化</button></div></div>
-    <div class="employee-satisfaction-summary">全社員の平均満足度 <strong>${averageEmployeeSatisfaction()} / 100</strong></div>
+    <div class="employee-morale-summary">全社員の平均士気 <strong>${averageEmployeeMorale()} / 100</strong></div>
     ${skillLegend()}
     <p class="small muted legend">社員のスキルや担当案件を確認できます。営業担当は毎月、基礎30%に営業力を加味した確率で1〜3件の案件を獲得し、獲得後1〜3か月休みます。</p>
-    <p class="small muted legend">給与支払いで上がり、担当中は仕事の負荷で下がります。待機中は回復し、イベントでも上下します。60未満では作業効率が下がり、20未満ではデータベースの退職希望イベントが発生しやすくなり、選択に応じて退職リスクが変わります。</p>
+    <p class="small muted legend">士気は社員ごとに変動します。給与支払いで上がり、担当中は仕事の負荷で下がり、待機中は回復します。イベントでも対象社員の士気が上下します。60未満では作業効率が下がり、20未満では退職希望イベントが発生しやすくなります。</p>
     <p class="small muted legend">解雇には月給の${EMPLOYEE_SEVERANCE_MONTHS}か月分の退職金が必要です。解雇すると評判が${EMPLOYEE_FIRE_REPUTATION_PENALTY}下がります。</p><div class="employee-grid">${cards}</div>`;
 }
 
@@ -718,7 +717,7 @@ function renderRecruit() {
     $('recruit-body').innerHTML = `<div class="card recruit-event">
       <div class="modal-head"><span class="badge badge-high">${eventTitle}</span><span class="small muted">ゲーム一時停止中</span></div>
       <h3>${eventTitle}</h3>
-      <p class="muted">${priorityRecruiting ? `${SKILLS[S.recruitContractJobType]}の求職者が紹介されました。` : '新しい求職者が来ました。候補者を確認して、採用活動を行いますか?'}</p>
+      <p class="muted">${priorityRecruiting ? `${SKILLS[S.recruitContractJobType]}の求職者が紹介されました。` : '新しい求職者が来ました。候補者を確認して、採用活動を行いますか？'}</p>
       <p class="small muted">採用する場合は候補者一覧から採用者を選択できます。</p>
       <div class="choices">
         <button class="choice has-letter" data-act="open-recruit"><span class="ch-letter">1</span><span class="ch-body"><strong>採用する</strong></span></button>
@@ -746,10 +745,10 @@ function renderRecruit() {
     <div class="resume-head">履 歴 書</div><div class="resume-top"><div class="resume-photo">${avatar(c.skill, c.name + 'のドット絵')}</div>
       <div><div class="small muted">名前</div><strong class="resume-name">${c.name}</strong><div class="small muted">スキル</div><div>${SKILLS[c.skill]}</div></div></div>
     <div class="small resume-help">${SKILL_HELP[c.skill]}</div><div class="resume-row"><span class="muted small">月給</span><b>${yen(c.salary)}</b></div>
-    <div class="small muted">採用後の月の支出 ${yen(monthlyCost())} → ${yen(monthlyCost() + c.salary)}</div>
-    <button class="act resume-btn" data-act="hire" data-id="${c.id}">採用する</button></div>`).join('') || '<div class="card muted">いまは求職者がいない。しばらく待とう。</div>';
-  $('recruit-body').innerHTML = `<h2>${eventTitle} <span class="muted small">空席 ${free} / 席 ${slots}</span></h2>
-    <p class="small muted legend">新しい求職者が来ました。採用すると、毎月の支出が増えます。席がいっぱいのときは、会社Lvを上げると席が増えます。</p>
+    <div class="small muted">採用後の月間支出 ${yen(monthlyCost())} → ${yen(monthlyCost() + c.salary)}</div>
+    <button class="act resume-btn" data-act="hire" data-id="${c.id}">採用する</button></div>`).join('') || '<div class="card muted">現在、求職者はいません。しばらくお待ちください。</div>';
+  $('recruit-body').innerHTML = `<h2>${eventTitle} <span class="muted small">空き枠 ${free} / 社員枠 ${slots}人</span></h2>
+    <p class="small muted legend">新しい求職者が来ました。採用すると、毎月の支出が増えます。社員枠が埋まっている場合は、会社レベルを上げると枠が増えます。</p>
     <h3>求職者</h3><div class="resume-grid">${cards}</div>
     <div class="recruit-actions">
       <button class="btn-small" data-act="open-staff">在籍社員を見る</button>
@@ -770,7 +769,7 @@ function renderUpgrades() {
     const button = maxed ? '<span class="small">最大値</span>' : `<button class="act" data-act="upgrade-employee" data-id="${e.id}">強化する ${yen(EMPLOYEE_STAT_UPGRADE_COST)}</button>`;
     return `<div class="card job"><div class="row"><div class="who">${avatar(e.skill, e.name + 'のドット絵')}<div><strong>${e.name}</strong> <span class="small muted">${SKILLS[e.skill]}</span></div></div>${button}</div>
       <div class="small">月給 ${yen(e.salary)} / 強化成功率 ${chance}%</div>
-      ${statText ? `<div class="small">得意分野強化: ${statText}</div>` : ''}</div>`;
+      ${statText ? `<div class="small">得意分野：${statText}</div>` : ''}</div>`;
   }).join('') || '<div class="card muted">社員がいません。</div>';
   $('upgrades-body').innerHTML = `<div class="row"><h2>社員強化</h2><button class="btn-small" data-go="employees">← 社員一覧に戻る</button></div>
     <p class="small muted legend">資金を使って社員の得意分野を強化できます。得意分野は大きく伸び、それ以外のステータスも低確率で少し伸びます。</p>${cards}`;
@@ -806,7 +805,7 @@ function renderInvestEvent() {
       ? '<span class="small">最大</span>'
       : `<button class="act" data-act="invest" data-key="${k}">強化する ${yen(inv.costs[lv])}</button>`;
     return `<div class="card job"><div class="row"><div><strong>${inv.name}</strong> ${pips(lv,max)}
-    </div>${btn}</div><div class="small">${inv.help}</div><div class="small muted">いまの効果: ${inv.now(lv)}</div></div>`;
+    </div>${btn}    </div><div class="small">${inv.help}</div><div class="small muted">現在の効果：${inv.now(lv)}</div></div>`;
   }).join('');
   $('invest-event-body').innerHTML = `<h2>投資 <span class="muted small">資金 ${yen(S.money)}</span></h2>
     <p class="small muted legend">資金を使って会社設備を強化できます。</p>${cards}`;
@@ -824,8 +823,8 @@ function updateLive() {
   $('h-cost').textContent = `(月の支出 ${yen(monthlyCost())})`;
   $('h-rep').textContent = S.rep;
   $('h-staff').textContent = `${S.employees.length}/${levelInfo().slots}人`;
-  $('h-level').textContent = `会社Lv.${S.level}`;
-  const hName = $('h-name'); if (hName) hName.textContent = S.companyName || 'PEACE株式会社';
+  $('h-level').textContent = `会社レベル${S.level}`;
+  const hName = $('h-name'); if (hName) hName.textContent = S.companyName;
   $('h-date').textContent = dateLabel(S.day);
   $('track-fill').style.width = (S.day / CONFIG.totalDays * 100) + '%';
   const eventActive = S.pending || S.recruiting ;
@@ -840,12 +839,15 @@ function updateLive() {
       bar.style.width = pct + '%';
       bar.classList.toggle('fill-warn', left <= 7);
     });
-    const p = document.querySelector(`[data-pct="${job.id}"]`);
-    if (p) p.textContent = `進捗 ${pct}%`;
-    const l = document.querySelector(`[data-left="${job.id}"]`);
-    if (l) { l.textContent = leftText(job); l.className = 'small ' + (left <= 7 ? 'neg' : 'muted'); }
+    document.querySelectorAll(`[data-pct="${job.id}"]`).forEach((p) => {
+      p.textContent = `進捗 ${pct}%`;
+    });
+    document.querySelectorAll(`[data-left="${job.id}"]`).forEach((l) => {
+      l.textContent = leftText(job);
+      l.className = 'small ' + (left <= 7 ? 'neg' : 'muted');
+    });
   });
-  document.querySelectorAll('[data-expire]').forEach((el) => { el.textContent = `募集あと${Math.max(0, Number(el.dataset.expire) - S.day)}日`; });
+  document.querySelectorAll('[data-expire]').forEach((el) => { el.textContent = `募集終了まであと${Math.max(0, Number(el.dataset.expire) - S.day)}日`; });
   document.querySelectorAll('[data-employee-away]').forEach((el) => { el.textContent = `休職中（あと${Math.max(0, Number(el.dataset.employeeAway) - S.day)}日）`; });
 }
 
@@ -960,7 +962,7 @@ function renderModal() {
       <h3>${esc(employee.name)}を解雇しますか？</h3>
       <p class="muted">退職金として資金を${yen(severance)}支払います。</p>
       <p class="small ${canFire ? 'muted' : 'neg'}">現在の資金 ${yen(S.money)} / 評判 -${EMPLOYEE_FIRE_REPUTATION_PENALTY}</p>
-      ${S.employees.length <= 1 ? '<p class="small neg">社員が一人以下になるため解雇できません。</p>' : (S.money < severance ? '<p class="small neg">退職金が不足しているため解雇できません。</p>' : '')}
+      ${S.employees.length <= 1 ? '<p class="small neg">社員が1人しかいないため、これ以上解雇できません。</p>' : (S.money < severance ? '<p class="small neg">退職金が不足しているため解雇できません。</p>' : '')}
       <button class="choice has-letter" data-act="confirm-fire-employee" data-id="${employee.id}" ${canFire ? '' : 'disabled'}>
         <span class="ch-letter">1</span><span class="ch-body"><strong>解雇する</strong></span>
       </button>
@@ -1106,13 +1108,16 @@ function renderModal() {
     ? `<div class="inc-head"><span class="inc-title">⚠ ${p.badge}が発生!</span><span class="small">ゲーム一時停止中</span></div>`
     : `<div class="modal-head"><span class="badge badge-${badgeClass}">${p.badge}</span><span class="small muted">ゲーム一時停止中</span></div>`;
   const text = p.lines ? `<ul class="lines">${p.lines.map((l) => `<li>${l}</li>`).join('')}</ul>` : `<p class="muted">${p.body}</p>`;
+  const targets = p.targets
+    ? `<div class="small muted">${p.targets.job !== null ? `<strong>対象案件:</strong> ${esc(p.targets.job)}<br>` : ''}<strong>対象社員:</strong> ${p.targets.employees.length ? p.targets.employees.map(esc).join('、') : 'なし'}</div>`
+    : '';
   const chips = p.chips ? `<div class="chips">${p.chips.map((c) => `<span class="stag">${c}</span>`).join('')}</div>` : '';
   const choices = p.choices.map((c, i) => {
     const keyLabel = p.choices.length === 1 ? 'Space' : i + 1;
     const keyClass = p.choices.length === 1 ? 'space-key' : '';
     return `<button class="choice has-letter ${c.tag === 'hide' ? 'is-hide' : ''}" data-act="choice" data-i="${i}"><span class="ch-letter ${keyClass}">${keyLabel}</span><span class="ch-body"><strong>${c.label}</strong>${c.desc ? `<span class="small ${c.tag === 'hide' ? 'neg' : 'muted'}">${c.desc}</span>` : ''}</span></button>`;
   }).join('');
-  body.innerHTML = head + (p.kind === 'incident' ? `<div class="inc-status"><h3>${p.title}</h3>${chips}${text}</div>` : `<h3>${p.title}</h3>${chips}${text}`) + choices
+  body.innerHTML = head + (p.kind === 'incident' ? `<div class="inc-status"><h3>${p.title}</h3>${chips}${targets}${text}</div>` : `<h3>${p.title}</h3>${chips}${targets}${text}`) + choices
     + (debugPreviewMode ? '<button class="btn-small" data-act="debug-preview-back">デバッグ画面へ戻る</button>' : '');
 }
 
@@ -1137,10 +1142,10 @@ function nextPending() {
 function showTitle() {
   screenMode = 'title';
   const g = CONFIG.goals;
-  $('screen-body').innerHTML = `<h1 class="big-title end-title">IT会社経営シミュレーター(仮)</h1>
-    <p>あなたは、できたばかりのIT会社の社長。5年のあいだに、会社を大きく育てよう。</p>
-    <div class="panel"><div class="panel-title">会社の名前</div><input id="company-name" type="text" maxlength="10" value="${esc(companyName)}" placeholder="会社名を入力(10文字まで)" style="width:100%;padding:8px;font:inherit;border:2px solid #2e504a;box-sizing:border-box"></div>
-    <div class="panel"><div class="panel-title">クリア条件(資金・評判・成功をすべて達成)</div>
+  $('screen-body').innerHTML = `<h1 class="big-title end-title">IT会社経営シミュレーター（仮）</h1>
+    <p>設立したばかりのIT会社の社長として、5年間で会社を成長させましょう。</p>
+    <div class="panel"><div class="panel-title">会社名</div><input id="company-name" type="text" maxlength="10" value="${esc(companyName)}" placeholder="会社名を入力（10文字まで）" style="width:100%;padding:8px;font:inherit;border:2px solid #2e504a;box-sizing:border-box"></div>
+    <div class="panel"><div class="panel-title">クリア条件（資金・評判・大規模案件の成功をすべて達成）</div>
     <div class="goal-row"><span>難易度</span><span id="difficulty-label">Normal</span></div>
     <div class="row">
       <button class="difficulty-btn normal" data-act="difficulty-normal">Normal</button>
@@ -1151,9 +1156,9 @@ function showTitle() {
     <div class="goal-row"><span>開始資金</span><span id="start-money"></span></div>
     <div class="goal-row"><span>資金</span><span id="goal-money">${yen(g.money)}</span></div>
     <div class="goal-row"><span>評判</span><span id="goal-rep">${g.rep}</span></div>
-    <div class="goal-row"><span>大規模案件(難易度 高)の成功</span><span>${g.big}件</span></div></div>
-    <ol class="steps"><li>「案件」で仕事を受注する</li><li>社員を割り振って、「再生」で時間を進める</li><li>起きた障害に、どう対応するか決める</li><li>お金がたまったら、「採用」と「投資」で会社を強くする</li></ol>
-    <p class="small muted">資金が0を下回るとゲームオーバー。障害への対応しだいで、評判も資金も変わる。</p>
+    <div class="goal-row"><span>大規模案件（難易度「高」）の成功</span><span>${g.big}件</span></div></div>
+    <ol class="steps"><li>「案件」から案件を受注する</li><li>社員を割り当て、「再生」で時間を進める</li><li>発生した障害への対応を決める</li><li>資金に余裕ができたら、「採用」と「投資」で会社を強化する</li></ol>
+    <p class="small muted">資金が0円を下回るとゲームオーバーになります。障害への対応によって、評判や資金が変わります。</p>
     <button class="btn-main" id="start-btn" data-act="start" ${companyName ? '' : 'disabled'} ${debugPreviewMode ? 'disabled' : ''}>ゲームスタート</button>
     ${debugPreviewMode ? '<button class="btn-small" data-act="debug-preview-back">デバッグ画面へ戻る</button>' : ''}`;
   updateDifficultyPreview();
@@ -1172,15 +1177,15 @@ function updateDifficultyPreview() {
   document.getElementById('goal-rep').textContent =
     rep;
   let difficultyName = 'Normal';
-  let difficultyDescription = '標準ルール';
+  let difficultyDescription = '標準の難易度です。';
   if (selectedDifficulty === 'hard') {
     difficultyName = 'Hard';
-    difficultyDescription = '開始資金90%・クリア条件110%';
+    difficultyDescription = '開始資金90%・目標資金120%・目標評判150%';
   }
 
   if (selectedDifficulty === 'expert') {
     difficultyName = 'Expert';
-    difficultyDescription = '開始資金80%・クリア条件125%';
+    difficultyDescription = '開始資金80%・目標資金150%・目標評判300%';
   }
   document.getElementById('difficulty-label').textContent = difficultyName;
 
@@ -1197,20 +1202,20 @@ function showEnd() {
   if (o.type === 'clear') {
     rank = getClearRank();
     title = `ゲームクリア！ 評価 ${rank}`;
-    lead = `${years}年で、すべての目標を達成した。会社は大きく成長した。`;
+    lead = `${years}年で、すべての目標を達成しました。会社は大きく成長しました。`;
   }
-  else if (o.type === 'bankrupt') { title = 'ゲームオーバー'; lead = `${dateLabel(o.day)}、資金が尽きて、会社を続けられなくなった。`; }
+  else if (o.type === 'bankrupt') { title = 'ゲームオーバー'; lead = `${dateLabel(o.day)}、資金が尽きたため、会社を続けられなくなりました。`; }
   else if (o.type === 'timeout') {
     title = '5年経過';
-    lead = '5年以内にすべての目標を達成できなかったため、評価は最低ランクです。';
+    lead = '5年以内にすべての目標を達成できませんでした。評価は最低ランクです。';
   }
   const t = S.tally;
   const avg = goals.reduce((sum, goal) => sum + goal.ratio, 0) / goals.length;
   let style;
-  if (t.incidents === 0) style = 'まだ障害を経験していない。';
-  else if (t.hide === 0) style = `障害に${t.incidents}回対応して、一度も隠さなかった。誠実な社長。`;
-  else if (t.hide >= t.honest) style = `障害${t.incidents}回のうち、${t.hide}回は隠す選択をした。実際の会社では、信頼を失う原因になる。`;
-  else style = `障害${t.incidents}回のうち、${t.hide}回は隠す選択をした。隠した障害は、あとで見つかることが多い。`;
+  if (t.incidents === 0) style = '障害は発生しませんでした。';
+  else if (t.hide === 0) style = `${t.incidents}回の障害にすべて正直に対応しました。誠実な経営判断です。`;
+  else if (t.hide >= t.honest) style = `${t.incidents}回のうち${t.hide}回、障害を隠す選択をしました。実際の会社では、信頼を失う原因になります。`;
+  else style = `${t.incidents}回のうち${t.hide}回、障害を隠す選択をしました。隠した障害は、後から発覚することがあります。`;
 
   const rows = goals.map((g) => `<tr class="${g.met ? 'met' : ''}">
     <td>${g.met ? '■' : '□'} ${g.label}</td><td>${g.fmt(g.cur)} / ${g.fmt(g.target)}</td></tr>`).join('');
@@ -1219,11 +1224,11 @@ function showEnd() {
     <h1 class="big-title end-title">${title}</h1>${o.type === 'bankrupt' ? `<p>${lead}</p>` : `
     <div class="medal-wrap"><div class="medal medal-${rank}"><b>${rank}</b></div><div class="medal-lead">${lead}</div></div>`}
     <table class="stats">${rows}
-      <tr><td>完成させた案件</td><td>${S.done}件</td></tr>
-      <tr><td>対応した障害</td><td>${t.incidents}回(隠した: ${t.hide}回)</td></tr>
-      <tr><td>会社Lv</td><td>${S.level}</td></tr></table>
+      <tr><td>完了した案件</td><td>${S.done}件</td></tr>
+      <tr><td>対応した障害</td><td>${t.incidents}回（隠した回数：${t.hide}回）</td></tr>
+      <tr><td>会社レベル</td><td>${S.level}</td></tr></table>
     <div class="lesson"><div class="small muted">あなたの判断</div>${style}</div>
-    <button class="btn-main" data-act="restart" ${debugPreviewMode ? 'disabled' : ''}>もう一度あそぶ</button>
+    <button class="btn-main" data-act="restart" ${debugPreviewMode ? 'disabled' : ''}>もう一度プレイ</button>
     ${debugPreviewMode ? '<button class="btn-small" data-act="debug-preview-back">デバッグ画面へ戻る</button>' : ''}`;
   $('screen').classList.remove('hidden');
   $('modal').classList.add('hidden');
@@ -1242,13 +1247,13 @@ function startGame() {
   $('screen').classList.add('hidden');
   stage = 1;
   lastResult = null;
-  showPage('home');
+  showPage('town');
   render();
 }
 
 function restart() {
   clearTimeout(timer);
-  newGame(S.employeeDatabase, S.eventDatabase, S.projectDatabase, S.missionDatabase);
+  newGame(S.employeeDatabase, S.eventDatabase, S.projectDatabase, S.missionDatabase, companyName);
   showPage('town');
   render();
   showTitle();
@@ -1320,7 +1325,7 @@ function showDebugScreen(type) {
       kind: 'notice',
       badge: 'レベルアップ',
       title: '会社が Lv.2 に成長した',
-      body: '案件の成功と経験が認められました。社員の席と同時に受けられる案件が増えました。',
+      body: '案件の成功と経験が認められ、社員枠と同時に受注できる案件数が増えました。',
       choices: [{ label: 'OK', tag: 'other', apply() { return ''; } }]
     };
     stage = 1;
@@ -1478,7 +1483,7 @@ document.addEventListener('click', (ev) => {
   else if (a === 'toggle-sales') { toggleSales(Number(el.dataset.id)); render(); }
   else if (a === 'arm-fire-employee') {
     if (S.employees.length <= 1) {
-      toast('社員が一人以下になるため解雇できません', 'bad');
+      toast('社員が1人しかいないため、これ以上解雇できません。', 'bad');
       render();
       return;
     }
@@ -1703,6 +1708,8 @@ document.addEventListener('input', (ev) => {
 
 // ----- キーボード操作 -----
 document.addEventListener('keydown', (ev) => {
+  if (screenMode === 'title') return;
+
   // DEBUG EVENT HOTKEY: remove this block and debugEventPrompt to remove debugging.
   if (ev.code === 'F4') {
     ev.preventDefault();
