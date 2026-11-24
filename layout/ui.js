@@ -1182,25 +1182,17 @@ function showTitle() {
 
 function updateDifficultyPreview() {
   const g = CONFIG.goals;
-  const money = getGoalMoney(g.money,selectedDifficulty);
-  const rep = getGoalReputation(g.rep,selectedDifficulty);
+  const difficultyConfig = getDifficultyConfig(selectedDifficulty);
+  const money = getGoalMoney(g.money, selectedDifficulty);
+  const rep = getGoalReputation(g.rep, selectedDifficulty);
   document.getElementById('start-money').textContent =
     yen(getStartMoney(CONFIG.startMoney, selectedDifficulty));
   document.getElementById('goal-money').textContent =
     yen(money);
   document.getElementById('goal-rep').textContent =
     rep;
-  let difficultyName = 'Normal';
-  let difficultyDescription = '標準の難易度です。';
-  if (selectedDifficulty === 'hard') {
-    difficultyName = 'Hard';
-    difficultyDescription = '開始資金90%・目標資金120%・目標評判150%';
-  }
-
-  if (selectedDifficulty === 'expert') {
-    difficultyName = 'Expert';
-    difficultyDescription = '開始資金80%・目標資金150%・目標評判300%';
-  }
+  const difficultyName = { normal: 'Normal', hard: 'Hard', expert: 'Expert' }[selectedDifficulty] || 'Normal';
+  const difficultyDescription = `開始資金${Math.round(difficultyConfig.startMoneyRate * 100)}%・目標資金${Math.round(difficultyConfig.goalMoneyRate * 100)}%・目標評判${Math.round(difficultyConfig.goalRepRate * 100)}%`;
   document.getElementById('difficulty-label').textContent = difficultyName;
 
   document.getElementById('difficulty-description').textContent = difficultyDescription;
@@ -1250,11 +1242,7 @@ function showEnd() {
 
 function startGame() {
   const difficulty = selectedDifficulty;
-  newGame(S.employeeDatabase, S.eventDatabase, S.projectDatabase, S.missionDatabase, companyName);
-  S.difficulty = difficulty;
-  if (difficulty === 'hard') {
-    S.money = Math.floor(CONFIG.startMoney * 0.9);
-  }
+  newGame(S.employeeDatabase, S.eventDatabase, S.projectDatabase, S.missionDatabase, companyName, difficulty);
   console.log('難易度', difficulty);
   console.log('開始資金', S.money);
   screenMode = null;
@@ -1267,7 +1255,7 @@ function startGame() {
 
 function restart() {
   clearTimeout(timer);
-  newGame(S.employeeDatabase, S.eventDatabase, S.projectDatabase, S.missionDatabase, companyName);
+  newGame(S.employeeDatabase, S.eventDatabase, S.projectDatabase, S.missionDatabase, companyName, S.difficulty);
   showPage('town');
   render();
   showTitle();
