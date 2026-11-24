@@ -3,6 +3,7 @@
 // S = ゲームの今の状態(資金、日付、社員、案件など)
 
 let rand = Math.random;
+const INCIDENT_COOLDOWN_DAYS = 15;
 
 // テスト用: 同じ乱数の並びで再現できるようにする
 function setSeed(seed) {
@@ -27,7 +28,10 @@ let S = null;
 const levelInfo = () => LEVELS[S.level - 1];
 const empById = (id) => S.employees.find((e) => e.id === id);
 const jobById = (id) => S.jobs.find((j) => j.id === id);
-const BACKUP_INCIDENTS = new Set(['システム障害の発生', '重要データの誤削除', '災害による業務への影響']);
+const BACKUP_INCIDENTS = new Set([
+  '重要データの誤削除',
+  '災害による業務への影響'
+]);
 const SECURITY_INCIDENTS = new Set(['社用PCの紛失', 'メールの誤送信', 'ウイルス感染', 'パスワードの流出']);
 const QA_INCIDENTS = new Set(['社員の業務ミス']);
 const isBackupIncident = (event) => BACKUP_INCIDENTS.has(event?.name);
@@ -170,16 +174,34 @@ function newGame(
     rep: CONFIG.startRep, level: 1,
     done: 0, successes: 0, advancedSuccesses: 0,
     lowDifficultySuccesses: 0, mediumDifficultySuccesses: 0,
+    totalSuccessfulJobs: 0,
+    pendingQualityBonus: 0, pendingQualityPenalty: 0,
     experience: 0, big: 0,
     companyName: companyName || '',
     recruitContractCount: 0,recruitContractActive: false,recruitContractJobType: null,recruitSelectingJob: false,
     difficulty,
     employees: [], jobs: [], offers: [], candidates: [],
     invest: { backup: 0, security: 0, qa: 0,recruitContract: 0 },
+    lastEquipmentUpdate: 0,
     boost: {}, schedule: [], queue: [], pending: null, over: null, dirty: true,
-    nextIncidentDay: CONFIG.firstIncidentDay, nextOfferDay: 14, nextCandDay: 60,
+    nextIncidentDay: CONFIG.firstIncidentDay,
+    lastIncidentDay: -INCIDENT_COOLDOWN_DAYS,
+    nextManagementDay: CONFIG.paydayOfMonth - 1,
+    nextOfferDay: 14,
+    nextCandDay: 60,
     log: [], notices: [], marks: [], recruitmentEvent: false, recruiting: false, recruitStage: 'confirm', assignmentJobId: null,
-    tally: { honest: 0, hide: 0, incidents: 0 },
+    tally: {
+      honest: 0,
+      hide: 0,
+      incidents: 0,
+      managementEvents: 0,
+      money: 0,
+      rep: 0,
+      morale: 0,
+      employees: 0,
+      jobProgress: 0,
+      workload: 0
+    },
     counts: { accepted: 0, hired: 0, handled: 0 },
     missionRewards: {},
     nextId: 1, playing: false, speedIdx: CONFIG.defaultSpeed, missionsOpen: false, missionUnlockNotices: {},
@@ -359,8 +381,14 @@ function acceptOffer(id) {
   const job = {
     id: newId(), tid: o.tid, name: o.name, diff: o.diff, reward: o.reward, work: o.work,
     progress: 0, start: S.day, deadline: S.day + o.days, skills: o.skills, requirements: o.requirements || {},
-    staff: [], late: false, warned: false, qDebt: 0, qBonus: 0
+    staff: [],
+    late: false,
+    warned: false,
+    qDebt: S.pendingQualityPenalty || 0,
+    qBonus: S.pendingQualityBonus || 0
   };
+  S.pendingQualityBonus = 0;
+  S.pendingQualityPenalty = 0;
   S.jobs.push(job);
   S.counts.accepted++;
   checkMissionRewards();
@@ -718,14 +746,38 @@ function tick() {
     notify('新しい求職者が来た', 'info');
   }
 
+  // 会社イベントは給料日だけでなく、一定間隔で発生する
+  if (
+    !S.recruitmentEvent
+    && !S.pending
+    && !S.queue.length
+    && !resignationCandidate
+    && S.day >= S.nextManagementDay
+  ) {
+    const managementEvent = makeManagementEvent();
+    if (managementEvent) {
+      raise(managementEvent);
+      S.marks.push({ day: S.day, kind: 'incident' });
+    }
+    S.nextManagementDay = S.day + ri(14, 35);
+  }
+
   // DBイベント
-  if (!S.recruitmentEvent && S.day >= S.nextIncidentDay && S.jobs.length > 0) {
+  if (
+    !S.recruitmentEvent
+    && !S.pending
+    && !S.queue.length
+    && S.day - S.lastIncidentDay >= INCIDENT_COOLDOWN_DAYS
+    && S.day >= S.nextIncidentDay
+    && S.jobs.length > 0
+  ) {
     const inc = makeIncident();
     if (inc) {
       raise(inc);
+      S.lastIncidentDay = S.day;
       S.marks.push({ day: S.day, kind: 'incident' });
-      S.nextIncidentDay = S.day + ri(CONFIG.incidentGap[0], CONFIG.incidentGap[1]);
     }
+    S.nextIncidentDay = S.day + ri(CONFIG.incidentGap[0], CONFIG.incidentGap[1]);
   }
 
   checkLevel();
@@ -733,25 +785,125 @@ function tick() {
   if (!S.recruitmentEvent && !S.pending && S.queue.length) advance();
 }
 
-function makeIncident(forceId) {
-  if (!S.eventDatabase.length || (!forceId && !S.jobs.length)) return null;
-  const job = S.jobs.length ? pick(S.jobs) : null;
-  const event = forceId
-    ? S.eventDatabase.find((item) => String(item.id) === String(forceId))
-    : pickWeighted(
-        S.eventDatabase.filter((item) => (
-          !isResignationEvent(item) &&
-          (S.employees.length < levelInfo().slots || !eventRequiresRecruitment(item))
-        )),
-        eventOccurrenceRate
-      );
+function makeIncident() {
+  if (!S.eventDatabase.length || !S.jobs.length) return null;
+  const event = pickOccurringWeighted(
+    S.eventDatabase.filter((item) => (
+      item.type === 'incident' &&
+      !isResignationEvent(item) &&
+      eventTriggerMatches(item, null) &&
+      (S.employees.length < levelInfo().slots || !eventRequiresRecruitment(item))
+    )),
+    eventOccurrenceRate
+  );
   if (!event) return null;
-  const targetEmployee = event.type === 'incident'
-    ? selectIncidentEmployee(job)
-    : eventChangesIndividualMorale(event) && S.employees.length
-      ? pick(S.employees)
-      : null;
+  const targetJobs = incidentTargetJobs(event);
+  if (!targetJobs.length) return null;
+  const job = pick(targetJobs);
+  const targetEmployee = selectIncidentEmployee(job);
   return buildDatabaseEvent(event, job, null, targetEmployee);
+}
+
+function makeManagementEvent() {
+  if (!S.eventDatabase.length) return null;
+  const event = pickOccurringWeighted(
+    S.eventDatabase.filter((item) => (
+      item.type === 'management' &&
+      !isResignationEvent(item) &&
+      eventTriggerMatches(item, null) &&
+      (S.employees.length < levelInfo().slots || !eventRequiresRecruitment(item))
+    )),
+    eventOccurrenceRate
+  );
+  if (!event) return null;
+  let targetEmployee = null;
+  if (normalizedTriggerCondition(event.triggerCondition).includes('士気が80以上の社員が1人以上いる')) {
+    const candidates = S.employees.filter((e) => e.morale >= 80);
+    targetEmployee = candidates.length ? pick(candidates) : null;
+  } else if (eventChangesIndividualMorale(event) && S.employees.length) {
+    targetEmployee = pick(S.employees);
+  }
+  const needsJob = (event.choices || []).some((choice) =>
+    Number(eventChoiceEffects(choice).quality_bonus || 0) !== 0
+    || Number(eventChoiceEffects(choice).quality_penalty || 0) !== 0
+  );
+  const targetJob = needsJob && S.jobs.length ? pick(S.jobs) : null;
+  return buildDatabaseEvent(event, targetJob, null, targetEmployee);
+}
+
+const normalizedTriggerCondition = (condition) => String(condition || '').replace(/\s/g, '');
+const unknownTriggerConditions = new Set();
+
+function eventTriggerMatches(event) {
+  const condition = normalizedTriggerCondition(event?.triggerCondition);
+  const participants = participatingEmployees();
+  const monthlySalary = S.employees.reduce(
+    (total, employee) => total + employee.salary, 0
+  );
+  const averageParticipantMorale = participants.length
+    ? participants.reduce((total, employee) => total + employee.morale, 0) / participants.length
+    : 0;
+  const rules = {
+    '採用済み社員数が会社レベルごとの社員上限未満': () => S.employees.length < levelInfo().slots,
+    '会社レベルが3以上、評判が80以上、中難易度案件の成功回数が3回以上、かつ同時進行案件数が会社レベルごとの上限未満': () =>
+      S.level >= 3
+      && S.rep >= 80
+      && S.mediumDifficultySuccesses >= 3
+      && S.jobs.length < levelInfo().jobs,
+    '士気が20未満の社員が1人以上いる': () => S.employees.some((employee) => employee.morale < 20),
+    '営業力が60以上の社員が1人以上いる': () => S.employees.some((employee) => employee.salesSkill >= 60),
+    '会社レベルが2以上、かつ資金が100万円以上': () => S.level >= 2 && S.money >= 1000000,
+    '社員数が4人以上、かつ月額給与総額が100万円以上': () =>
+      S.employees.length >= 4 && monthlySalary >= 1000000,
+    '会社レベルが2以上、かつ評判が50以上': () => S.level >= 2 && S.rep >= 50,
+    '進行中案件が2件以上、かつ参加社員の平均士気が50以下': () =>
+      S.jobs.length >= 2 && participants.length > 0 && averageParticipantMorale <= 50,
+    '進行中案件が1件以上、かつ参加社員が1人以上': () =>
+      S.jobs.length >= 1 && S.jobs.some((job) => (job.staff || []).length >= 1),
+    '進行中案件が1件以上': () => S.jobs.length >= 1,
+    '進行中案件が1件以上、かつ対象案件の進捗率が20%以上': () =>
+      S.jobs.some((job) => job.work > 0 && job.progress / job.work >= 0.2),
+    '士気が80以上の社員が1人以上いる': () => S.employees.some((employee) => employee.morale >= 80),
+    '進行中案件が1件以上、かつ対象案件の参加社員が2人以上': () =>
+      S.jobs.some((job) => (job.staff || []).length >= 2),
+    '成功案件数が3件以上、かつ会社の評判が60以上': () =>
+      S.totalSuccessfulJobs >= 3 && S.rep >= 60,
+    '会社レベルが2以上、かつ資金が200万円以上': () => S.level >= 2 && S.money >= 2000000,
+    '会社の評判が100以上、かつ資金が100万円以下': () => S.rep >= 100 && S.money <= 1000000,
+    '会社の評判が100以上': () => S.rep >= 100
+  };
+  const rule = rules[condition];
+  if (!rule) {
+    if (!unknownTriggerConditions.has(condition)) {
+      unknownTriggerConditions.add(condition);
+      console.warn(`未対応のイベント発生条件です: ${event?.triggerCondition || '(空欄)'}`);
+    }
+    return false;
+  }
+  return rule();
+}
+
+function participatingEmployees() {
+  const employeeIds = new Set(
+    S.jobs.flatMap((job) => job.staff || [])
+  );
+  return [...employeeIds].map(empById).filter(Boolean);
+}
+
+function incidentTargetJobs(event) {
+  const condition = normalizedTriggerCondition(event?.triggerCondition);
+  if (condition.includes('対象案件の進捗率が20%以上')) {
+    return S.jobs.filter((job) =>
+      job.work > 0 && job.progress / job.work >= 0.2
+    );
+  }
+  if (condition.includes('対象案件の参加社員が2人以上')) {
+    return S.jobs.filter((job) => (job.staff || []).length >= 2);
+  }
+  if (condition.includes('参加社員が1人以上')) {
+    return S.jobs.filter((job) => (job.staff || []).length >= 1);
+  }
+  return S.jobs;
 }
 
 function selectIncidentEmployee(job) {
@@ -766,26 +918,71 @@ function isResignationEvent(event) {
 
 function eventRequiresRecruitment(event) {
   return (event.choices || []).some((choice) =>
-    Number(choice?.effects?.employee) > 0
+    Number(eventChoiceEffects(choice).employee) > 0
   );
 }
 
 function eventChangesIndividualMorale(event) {
   return (event.choices || []).some((choice) =>
-    Number(choice?.effects?.morale || 0) !== 0
-    || Number(choice?.effects?.reputation || 0) !== 0
-    || Number(choice?.effects?.retirement_risk || 0) !== 0
+    Number(eventChoiceEffects(choice).morale || 0) !== 0
+    || Number(eventChoiceEffects(choice).retirement_risk || 0) !== 0
   );
+}
+
+function eventChoiceEffects(choice) {
+  const effects = choice?.effects;
+  if (!effects) return {};
+  if (typeof effects === 'object') return effects;
+  if (typeof effects !== 'string') {
+    console.warn('イベント選択肢の効果がオブジェクトではありません', effects);
+    return {};
+  }
+  try {
+    const parsed = JSON.parse(effects);
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) return parsed;
+  } catch (error) {
+    console.warn('イベント選択肢の効果JSONを解析できません', error);
+  }
+  return {};
 }
 
 function triggerDebugEvent(eventId) {
   if (S.pending || S.recruiting) return false;
-  const event = makeIncident(eventId);
+  const event = S.eventDatabase.find((item) => String(item.id) === String(eventId));
   if (!event) return false;
+  const targetJobs = event.type === 'incident' ? incidentTargetJobs(event) : [];
+  const job = targetJobs.length ? pick(targetJobs) : null;
+  let targetEmployee = null;
+  if (event.type === 'incident') {
+    targetEmployee = selectIncidentEmployee(job);
+  } else if (normalizedTriggerCondition(event.triggerCondition).includes('士気が80以上の社員が1人以上いる')) {
+    const candidates = S.employees.filter((e) => e.morale >= 80);
+    targetEmployee = candidates.length ? pick(candidates) : null;
+  } else if (eventChangesIndividualMorale(event) && S.employees.length) {
+    targetEmployee = pick(S.employees);
+  }
+  const prompt = buildDatabaseEvent(event, job, null, targetEmployee);
+  if (!prompt) return false;
   S.playing = false;
-  S.pending = event;
+  S.pending = prompt;
   S.dirty = true;
   return true;
+}
+
+function pickOccurringWeighted(items, weightOf) {
+  if (!items.length) return null;
+  const weighted = items
+    .map((item) => ({ item, weight: Math.max(0, Number(weightOf(item)) || 0) }))
+    .filter((entry) => entry.weight > 0);
+  if (!weighted.length) return null;
+
+  const totalWeight = weighted.reduce((sum, entry) => sum + entry.weight, 0);
+  const occurrenceChance = clamp(totalWeight / 100, 0, 1);
+  if (rand() >= occurrenceChance) return null;
+
+  let value = rand() * totalWeight;
+  const index = weighted.findIndex((entry) => (value -= entry.weight) < 0);
+  return weighted[index]?.item || null;
 }
 
 function pickWeighted(items, weightOf) {
@@ -797,45 +994,135 @@ function pickWeighted(items, weightOf) {
   return items[index] || null;
 }
 
-function applyDatabaseEventEffects(effects, job, targetEmployee, event) {
+function applyDatabaseEventEffects(effects, job, targetEmployee, event, choiceLabel) {
+  effects = eventChoiceEffects({ effects });
   const applied = [];
   const employee = targetEmployee ? empById(targetEmployee.id) : null;
+
+  // 設備更新日を更新
+  if (
+    event?.name === '設備・開発環境の更新'
+    && String(choiceLabel || '').includes('更新')
+    && !String(choiceLabel || '').includes('見送る')
+  ) {
+    S.lastEquipmentUpdate = S.day;
+    S.dirty = true;
+  }
+
+  // 資金
   const rawMoney = Number(effects?.money || 0);
   const securityCostRate = isSecurityIncident(event) ? 1 - 0.20 * S.invest.security : 1;
-  const adjustedMoney = rawMoney < 0 ? Math.round(rawMoney * securityCostRate) : rawMoney;
-  const money = adjustedMoney + Number(effects?.sales || 0) + Number(effects?.profit || 0);
+  const money = (rawMoney < 0 ? Math.round(rawMoney * securityCostRate) : rawMoney)
+    + Number(effects?.sales || 0)
+    + Number(effects?.profit || 0);
   if (money) {
     addMoney(money);
     applied.push(`資金 ${money >= 0 ? '+' : ''}${yen(money)}`);
   }
+
+  // 評判
   const reputation = Number(effects?.reputation || 0);
   if (reputation) {
     addRep(reputation);
     applied.push(`評判 ${reputation >= 0 ? '+' : ''}${reputation}`);
-    if (employee && adjustEmployeeMorale(employee, Math.sign(reputation) * 3)) {
-      applied.push(`${employee.name}の士気 ${reputation > 0 ? '+3' : '-3'}`);
-    }
   }
+
+  // 対象社員の士気
   const morale = Number(effects?.morale || 0);
   if (morale && employee && adjustEmployeeMorale(employee, morale)) {
     applied.push(`${employee.name}の士気 ${morale >= 0 ? '+' : ''}${morale}`);
   }
+
+  // 全社員の士気
+  const moraleAll = Number(effects?.morale_all || 0);
+  if (moraleAll) {
+    S.employees.forEach((e) => adjustEmployeeMorale(e, moraleAll));
+    applied.push(`全社員の士気 ${moraleAll >= 0 ? '+' : ''}${moraleAll}`);
+  }
+
+  // 退職リスク
   const retirementRisk = Number(effects?.retirement_risk || 0);
   if (retirementRisk && employee) {
     employee.retirementRisk = clamp((Number(employee.retirementRisk) || 0) + retirementRisk, -100, 100);
     S.dirty = true;
     applied.push(`${employee.name}の退職リスク ${retirementRisk >= 0 ? '+' : ''}${retirementRisk}%`);
   }
-  const workload = Number(effects?.workload || 0);
-  if (job && workload) {
-    job.work = Math.max(job.progress + 1, job.work + workload);
-    applied.push(`作業量 ${workload >= 0 ? '+' : ''}${workload}`);
+
+  // 通常の案件募集に追加
+  const offerCount = Math.max(0, Math.floor(Number(effects?.offer) || 0));
+  for (let i = 0; i < offerCount; i++) {
+    const before = S.offers.length;
+    newOffer();
+    applied.push(S.offers.length > before
+      ? '新しい案件を募集に追加'
+      : '条件を満たす案件がなく、募集に追加できなかった');
   }
+
+  // 品質向上
+  const qualityBonus = Math.max(0, Number(effects?.quality_bonus) || 0);
+  if (qualityBonus) {
+    if (job) {
+      job.qBonus += qualityBonus;
+    } else {
+      S.pendingQualityBonus = (S.pendingQualityBonus || 0) + qualityBonus;
+    }
+    applied.push(`案件品質 +${qualityBonus}`);
+  }
+
+  // 品質低下
+  const qualityPenalty = Math.max(0, Number(effects?.quality_penalty) || 0);
+  if (qualityPenalty) {
+    if (job) {
+      job.qDebt += qualityPenalty;
+    } else {
+      S.pendingQualityPenalty = (S.pendingQualityPenalty || 0) + qualityPenalty;
+    }
+    applied.push(`案件品質 -${qualityPenalty}`);
+  }
+
+  // 案件進捗の増加
+  const progressBonusRate = clamp(Number(effects?.progress_bonus_rate) || 0, 0, 1);
+  if (progressBonusRate) {
+    const targetJobs = job ? [job] : S.jobs;
+    targetJobs.forEach((j) => {
+      j.progress = Math.min(j.work * 0.99, j.progress + j.work * progressBonusRate);
+    });
+    if (targetJobs.length) applied.push(`案件進捗 +${Math.round(progressBonusRate * 100)}%`);
+  }
+
+  // 案件進捗の減少
+  const progressLossRate = clamp(Number(effects?.progress_loss_rate) || 0, 0, 1);
+  if (progressLossRate) {
+    const targetJobs = job ? [job] : S.jobs;
+    targetJobs.forEach((j) => {
+      j.progress = Math.max(0, j.progress - j.work * progressLossRate);
+    });
+    if (targetJobs.length) applied.push(`案件進捗 -${Math.round(progressLossRate * 100)}%`);
+  }
+
+  // workload互換処理
+  const workload = Number(effects?.workload || 0);
+  if (workload) {
+    const targetJobs = job ? [job] : S.jobs;
+    targetJobs.forEach((j) => {
+      j.work = Math.max(j.progress + 1, j.work + workload);
+    });
+    if (targetJobs.length) applied.push(`作業量 ${workload >= 0 ? '+' : ''}${workload}`);
+  }
+
+  // 旧形式の品質キー互換
   const quality = Number(effects?.development || 0) + Number(effects?.security || 0) + Number(effects?.efficiency || 0);
-  if (job && quality) {
-    job.qBonus += Math.round(quality / 10);
+  if (quality) {
+    const targetJobs = job ? [job] : S.jobs;
+    if (targetJobs.length) {
+      targetJobs.forEach((j) => { j.qBonus += Math.round(quality / 10); });
+    } else {
+      S.pendingQualityBonus = (S.pendingQualityBonus || 0) + Math.round(quality / 10);
+    }
     applied.push(`品質 ${quality >= 0 ? '+' : ''}${Math.round(quality / 10)}`);
   }
+
+  // バックアップインシデントの進捗損失
   if (
     job
     && isBackupIncident(event)
@@ -864,6 +1151,7 @@ function buildDatabaseEvent(event, job, resignationEmployee, incidentEmployee) {
     : '';
   return {
     kind: 'incident',
+    category: event.type === 'incident' ? 'incident' : 'management',
     id: `database-event-${event.id}`,
     badge: event.type === 'incident' ? 'インシデント' : '会社イベント',
     title: event.name,
@@ -873,8 +1161,9 @@ function buildDatabaseEvent(event, job, resignationEmployee, incidentEmployee) {
       label: choice.label,
       tag: 'other',
       lesson: choice.lesson || '',
+      effects: eventChoiceEffects(choice),
       apply() {
-        const effects = choice.effects || {};
+        const effects = eventChoiceEffects(choice);
         const employeeCount = Math.max(0, Math.floor(Number(effects.employee) || 0));
         if (
           employeeCount > 0
@@ -889,7 +1178,7 @@ function buildDatabaseEvent(event, job, resignationEmployee, incidentEmployee) {
           if (!employee) return `${choice.label}。採用枠または採用可能な社員がいないため、採用できませんでした。`;
           recruited.push(employee);
         }
-        const applied = applyDatabaseEventEffects(effects, job, targetEmployee, event);
+        const applied = applyDatabaseEventEffects(effects, job, targetEmployee, event, choice.label);
         const target = resignationEmployee ? empById(resignationEmployee.id) : null;
         const resignationChance = target ? employeeResignationChance(target) : 0;
         if (resignationChance > 0 && rand() < resignationChance) {
@@ -934,6 +1223,7 @@ function completeJob(job) {
   const success = lateDays === 0 && q >= 60;
   if (success) {
     S.successes++;
+    S.totalSuccessfulJobs = (S.totalSuccessfulJobs || 0) + 1;
     if (job.diff >= 2) S.advancedSuccesses++;
     if (job.diff === 1) S.lowDifficultySuccesses++;
     if (job.diff === 2) S.mediumDifficultySuccesses++;
@@ -1026,10 +1316,22 @@ function resolve(idx) {
   if (!p || p.done) return null;
   const c = p.choices[idx];
   if (!c || typeof c.apply !== 'function') return null;
+  const beforeMoney = S.money;
+  const beforeRep = S.rep;
+  const beforeEmployees = S.employees.length;
+  const beforeMorale = S.employees.reduce((sum, employee) => sum + (Number(employee.morale) || 0), 0);
+  const beforeProgress = S.jobs.reduce((sum, job) => sum + (Number(job.progress) || 0), 0);
   const text = c.apply() || '';
+  S.tally.money += S.money - beforeMoney;
+  S.tally.rep += S.rep - beforeRep;
+  S.tally.employees += S.employees.length - beforeEmployees;
+  S.tally.morale += S.employees.reduce((sum, employee) => sum + (Number(employee.morale) || 0), 0) - beforeMorale;
+  S.tally.jobProgress += S.jobs.reduce((sum, job) => sum + (Number(job.progress) || 0), 0) - beforeProgress;
+  S.tally.workload += Number(c.effects?.workload) || 0;
   p.done = true;
   if (p.kind === 'incident') {
-    S.tally.incidents++;
+    if (p.category === 'incident') S.tally.incidents++;
+    else S.tally.managementEvents++;
     S.counts.handled++;
     if (c.tag === 'hide') S.tally.hide++;
     if (c.tag === 'honest') S.tally.honest++;

@@ -1202,13 +1202,19 @@ function showEnd() {
   screenMode = 'end';
   const o = S.over;
   const goals = goalList();
-  const years = (S.day / 365).toFixed(1);
+  const elapsedDate = dateOf(S.day);
+  const elapsedMonths =
+    (elapsedDate.getFullYear() - CONFIG.startYear) * 12
+    + elapsedDate.getMonth() - CONFIG.startMonth;
+  const elapsedYears = Math.floor(elapsedMonths / 12);
+  const elapsedMonthCount = elapsedMonths % 12;
+  const elapsedLabel = `${elapsedYears}年${elapsedMonthCount}ヵ月`;
   let title, lead;
   let rank = o.type === 'timeout' ? 'E' : 'C';
   if (o.type === 'clear') {
     rank = getClearRank();
     title = `ゲームクリア！ 評価 ${rank}`;
-    lead = `${years}年で、すべての目標を達成しました。会社は大きく成長しました。`;
+    lead = `${elapsedLabel}で、すべての目標を達成しました。会社は大きく成長しました。`;
   }
   else if (o.type === 'bankrupt') { title = 'ゲームオーバー'; lead = `${dateLabel(o.day)}、資金が尽きたため、会社を続けられなくなりました。`; }
   else if (o.type === 'timeout') {
@@ -1216,12 +1222,23 @@ function showEnd() {
     lead = '5年以内にすべての目標を達成できませんでした。評価は最低ランクです。';
   }
   const t = S.tally;
-  const avg = goals.reduce((sum, goal) => sum + goal.ratio, 0) / goals.length;
+  const totalEvents = t.incidents + t.managementEvents;
   let style;
-  if (t.incidents === 0) style = '障害は発生しませんでした。';
-  else if (t.hide === 0) style = `${t.incidents}回の障害にすべて正直に対応しました。誠実な経営判断です。`;
-  else if (t.hide >= t.honest) style = `${t.incidents}回のうち${t.hide}回、障害を隠す選択をしました。実際の会社では、信頼を失う原因になります。`;
-  else style = `${t.incidents}回のうち${t.hide}回、障害を隠す選択をしました。隠した障害は、後から発覚することがあります。`;
+  if (totalEvents === 0) style = 'インシデントや会社イベントは発生しませんでした。';
+  else {
+    const signed = (value, suffix = '') => `${value >= 0 ? '+' : ''}${value}${suffix}`;
+    const changes = [];
+    if (t.money !== 0) changes.push(`資金の累計変化 ${t.money >= 0 ? '+' : ''}${yen(t.money)}`);
+    if (t.rep !== 0) changes.push(`評判の累計変化 ${signed(t.rep)}`);
+    if (t.employees !== 0) changes.push(`社員数の累計変化 ${signed(t.employees, '人')}`);
+    if (t.morale !== 0) changes.push(`社員の士気合計の累計変化 ${signed(t.morale)}`);
+    if (Math.abs(t.jobProgress) >= 0.05) changes.push(`案件進捗合計の累計変化 ${signed(Math.round(t.jobProgress * 10) / 10)}`);
+    if (t.workload !== 0) changes.push(`案件の作業量の累計変化 ${signed(t.workload)}`);
+    const changesText = changes.length
+      ? `選択による累計変化は、${changes.join('、')}です。`
+      : '選択によってもたらされた直接的な数値変化はありませんでした。';
+    style = `インシデント${t.incidents}件、会社イベント${t.managementEvents}件に対応しました。${changesText}`;
+  }
 
   const rows = goals.map((g) => `<tr class="${g.met ? 'met' : ''}">
     <td>${g.met ? '■' : '□'} ${g.label}</td><td>${g.fmt(g.cur)} / ${g.fmt(g.target)}</td></tr>`).join('');
@@ -1231,9 +1248,11 @@ function showEnd() {
     <div class="medal-wrap"><div class="medal medal-${rank}"><b>${rank}</b></div><div class="medal-lead">${lead}</div></div>`}
     <table class="stats">${rows}
       <tr><td>完了した案件</td><td>${S.done}件</td></tr>
-      <tr><td>対応した障害</td><td>${t.incidents}回（隠した回数：${t.hide}回）</td></tr>
-      <tr><td>会社レベル</td><td>${S.level}</td></tr></table>
-    <div class="lesson"><div class="small muted">あなたの判断</div>${style}</div>
+      <tr><td>成功した案件</td><td>${S.successes}件</td></tr>
+      <tr><td>対応したインシデント</td><td>${t.incidents}件</td></tr>
+      <tr><td>対応した会社イベント</td><td>${t.managementEvents}件</td></tr>
+      <tr><td>会社レベル</td><td>Lv.${S.level}</td></tr></table>
+    <div class="lesson"><div class="small muted"></div>${style}</div>
     <button class="btn-main" data-act="restart" ${debugPreviewMode ? 'disabled' : ''}>もう一度プレイ</button>
     ${debugPreviewMode ? '<button class="btn-small" data-act="debug-preview-back">デバッグ画面へ戻る</button>' : ''}`;
   $('screen').classList.remove('hidden');
