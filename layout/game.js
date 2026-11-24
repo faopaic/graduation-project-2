@@ -185,7 +185,7 @@ function newGame(
     boost: {}, schedule: [], queue: [], pending: null, over: null, dirty: true,
     nextIncidentDay: CONFIG.firstIncidentDay,
     lastIncidentDay: -INCIDENT_COOLDOWN_DAYS,
-    nextManagementDay: CONFIG.paydayOfMonth - 1,
+    nextManagementDay: 10,
     nextOfferDay: 14,
     nextCandDay: 60,
     log: [], notices: [], marks: [], recruitmentEvent: false, recruiting: false, recruitStage: 'confirm', assignmentJobId: null,
@@ -758,7 +758,7 @@ function tick() {
       raise(managementEvent);
       S.marks.push({ day: S.day, kind: 'incident' });
     }
-    S.nextManagementDay = S.day + ri(14, 35);
+    S.nextManagementDay = S.day + ri(21, 35);
   }
 
   // DBイベント
