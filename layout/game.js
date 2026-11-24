@@ -164,9 +164,10 @@ function newGame(
   eventDatabase,
   projectDatabase,
   missionDatabase,
-  companyName
+  companyName,
+  selectedDifficulty
 ) {
-  const difficulty = S?.difficulty || 'normal';
+  const difficulty = selectedDifficulty || S?.difficulty || 'normal';
   S = {
     day: 0, 
     money: getStartMoney(CONFIG.startMoney,difficulty),
