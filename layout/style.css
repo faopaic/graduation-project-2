@@ -1007,3 +1007,76 @@ button:disabled { opacity: .45; cursor: not-allowed; }
 .difficulty-btn.normal{background:#9fd3ff;}
 .difficulty-btn.hard{background:#8fd6a3;}
 .difficulty-btn.expert{background:#f4d97a;}
+
+/* ===== ゲーム終了画面(クリア / ゲームオーバー / タイムアップ) ===== */
+.end-scene { position: relative; }
+.end-scene-timeout::after {   /* 夕暮れのふち暗がり */
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  background: radial-gradient(ellipse at center, rgba(20,16,48,0) 55%, rgba(20,16,48,.45) 100%);
+}
+.end-scene-bankrupt::after {
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  background: rgba(60,70,80,.12);
+}
+.end-chip {
+  margin: 10px 0 0; padding: 6px 12px; text-align: center;
+  border: var(--line-thin); background: #fafffd;
+}
+.end-chip-clear { background: var(--hl); }
+.end-chip-bankrupt { background: #ffd9d2; color: #8a1f16; }
+.end-chip-timeout { background: #e1dcf1; }
+.end-grid { margin-top: 12px; }
+.end-grid .panel, .end-grid .lesson, .end-grid .hint { margin-bottom: 10px; }
+.end-goal { margin-bottom: 8px; }
+.end-log { padding: 3px 0; border-bottom: 1px dashed var(--muted); font-size: 13px; }
+.end-log:last-child { border-bottom: 0; }
+.end-mini { margin-top: 12px; text-align: center; }
+.end-mini .end-btns { margin-top: 8px; }
+.medal-word b { font-size: 40px; color: #777; }
+body[data-end="bankrupt"] #h-money { color: #8a1f16; }
+
+/* 街の中の演出(SVGの中の動き) */
+.clap-a { animation: clap-a .6s steps(1, end) infinite; }
+.clap-b { animation: clap-b .6s steps(1, end) infinite; }
+@keyframes clap-a { 0% { opacity: 1; } 50% { opacity: 0; } }
+@keyframes clap-b { 0% { opacity: 0; } 50% { opacity: 1; } }
+.e-conf { animation: e-conf var(--d, 4s) linear infinite; }
+@keyframes e-conf { from { transform: translate(0, 0); } to { transform: translate(var(--dx, 0), 112px); } }
+.e-rain { animation: e-rain var(--d, .9s) linear infinite; }
+@keyframes e-rain { from { transform: translate(0, 0); } to { transform: translate(-6px, 100px); } }
+.e-snow { animation: e-snow var(--d, 3s) linear infinite; }
+@keyframes e-snow { from { transform: translate(0, 0); } to { transform: translate(-150px, 28px); } }
+.e-sway { transform-box: fill-box; transform-origin: 50% 100%; animation: e-sway 6s ease-in-out infinite alternate; }
+@keyframes e-sway { from { transform: rotate(0deg); } to { transform: rotate(-1deg); } }
+.e-leaf { animation: e-leaf var(--d, 5s) linear infinite; }
+@keyframes e-leaf { from { transform: translate(0, 0); } to { transform: translate(-150px, 70px); } }
+.e-wind { animation: e-wind 4.2s steps(28, end) infinite; opacity: 0; }
+@keyframes e-wind {
+  0% { transform: translate(0, 0); opacity: 0; }
+  12% { opacity: .85; }
+  80% { opacity: .85; }
+  100% { transform: translate(-110px, 62px); opacity: 0; }
+}
+.eg-snow rect{animation:eg-drift 2.6s linear infinite}
+.eg-snow rect:nth-child(3n+1){animation-delay:-.9s}
+.eg-snow rect:nth-child(3n+2){animation-delay:-1.8s}
+.eg-snow rect:nth-child(2n){animation-duration:3.2s}
+.eg-gusts rect{opacity:0;animation:eg-gust 3.6s steps(1,end) infinite}
+@keyframes eg-gust{0%{opacity:1}8%{opacity:.6}14%{opacity:.3}20%{opacity:0}100%{opacity:0}}
+.eg-fa{animation:eg-fa .5s steps(1,end) infinite}
+.eg-fb{animation:eg-fb .5s steps(1,end) infinite}
+@keyframes eg-fa{0%{opacity:1}50%{opacity:0}}
+@keyframes eg-fb{0%{opacity:0}50%{opacity:1}}
+.eg-lf{opacity:0;animation-timing-function:steps(2,end);animation-iteration-count:infinite}
+.eg-fl1{animation-name:eg-fl1}
+.eg-fl2{animation-name:eg-fl2}
+.eg-fl3{animation-name:eg-fl3}
+@keyframes eg-fl1{0%{transform:translate(0px,0px);opacity:0}5%{transform:translate(-10px,0px);opacity:1}9%{transform:translate(-18px,1px);opacity:1}14%{transform:translate(-24px,11px);opacity:1}18%{transform:translate(-28px,23px);opacity:1}23%{transform:translate(-35px,26px);opacity:1}27%{transform:translate(-45px,25px);opacity:1}32%{transform:translate(-56px,26px);opacity:1}36%{transform:translate(-65px,26px);opacity:1}41%{transform:translate(-71px,33px);opacity:1}45%{transform:translate(-76px,46px);opacity:1}50%{transform:translate(-82px,51px);opacity:1}55%{transform:translate(-91px,51px);opacity:1}59%{transform:translate(-102px,52px);opacity:1}64%{transform:translate(-111px,52px);opacity:1}68%{transform:translate(-118px,56px);opacity:1}73%{transform:translate(-123px,68px);opacity:1}77%{transform:translate(-128px,76px);opacity:1}82%{transform:translate(-137px,77px);opacity:1}86%{transform:translate(-147px,77px);opacity:1}91%{transform:translate(-158px,77px);opacity:1}95%{transform:translate(-165px,79px);opacity:1}100%{transform:translate(-170px,90px);opacity:0}}
+@keyframes eg-fl2{0%{transform:translate(-3px,-4px);opacity:0}5%{transform:translate(-8px,2px);opacity:1}9%{transform:translate(-13px,14px);opacity:1}14%{transform:translate(-21px,16px);opacity:1}18%{transform:translate(-32px,13px);opacity:1}23%{transform:translate(-41px,17px);opacity:1}27%{transform:translate(-46px,23px);opacity:1}32%{transform:translate(-51px,35px);opacity:1}36%{transform:translate(-60px,35px);opacity:1}41%{transform:translate(-71px,33px);opacity:1}45%{transform:translate(-80px,37px);opacity:1}50%{transform:translate(-85px,44px);opacity:1}55%{transform:translate(-90px,56px);opacity:1}59%{transform:translate(-99px,55px);opacity:1}64%{transform:translate(-110px,53px);opacity:1}68%{transform:translate(-118px,58px);opacity:1}73%{transform:translate(-123px,66px);opacity:1}77%{transform:translate(-129px,76px);opacity:1}82%{transform:translate(-138px,74px);opacity:1}86%{transform:translate(-149px,74px);opacity:1}91%{transform:translate(-157px,78px);opacity:1}95%{transform:translate(-161px,87px);opacity:1}100%{transform:translate(-167px,97px);opacity:0}}
+@keyframes eg-fl3{0%{transform:translate(1px,1px);opacity:0}5%{transform:translate(-5px,8px);opacity:1}9%{transform:translate(-12px,15px);opacity:1}14%{transform:translate(-21px,19px);opacity:1}18%{transform:translate(-31px,17px);opacity:1}23%{transform:translate(-41px,15px);opacity:1}27%{transform:translate(-50px,17px);opacity:1}32%{transform:translate(-57px,24px);opacity:1}36%{transform:translate(-63px,32px);opacity:1}41%{transform:translate(-68px,39px);opacity:1}45%{transform:translate(-74px,46px);opacity:1}50%{transform:translate(-81px,52px);opacity:1}55%{transform:translate(-91px,55px);opacity:1}59%{transform:translate(-101px,52px);opacity:1}64%{transform:translate(-111px,51px);opacity:1}68%{transform:translate(-120px,54px);opacity:1}73%{transform:translate(-127px,61px);opacity:1}77%{transform:translate(-132px,69px);opacity:1}82%{transform:translate(-137px,76px);opacity:1}86%{transform:translate(-143px,83px);opacity:1}91%{transform:translate(-151px,89px);opacity:1}95%{transform:translate(-161px,90px);opacity:1}100%{transform:translate(-171px,88px);opacity:0}}
+@keyframes eg-drift{0%{transform:translate(8px,-6px);opacity:0}15%{transform:translate(4px,-8px);opacity:1}35%{transform:translate(-4px,-6px)}50%{transform:translate(-9px,0)}65%{transform:translate(-12px,6px)}80%{transform:translate(-18px,8px);opacity:1}100%{transform:translate(-26px,12px);opacity:0}}
+.eg-sway{transform-box:fill-box;transform-origin:50% 100%;animation:eg-sway 1.4s ease-in-out infinite alternate}
+.eg-cloud{animation:eg-cl 7s ease-in-out infinite alternate}
+@keyframes eg-sway{from{transform:rotate(0deg)}to{transform:rotate(-5deg)}}
+@keyframes eg-cl{from{transform:translate(0,0)}to{transform:translate(-12px,0)}}
+@media (prefers-reduced-motion:reduce){.eg-snow rect,.eg-sway,.eg-cloud{animation:none}.eg-gusts,.eg-leaves{display:none}}
