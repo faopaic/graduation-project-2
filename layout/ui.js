@@ -229,7 +229,7 @@ const bgMotorbike = (c, rider, helmet = '#fff') => ({ w: 12, h: 7, svg: bgDot(8,
   + bgWheel(4, 11) + bgWheel(19, 11) });
 // 電動キックボード(立って乗る小さな乗り物。ロゴなどは入れない一般的な形)。accent = 板とヘルメットの色 / top = 上着の色
 const bgKickboard = (accent, top = '#f4efe4') => {
-  const skin = '#f8cdbb', dark = '#2e504a', pants = '#cfd3d6';
+  const skin = '#f8cdbb', dark = '#2e504a', pants = '#213852';
   const head = bgDot(8, 0, 5, 1, accent) + bgDot(7, 1, 7, 2, accent) + bgDot(7, 3, 4, 1, accent) + bgDot(11, 3, 3, 1, skin) + bgDot(12, 3, 1, 1, dark) + bgDot(8, 4, 5, 1, skin) + bgDot(7, 4, 1, 1, '#3a3a4a');
   const body = bgDot(8, 5, 5, 5, top) + bgDot(8, 9, 5, 1, '#d9d4c7') + bgDot(12, 5, 4, 2, top) + bgDot(16, 5, 2, 2, skin)
     + bgDot(7, 10, 3, 4, pants) + bgDot(10, 10, 3, 4, pants) + bgDot(6, 14, 4, 1, '#fff') + bgDot(10, 14, 4, 1, '#fff');
@@ -591,7 +591,7 @@ function endScene(end) {
     // 横なぐりの雪(右から左へ)+提案の風と枯れ葉
     const snow = Array.from({ length: 44 }, (_, i) => `<rect class="e-snow" x="${110 + (i * 37) % 110}" y="${(i * 17) % 76}" width="1.1" height="1.1" fill="#fff" style="--d:${2.2 + (i % 4) * 0.5}s;animation-delay:${(-(i * 0.29) % 3).toFixed(2)}s"/>`).join('');
     const leaves = Array.from({ length: 5 }, (_, i) => `<rect class="e-leaf" x="${120 + (i * 23) % 90}" y="${(i * 19) % 40}" width="1.6" height="1.6" fill="${['#b0793a', '#8a5a2a', '#c9923f'][i % 3]}" style="--d:${4.5 + (i % 3) * 0.8}s;animation-delay:${(-(i * 0.9) % 4).toFixed(2)}s"/>`).join('');
-    const gusts = END_WIND.gusts.replace(/<g transform="translate\(([\d.]+ [\d.]+)\)">/g, '<g transform="translate($1) scale(.6)">');   // 風のサイズ
+    const gusts = END_WIND.gusts.replace(/<g transform="translate\(([\d.]+ [\d.]+)\)">/g, '<g transform="translate($1) scale(.55)">');   // 風のサイズ
     fx = snow + gusts + leaves;
     banner = `<g><rect x="55" y="-12" width="90" height="11" fill="#b9b2d3" stroke="#2e504a" stroke-width="1.4"/><text x="100" y="-4" font-size="6.5" text-anchor="middle" fill="#2e504a">TIME UP</text></g>`;
   }
