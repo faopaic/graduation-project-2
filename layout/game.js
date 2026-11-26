@@ -75,7 +75,10 @@ function abilityTotalWithoutSkillMatch(employees, skill) {
   return employees.reduce((total, employee) => total + employeeStatValue(employee, skill), 0);
 }
 function meetsRequirement(job, skill, employees) {
-  const required = Number(job.requirements?.[skill]) || 0;
+  const baseRequired =
+    Number(job.requirements?.[skill]) || 0;
+  const required =
+    getProjectNeed(baseRequired,S.difficulty);
   if (required <= 0) return true;
   const hasMatchingSkill = employees.some((employee) => employee?.skill === skill);
   return hasMatchingSkill && abilityTotalWithoutSkillMatch(employees, skill) >= required;

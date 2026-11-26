@@ -60,12 +60,14 @@ const employeeMoraleMarkup = (e) => {
 const requirementSkills = (job) => ['design', 'dev', 'security', 'infra']
   .filter((skill) => Number(job.requirements?.[skill]) > 0);
 const requirementText = (job) => requirementSkills(job)
-  .map((skill) => `${SKILLS[skill]} ${Number(job.requirements?.[skill]) || 0}`)
+  .map((skill) => `${SKILLS[skill]} ${getProjectNeed(
+    Number(job.requirements?.[skill]) || 0,S.difficulty)}`)
   .join(' / ');
 const requirementProgressText = (job, employees) => requirementSkills(job)
-  .map((skill) => `${SKILLS[skill]} ${abilityTotalWithoutSkillMatch(employees, skill)}/${Number(job.requirements?.[skill]) || 0}`)
+  .map((skill) => `${SKILLS[skill]} ${abilityTotalWithoutSkillMatch(
+    employees, skill)}/${getProjectNeed(
+      Number(job.requirements?.[skill]) || 0,S.difficulty)}`)
   .join(' / ');
-
 async function fetchJson(url) {
   const response = await fetch(url, { cache: 'no-store' });
   if (!response.ok) throw new Error(`${url} の読み込みに失敗しました (${response.status})`);
