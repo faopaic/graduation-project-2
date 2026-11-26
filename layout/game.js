@@ -718,7 +718,7 @@ function tick() {
 
   if (resignationCandidate) {
     const resignationEvent = S.eventDatabase.find(isResignationEvent);
-    if (resignationEvent) {
+    if (resignationEvent && eventTriggerMatches(resignationEvent)) {
       const job = resignationCandidate.job ? jobById(resignationCandidate.job) : null;
       const eventPrompt = buildDatabaseEvent(resignationEvent, job, resignationCandidate);
       if (eventPrompt) {
@@ -791,7 +791,8 @@ function makeIncident() {
     S.eventDatabase.filter((item) => (
       item.type === 'incident' &&
       !isResignationEvent(item) &&
-      eventTriggerMatches(item, null) &&
+      eventTriggerMatches(item) &&
+      incidentTargetJobs(item).length > 0 &&
       (S.employees.length < levelInfo().slots || !eventRequiresRecruitment(item))
     )),
     eventOccurrenceRate
@@ -810,15 +811,15 @@ function makeManagementEvent() {
     S.eventDatabase.filter((item) => (
       item.type === 'management' &&
       !isResignationEvent(item) &&
-      eventTriggerMatches(item, null) &&
+      eventTriggerMatches(item) &&
       (S.employees.length < levelInfo().slots || !eventRequiresRecruitment(item))
     )),
     eventOccurrenceRate
   );
   if (!event) return null;
   let targetEmployee = null;
-  if (normalizedTriggerCondition(event.triggerCondition).includes('士気が80以上の社員が1人以上いる')) {
-    const candidates = S.employees.filter((e) => e.morale >= 80);
+  if (hasEventTargetRule(event, 'employee')) {
+    const candidates = matchingEventTargets(event, 'employee', S.employees);
     targetEmployee = candidates.length ? pick(candidates) : null;
   } else if (eventChangesIndividualMorale(event) && S.employees.length) {
     targetEmployee = pick(S.employees);
@@ -827,60 +828,140 @@ function makeManagementEvent() {
     Number(eventChoiceEffects(choice).quality_bonus || 0) !== 0
     || Number(eventChoiceEffects(choice).quality_penalty || 0) !== 0
   );
-  const targetJob = needsJob && S.jobs.length ? pick(S.jobs) : null;
+  const jobCandidates = matchingEventTargets(event, 'job', S.jobs);
+  const targetJob = hasEventTargetRule(event, 'job')
+    ? (jobCandidates.length ? pick(jobCandidates) : null)
+    : needsJob && S.jobs.length ? pick(S.jobs) : null;
   return buildDatabaseEvent(event, targetJob, null, targetEmployee);
 }
 
-const normalizedTriggerCondition = (condition) => String(condition || '').replace(/\s/g, '');
-const unknownTriggerConditions = new Set();
+const warnedTriggerRuleEvents = new Set();
 
-function eventTriggerMatches(event) {
-  const condition = normalizedTriggerCondition(event?.triggerCondition);
-  const participants = participatingEmployees();
-  const monthlySalary = S.employees.reduce(
-    (total, employee) => total + employee.salary, 0
-  );
-  const averageParticipantMorale = participants.length
-    ? participants.reduce((total, employee) => total + employee.morale, 0) / participants.length
-    : 0;
-  const rules = {
-    '採用済み社員数が会社レベルごとの社員上限未満': () => S.employees.length < levelInfo().slots,
-    '会社レベルが3以上、評判が80以上、中難易度案件の成功回数が3回以上、かつ同時進行案件数が会社レベルごとの上限未満': () =>
-      S.level >= 3
-      && S.rep >= 80
-      && S.mediumDifficultySuccesses >= 3
-      && S.jobs.length < levelInfo().jobs,
-    '士気が20未満の社員が1人以上いる': () => S.employees.some((employee) => employee.morale < 20),
-    '営業力が60以上の社員が1人以上いる': () => S.employees.some((employee) => employee.salesSkill >= 60),
-    '会社レベルが2以上、かつ資金が100万円以上': () => S.level >= 2 && S.money >= 1000000,
-    '社員数が4人以上、かつ月額給与総額が100万円以上': () =>
-      S.employees.length >= 4 && monthlySalary >= 1000000,
-    '会社レベルが2以上、かつ評判が50以上': () => S.level >= 2 && S.rep >= 50,
-    '進行中案件が2件以上、かつ参加社員の平均士気が50以下': () =>
-      S.jobs.length >= 2 && participants.length > 0 && averageParticipantMorale <= 50,
-    '進行中案件が1件以上、かつ参加社員が1人以上': () =>
-      S.jobs.length >= 1 && S.jobs.some((job) => (job.staff || []).length >= 1),
-    '進行中案件が1件以上': () => S.jobs.length >= 1,
-    '進行中案件が1件以上、かつ対象案件の進捗率が20%以上': () =>
-      S.jobs.some((job) => job.work > 0 && job.progress / job.work >= 0.2),
-    '士気が80以上の社員が1人以上いる': () => S.employees.some((employee) => employee.morale >= 80),
-    '進行中案件が1件以上、かつ対象案件の参加社員が2人以上': () =>
-      S.jobs.some((job) => (job.staff || []).length >= 2),
-    '成功案件数が3件以上、かつ会社の評判が60以上': () =>
-      S.totalSuccessfulJobs >= 3 && S.rep >= 60,
-    '会社レベルが2以上、かつ資金が200万円以上': () => S.level >= 2 && S.money >= 2000000,
-    '会社の評判が100以上、かつ資金が100万円以下': () => S.rep >= 100 && S.money <= 1000000,
-    '会社の評判が100以上': () => S.rep >= 100
-  };
-  const rule = rules[condition];
-  if (!rule) {
-    if (!unknownTriggerConditions.has(condition)) {
-      unknownTriggerConditions.add(condition);
-      console.warn(`未対応のイベント発生条件です: ${event?.triggerCondition || '(空欄)'}`);
+function warnInvalidTriggerRule(event, reason) {
+  const key = String(event?.id || event?.name || 'unknown');
+  if (warnedTriggerRuleEvents.has(key)) return;
+  warnedTriggerRuleEvents.add(key);
+  console.warn(`イベント発生条件を評価できません (${key}): ${reason}`);
+}
+
+function getEventTriggerRule(event) {
+  let rule = event?.triggerRule;
+  if (typeof rule === 'string') {
+    try {
+      rule = JSON.parse(rule);
+    } catch (error) {
+      warnInvalidTriggerRule(event, 'trigger_ruleのJSONを解析できません');
+      return null;
     }
+  }
+  if (!rule || typeof rule !== 'object' || Array.isArray(rule)) {
+    warnInvalidTriggerRule(event, 'trigger_ruleがオブジェクトではありません');
+    return null;
+  }
+  return rule;
+}
+
+function compareTriggerValue(actual, op, expected, event) {
+  switch (op) {
+    case 'eq': return actual === expected;
+    case 'ne': return actual !== expected;
+    case 'gt': return actual > expected;
+    case 'gte': return actual >= expected;
+    case 'lt': return actual < expected;
+    case 'lte': return actual <= expected;
+    default:
+      warnInvalidTriggerRule(event, `未対応の比較演算子です: ${op}`);
+      return false;
+  }
+}
+
+function getTriggerMetric(metric) {
+  const participants = participatingEmployees();
+  const metrics = {
+    'company.level': S.level,
+    'company.money': S.money,
+    'company.reputation': S.rep,
+    'company.employeeLimit': levelInfo().slots,
+    'employees.count': S.employees.length,
+    'employees.salaryTotal': S.employees.reduce((sum, employee) => sum + employee.salary, 0),
+    'jobs.count': S.jobs.length,
+    'participants.count': participants.length,
+    'participants.averageMorale': participants.length
+      ? participants.reduce((sum, employee) => sum + employee.morale, 0) / participants.length
+      : 0,
+    'history.mediumDifficultySuccesses': S.mediumDifficultySuccesses,
+    'history.totalSuccessfulJobs': S.totalSuccessfulJobs
+  };
+  return Object.prototype.hasOwnProperty.call(metrics, metric) ? metrics[metric] : undefined;
+}
+
+function evaluateTriggerRule(rule, event) {
+  if (!rule || typeof rule !== 'object' || Array.isArray(rule)) return false;
+  if (Array.isArray(rule.all)) return rule.all.every((condition) => evaluateTriggerRule(condition, event));
+  if (Array.isArray(rule.any)) return rule.any.some((condition) => evaluateTriggerRule(condition, event));
+  if (rule.exists && typeof rule.exists === 'object') {
+    const { collection, where } = rule.exists;
+    const items = collection === 'employees'
+      ? S.employees
+      : collection === 'jobs' ? S.jobs : null;
+    if (!items) {
+      warnInvalidTriggerRule(event, `未対応のexists collectionです: ${collection}`);
+      return false;
+    }
+    return items.some((item) => evaluateTriggerRuleForItem(where, item, event));
+  }
+  if (typeof rule.metric === 'string') {
+    const actual = getTriggerMetric(rule.metric);
+    if (actual === undefined) {
+      warnInvalidTriggerRule(event, `未対応のmetricです: ${rule.metric}`);
+      return false;
+    }
+    const referencedMetric = typeof rule.value === 'string' ? getTriggerMetric(rule.value) : undefined;
+    const expected = referencedMetric === undefined ? rule.value : referencedMetric;
+    return compareTriggerValue(actual, rule.op, expected, event);
+  }
+  warnInvalidTriggerRule(event, '条件の形式が未対応です');
+  return false;
+}
+
+function evaluateTriggerRuleForItem(rule, item, event) {
+  if (!rule || typeof rule !== 'object' || Array.isArray(rule)) return false;
+  if (Array.isArray(rule.all)) return rule.all.every((condition) => evaluateTriggerRuleForItem(condition, item, event));
+  if (Array.isArray(rule.any)) return rule.any.some((condition) => evaluateTriggerRuleForItem(condition, item, event));
+
+  let actual;
+  if (rule.field === 'staffCount') {
+    actual = Array.isArray(item.staff) ? item.staff.length : 0;
+  } else if (rule.field === 'progressRate') {
+    const work = Number(item.work) || 0;
+    actual = work > 0 ? (Number(item.progress) || 0) / work : 0;
+  } else if (typeof rule.field === 'string' && Object.prototype.hasOwnProperty.call(item, rule.field)) {
+    actual = item[rule.field];
+  } else {
+    warnInvalidTriggerRule(event, `未対応の対象フィールドです: ${rule.field}`);
     return false;
   }
-  return rule();
+  return compareTriggerValue(actual, rule.op, rule.value, event);
+}
+
+function eventTriggerMatches(event) {
+  const rule = getEventTriggerRule(event);
+  return rule ? evaluateTriggerRule(rule, event) : false;
+}
+
+function hasEventTargetRule(event, targetType) {
+  const targets = getEventTriggerRule(event)?.target;
+  return Boolean(targets && Object.prototype.hasOwnProperty.call(targets, targetType));
+}
+
+function matchingEventTargets(event, targetType, items) {
+  const targets = getEventTriggerRule(event)?.target;
+  if (!targets || !Object.prototype.hasOwnProperty.call(targets, targetType)) return items;
+  const rule = targets[targetType];
+  if (rule && typeof rule === 'object' && !Array.isArray(rule) && Object.keys(rule).length === 0) {
+    return items;
+  }
+  return items.filter((item) => evaluateTriggerRuleForItem(rule, item, event));
 }
 
 function participatingEmployees() {
@@ -891,19 +972,7 @@ function participatingEmployees() {
 }
 
 function incidentTargetJobs(event) {
-  const condition = normalizedTriggerCondition(event?.triggerCondition);
-  if (condition.includes('対象案件の進捗率が20%以上')) {
-    return S.jobs.filter((job) =>
-      job.work > 0 && job.progress / job.work >= 0.2
-    );
-  }
-  if (condition.includes('対象案件の参加社員が2人以上')) {
-    return S.jobs.filter((job) => (job.staff || []).length >= 2);
-  }
-  if (condition.includes('参加社員が1人以上')) {
-    return S.jobs.filter((job) => (job.staff || []).length >= 1);
-  }
-  return S.jobs;
+  return matchingEventTargets(event, 'job', S.jobs);
 }
 
 function selectIncidentEmployee(job) {
@@ -950,14 +1019,16 @@ function triggerDebugEvent(eventId) {
   if (S.pending || S.recruiting) return false;
   const event = S.eventDatabase.find((item) => String(item.id) === String(eventId));
   if (!event) return false;
-  const targetJobs = event.type === 'incident' ? incidentTargetJobs(event) : [];
+  const targetJobs = event.type === 'incident' || hasEventTargetRule(event, 'job')
+    ? incidentTargetJobs(event)
+    : [];
   const job = targetJobs.length ? pick(targetJobs) : null;
   let targetEmployee = null;
-  if (event.type === 'incident') {
-    targetEmployee = selectIncidentEmployee(job);
-  } else if (normalizedTriggerCondition(event.triggerCondition).includes('士気が80以上の社員が1人以上いる')) {
-    const candidates = S.employees.filter((e) => e.morale >= 80);
+  if (hasEventTargetRule(event, 'employee')) {
+    const candidates = matchingEventTargets(event, 'employee', S.employees);
     targetEmployee = candidates.length ? pick(candidates) : null;
+  } else if (event.type === 'incident') {
+    targetEmployee = selectIncidentEmployee(job);
   } else if (eventChangesIndividualMorale(event) && S.employees.length) {
     targetEmployee = pick(S.employees);
   }
