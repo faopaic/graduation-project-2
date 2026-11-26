@@ -178,7 +178,11 @@ function newGame(
     pendingQualityBonus: 0, pendingQualityPenalty: 0,
     experience: 0, big: 0,
     companyName: companyName || '',
-    recruitContractCount: 0,recruitContractActive: false,recruitContractJobType: null,recruitSelectingJob: false,
+    recruitContractCount: 0,recruitContractActive: false,
+    recruitContractJobType: null,
+    recruitSelectingJob: false,
+    trainingProgramCount: 0,
+    trainingSelecting: false,
     difficulty,
     employees: [], jobs: [], offers: [], candidates: [],
     invest: { backup: 0, security: 0, qa: 0,recruitContract: 0 },
@@ -220,7 +224,13 @@ function newGame(
   }
   const selectedChallengeMissions = challengeMissions
     .slice(0, 3)
-    .map((mission) => ({ ...mission, tier: 'チャレンジ' }));
+    .map((mission) => ({
+      ...mission,
+      tier: 'チャレンジ',
+      target: ['max_investments', 'all_investments_max'].includes(mission.conditionType)
+        ? 1
+        : mission.target
+    }));
 
   MISSIONS = [...FIXED_MISSIONS, ...selectedChallengeMissions].map((mission) => ({
     ...mission,

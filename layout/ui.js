@@ -14,6 +14,7 @@ let selectedDifficulty = 'normal'; // 難易度
 let companyName = '';   // 会社名(タイトル画面で入力)
 let debugEventSelecting = false;
 let debugPreviewMode = false;
+let endView = 'result';   // 終了画面: 'result' = 結果 / 'town' = 街だけ見る
 const esc = (t) => String(t).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 // ----- 部品 -----
@@ -228,7 +229,7 @@ const bgMotorbike = (c, rider, helmet = '#fff') => ({ w: 12, h: 7, svg: bgDot(8,
   + bgWheel(4, 11) + bgWheel(19, 11) });
 // 電動キックボード(立って乗る小さな乗り物。ロゴなどは入れない一般的な形)。accent = 板とヘルメットの色 / top = 上着の色
 const bgKickboard = (accent, top = '#f4efe4') => {
-  const skin = '#f8cdbb', dark = '#2e504a', pants = '#cfd3d6';
+  const skin = '#f8cdbb', dark = '#2e504a', pants = '#213852';
   const head = bgDot(8, 0, 5, 1, accent) + bgDot(7, 1, 7, 2, accent) + bgDot(7, 3, 4, 1, accent) + bgDot(11, 3, 3, 1, skin) + bgDot(12, 3, 1, 1, dark) + bgDot(8, 4, 5, 1, skin) + bgDot(7, 4, 1, 1, '#3a3a4a');
   const body = bgDot(8, 5, 5, 5, top) + bgDot(8, 9, 5, 1, '#d9d4c7') + bgDot(12, 5, 4, 2, top) + bgDot(16, 5, 2, 2, skin)
     + bgDot(7, 10, 3, 4, pants) + bgDot(10, 10, 3, 4, pants) + bgDot(6, 14, 4, 1, '#fff') + bgDot(10, 14, 4, 1, '#fff');
@@ -459,7 +460,7 @@ function townScene() {
         <text x="7" y="60" text-anchor="middle" font-size="3.1" fill="#2e504a">${e.name}</text>
         <text x="7" y="63.5" text-anchor="middle" font-size="2.8" fill="#57756f">${SKILLS[e.skill]}</text>
       </g>
-      <g class="bounce"><rect x="2" y="77" width="4" height="3" fill="#f8cdbb"/><rect x="1" y="80" width="6" height="3" fill="${SKILL_COLOR[e.skill]}"/><rect x="2" y="83" width="1" height="2" fill="#2e504a"/><rect x="5" y="83" width="1" height="2" fill="#2e504a"/></g>
+      <g class="bounce"><rect x="2" y="77" width="4" height="3" fill="#f8cdbb"/><rect x="2" y="77" width="4" height="1" fill="#2e504a"/><rect x="1" y="80" width="6" height="3" fill="${SKILL_COLOR[e.skill]}"/><rect x="2" y="83" width="1" height="2" fill="#2e504a"/><rect x="5" y="83" width="1" height="2" fill="#2e504a"/></g>
     </g>`;
   }).join('');
   const decor = theme.n ? Array.from({ length: theme.n }, (_, i) => `<rect x="${(i * 37) % 200}" y="${(i * 53) % 70}" width="${theme.sz}" height="${theme.sz}" fill="${theme.deco[i % theme.deco.length]}"/>`).join('') : '';
@@ -473,6 +474,7 @@ function townScene() {
   </svg><div class="small muted" style="text-align:center;margin-top:4px">▲ 会社をクリックすると、社内画面を開けます。</div>`;
 }
 function renderTown() {
+  if (S.over) { renderEndTown(); return; }
   const theme = SEASONS[seasonOf(S.day)];
   document.documentElement.style.setProperty('--page', theme.page);
   const alerts = [];
@@ -482,6 +484,204 @@ function renderTown() {
   S.jobs.filter((j) => j.late).forEach((j) => alerts.push(`<div class="alert"><span>「${j.name}」は納期を過ぎています。早めに完成させましょう。</span></div>`));
   const projects = S.jobs.length ? S.jobs.map((j) => `<div class="town-job"><div class="row"><strong class="small">${j.name}</strong><span class="small ${remainDays(j) <= 7 ? 'neg' : 'muted'}" data-left="${j.id}">${leftText(j)}</span></div><div class="bar"><div class="fill" data-bar="${j.id}" style="width:${progressPct(j)}%"></div></div></div>`).join('') : '<div class="small muted">進行中の案件はありません。「案件」から受注できます。</div>';
   $('town-body').innerHTML = townScene() + `<div class="town-grid"><div>${alerts.join('')}<div class="panel"><div class="panel-title">いまの会社</div><div class="goal-row"><span>資金</span><span data-live="money">${yen(S.money)}</span></div><div class="goal-row"><span>評判</span><span data-live="rep">${S.rep} / 100</span></div><div class="goal-row"><span>社員</span><span data-live="staff">${S.employees.length} / ${levelInfo().slots}人</span></div><div class="goal-row"><span>社員の平均士気</span><span>${averageEmployeeMorale()} / 100</span></div><div class="goal-row"><span>会社Lv</span><span>Lv.${S.level}</span></div></div>${levelPanel()}</div><div class="panel"><div class="panel-title">進行中の案件</div>${projects}</div></div>`;
+}
+
+// ===== ゲーム終了画面(クリア / ゲームオーバー / タイムアップ) =====
+// 街の画面を使って、上に「結果の街」、下に「結果のパネル」を出す。
+const END_THEME = {
+  clear: Object.assign({}, SEASONS.spring, { page: '#ffe9f0' }),
+  bankrupt: { sky: '#aeb8c0', band: '#cdd4da', grass: '#9db0a2', far1: '#a0aab3', far2: '#959cac', roof: '#868f96', win: '#7f8890', page: '#dde2e6', cloud: '#8a939d' },
+  timeout: { sky: '#6a628e', band: '#a496b4', grass: '#c6cbd6', far1: '#7b759d', far2: '#6b678f', roof: '#9893b2', win: '#55506f', page: '#e4e1ee', cloud: '#8a83a8' }
+};
+const END_LABEL = { clear: '★ クリア', bankrupt: '× ゲームオーバー', timeout: '◆ タイムアップ' };
+const END_WIND = { gusts: `<g class="eg-gusts" fill="#8a93ad"><g transform="translate(110 2)"><rect x="27" y="0" width="1" height="1" style="animation-delay:0.00s"/><rect x="26" y="1" width="1" height="1" style="animation-delay:0.02s"/><rect x="26" y="2" width="1" height="1" style="animation-delay:0.04s"/><rect x="25" y="2" width="1" height="1" style="animation-delay:0.06s"/><rect x="25" y="3" width="1" height="1" style="animation-delay:0.08s"/><rect x="24" y="3" width="1" height="1" style="animation-delay:0.10s"/><rect x="24" y="4" width="1" height="1" style="animation-delay:0.12s"/><rect x="23" y="4" width="1" height="1" style="animation-delay:0.14s"/><rect x="23" y="5" width="1" height="1" style="animation-delay:0.16s"/><rect x="22" y="5" width="1" height="1" style="animation-delay:0.18s"/><rect x="21" y="5" width="1" height="1" style="animation-delay:0.20s"/><rect x="21" y="6" width="1" height="1" style="animation-delay:0.22s"/><rect x="20" y="6" width="1" height="1" style="animation-delay:0.24s"/><rect x="19" y="6" width="1" height="1" style="animation-delay:0.26s"/><rect x="19" y="7" width="1" height="1" style="animation-delay:0.28s"/><rect x="18" y="7" width="1" height="1" style="animation-delay:0.30s"/><rect x="17" y="7" width="1" height="1" style="animation-delay:0.32s"/><rect x="16" y="7" width="1" height="1" style="animation-delay:0.34s"/><rect x="15" y="7" width="1" height="1" style="animation-delay:0.36s"/><rect x="13" y="6" width="1" height="1" style="animation-delay:0.38s"/><rect x="12" y="6" width="1" height="1" style="animation-delay:0.40s"/><rect x="12" y="5" width="1" height="1" style="animation-delay:0.42s"/><rect x="12" y="4" width="1" height="1" style="animation-delay:0.44s"/><rect x="12" y="3" width="1" height="1" style="animation-delay:0.46s"/><rect x="13" y="3" width="1" height="1" style="animation-delay:0.48s"/><rect x="13" y="2" width="1" height="1" style="animation-delay:0.50s"/><rect x="14" y="2" width="1" height="1" style="animation-delay:0.52s"/><rect x="15" y="2" width="1" height="1" style="animation-delay:0.54s"/><rect x="15" y="3" width="1" height="1" style="animation-delay:0.56s"/><rect x="15" y="4" width="1" height="1" style="animation-delay:0.58s"/><rect x="15" y="5" width="1" height="1" style="animation-delay:0.60s"/><rect x="15" y="6" width="1" height="1" style="animation-delay:0.62s"/><rect x="14" y="6" width="1" height="1" style="animation-delay:0.64s"/><rect x="14" y="7" width="1" height="1" style="animation-delay:0.66s"/><rect x="13" y="7" width="1" height="1" style="animation-delay:0.68s"/><rect x="13" y="8" width="1" height="1" style="animation-delay:0.70s"/><rect x="12" y="8" width="1" height="1" style="animation-delay:0.72s"/><rect x="12" y="9" width="1" height="1" style="animation-delay:0.74s"/><rect x="11" y="9" width="1" height="1" style="animation-delay:0.76s"/><rect x="11" y="10" width="1" height="1" style="animation-delay:0.78s"/><rect x="10" y="10" width="1" height="1" style="animation-delay:0.80s"/><rect x="9" y="10" width="1" height="1" style="animation-delay:0.82s"/><rect x="9" y="11" width="1" height="1" style="animation-delay:0.84s"/><rect x="8" y="11" width="1" height="1" style="animation-delay:0.86s"/><rect x="7" y="11" width="1" height="1" style="animation-delay:0.88s"/><rect x="7" y="12" width="1" height="1" style="animation-delay:0.90s"/><rect x="6" y="12" width="1" height="1" style="animation-delay:0.92s"/><rect x="5" y="12" width="1" height="1" style="animation-delay:0.94s"/><rect x="4" y="12" width="1" height="1" style="animation-delay:0.96s"/><rect x="3" y="12" width="1" height="1" style="animation-delay:0.98s"/><rect x="2" y="12" width="1" height="1" style="animation-delay:1.00s"/><rect x="1" y="12" width="1" height="1" style="animation-delay:1.02s"/><rect x="1" y="11" width="1" height="1" style="animation-delay:1.04s"/><rect x="0" y="11" width="1" height="1" style="animation-delay:1.06s"/><rect x="0" y="10" width="1" height="1" style="animation-delay:1.08s"/><rect x="0" y="9" width="1" height="1" style="animation-delay:1.10s"/><rect x="0" y="8" width="1" height="1" style="animation-delay:1.12s"/></g><g transform="translate(150 8)"><rect x="28" y="0" width="1" height="1" style="animation-delay:0.30s"/><rect x="27" y="1" width="1" height="1" style="animation-delay:0.32s"/><rect x="26" y="1" width="1" height="1" style="animation-delay:0.34s"/><rect x="26" y="2" width="1" height="1" style="animation-delay:0.36s"/><rect x="25" y="2" width="1" height="1" style="animation-delay:0.38s"/><rect x="24" y="3" width="1" height="1" style="animation-delay:0.40s"/><rect x="23" y="3" width="1" height="1" style="animation-delay:0.42s"/><rect x="23" y="4" width="1" height="1" style="animation-delay:0.44s"/><rect x="22" y="4" width="1" height="1" style="animation-delay:0.46s"/><rect x="21" y="5" width="1" height="1" style="animation-delay:0.48s"/><rect x="20" y="6" width="1" height="1" style="animation-delay:0.50s"/><rect x="19" y="6" width="1" height="1" style="animation-delay:0.52s"/><rect x="19" y="7" width="1" height="1" style="animation-delay:0.54s"/><rect x="18" y="7" width="1" height="1" style="animation-delay:0.56s"/><rect x="17" y="8" width="1" height="1" style="animation-delay:0.58s"/><rect x="16" y="8" width="1" height="1" style="animation-delay:0.60s"/><rect x="15" y="9" width="1" height="1" style="animation-delay:0.62s"/><rect x="14" y="9" width="1" height="1" style="animation-delay:0.64s"/><rect x="14" y="10" width="1" height="1" style="animation-delay:0.66s"/><rect x="13" y="10" width="1" height="1" style="animation-delay:0.68s"/><rect x="12" y="11" width="1" height="1" style="animation-delay:0.70s"/><rect x="11" y="11" width="1" height="1" style="animation-delay:0.72s"/><rect x="10" y="12" width="1" height="1" style="animation-delay:0.74s"/><rect x="9" y="12" width="1" height="1" style="animation-delay:0.76s"/><rect x="8" y="12" width="1" height="1" style="animation-delay:0.78s"/><rect x="8" y="13" width="1" height="1" style="animation-delay:0.80s"/><rect x="7" y="13" width="1" height="1" style="animation-delay:0.82s"/><rect x="6" y="14" width="1" height="1" style="animation-delay:0.84s"/><rect x="5" y="14" width="1" height="1" style="animation-delay:0.86s"/><rect x="4" y="14" width="1" height="1" style="animation-delay:0.88s"/><rect x="4" y="15" width="1" height="1" style="animation-delay:0.90s"/><rect x="3" y="15" width="1" height="1" style="animation-delay:0.92s"/><rect x="2" y="15" width="1" height="1" style="animation-delay:0.94s"/><rect x="1" y="15" width="1" height="1" style="animation-delay:0.96s"/><rect x="1" y="16" width="1" height="1" style="animation-delay:0.98s"/><rect x="0" y="16" width="1" height="1" style="animation-delay:1.00s"/></g><g transform="translate(150 40)"><rect x="21" y="0" width="1" height="1" style="animation-delay:1.20s"/><rect x="20" y="0" width="1" height="1" style="animation-delay:1.22s"/><rect x="20" y="1" width="1" height="1" style="animation-delay:1.24s"/><rect x="19" y="1" width="1" height="1" style="animation-delay:1.26s"/><rect x="19" y="2" width="1" height="1" style="animation-delay:1.28s"/><rect x="18" y="2" width="1" height="1" style="animation-delay:1.30s"/><rect x="18" y="3" width="1" height="1" style="animation-delay:1.32s"/><rect x="17" y="3" width="1" height="1" style="animation-delay:1.34s"/><rect x="17" y="4" width="1" height="1" style="animation-delay:1.36s"/><rect x="16" y="4" width="1" height="1" style="animation-delay:1.38s"/><rect x="15" y="4" width="1" height="1" style="animation-delay:1.40s"/><rect x="14" y="4" width="1" height="1" style="animation-delay:1.42s"/><rect x="14" y="5" width="1" height="1" style="animation-delay:1.44s"/><rect x="13" y="5" width="1" height="1" style="animation-delay:1.46s"/><rect x="12" y="5" width="1" height="1" style="animation-delay:1.48s"/><rect x="10" y="4" width="1" height="1" style="animation-delay:1.50s"/><rect x="10" y="3" width="1" height="1" style="animation-delay:1.52s"/><rect x="9" y="3" width="1" height="1" style="animation-delay:1.54s"/><rect x="9" y="2" width="1" height="1" style="animation-delay:1.56s"/><rect x="10" y="2" width="1" height="1" style="animation-delay:1.58s"/><rect x="10" y="1" width="1" height="1" style="animation-delay:1.60s"/><rect x="11" y="1" width="1" height="1" style="animation-delay:1.62s"/><rect x="11" y="0" width="1" height="1" style="animation-delay:1.64s"/><rect x="12" y="0" width="1" height="1" style="animation-delay:1.66s"/><rect x="12" y="1" width="1" height="1" style="animation-delay:1.68s"/><rect x="12" y="2" width="1" height="1" style="animation-delay:1.70s"/><rect x="12" y="3" width="1" height="1" style="animation-delay:1.72s"/><rect x="11" y="4" width="1" height="1" style="animation-delay:1.74s"/><rect x="11" y="5" width="1" height="1" style="animation-delay:1.76s"/><rect x="10" y="5" width="1" height="1" style="animation-delay:1.78s"/><rect x="10" y="6" width="1" height="1" style="animation-delay:1.80s"/><rect x="9" y="6" width="1" height="1" style="animation-delay:1.82s"/><rect x="9" y="7" width="1" height="1" style="animation-delay:1.84s"/><rect x="8" y="7" width="1" height="1" style="animation-delay:1.86s"/><rect x="7" y="7" width="1" height="1" style="animation-delay:1.88s"/><rect x="7" y="8" width="1" height="1" style="animation-delay:1.90s"/><rect x="6" y="8" width="1" height="1" style="animation-delay:1.92s"/><rect x="5" y="8" width="1" height="1" style="animation-delay:1.94s"/><rect x="5" y="9" width="1" height="1" style="animation-delay:1.96s"/><rect x="4" y="9" width="1" height="1" style="animation-delay:1.98s"/><rect x="3" y="9" width="1" height="1" style="animation-delay:2.00s"/><rect x="2" y="9" width="1" height="1" style="animation-delay:2.02s"/><rect x="1" y="8" width="1" height="1" style="animation-delay:2.04s"/><rect x="0" y="8" width="1" height="1" style="animation-delay:2.06s"/><rect x="0" y="7" width="1" height="1" style="animation-delay:2.08s"/><rect x="0" y="6" width="1" height="1" style="animation-delay:2.10s"/></g><g transform="translate(92 26)"><rect x="24" y="0" width="1" height="1" style="animation-delay:1.50s"/><rect x="23" y="1" width="1" height="1" style="animation-delay:1.52s"/><rect x="22" y="1" width="1" height="1" style="animation-delay:1.54s"/><rect x="22" y="2" width="1" height="1" style="animation-delay:1.56s"/><rect x="21" y="2" width="1" height="1" style="animation-delay:1.58s"/><rect x="20" y="3" width="1" height="1" style="animation-delay:1.60s"/><rect x="19" y="3" width="1" height="1" style="animation-delay:1.62s"/><rect x="19" y="4" width="1" height="1" style="animation-delay:1.64s"/><rect x="18" y="4" width="1" height="1" style="animation-delay:1.66s"/><rect x="17" y="5" width="1" height="1" style="animation-delay:1.68s"/><rect x="16" y="5" width="1" height="1" style="animation-delay:1.70s"/><rect x="16" y="6" width="1" height="1" style="animation-delay:1.72s"/><rect x="15" y="6" width="1" height="1" style="animation-delay:1.74s"/><rect x="14" y="6" width="1" height="1" style="animation-delay:1.76s"/><rect x="14" y="7" width="1" height="1" style="animation-delay:1.78s"/><rect x="13" y="7" width="1" height="1" style="animation-delay:1.80s"/><rect x="12" y="8" width="1" height="1" style="animation-delay:1.82s"/><rect x="11" y="8" width="1" height="1" style="animation-delay:1.84s"/><rect x="10" y="9" width="1" height="1" style="animation-delay:1.86s"/><rect x="9" y="9" width="1" height="1" style="animation-delay:1.88s"/><rect x="8" y="10" width="1" height="1" style="animation-delay:1.90s"/><rect x="7" y="10" width="1" height="1" style="animation-delay:1.92s"/><rect x="6" y="11" width="1" height="1" style="animation-delay:1.94s"/><rect x="5" y="11" width="1" height="1" style="animation-delay:1.96s"/><rect x="4" y="11" width="1" height="1" style="animation-delay:1.98s"/><rect x="4" y="12" width="1" height="1" style="animation-delay:2.00s"/><rect x="3" y="12" width="1" height="1" style="animation-delay:2.02s"/><rect x="2" y="12" width="1" height="1" style="animation-delay:2.04s"/><rect x="1" y="13" width="1" height="1" style="animation-delay:2.06s"/><rect x="0" y="13" width="1" height="1" style="animation-delay:2.08s"/></g><g transform="translate(52 34)"><rect x="27" y="0" width="1" height="1" style="animation-delay:2.00s"/><rect x="26" y="1" width="1" height="1" style="animation-delay:2.02s"/><rect x="26" y="2" width="1" height="1" style="animation-delay:2.04s"/><rect x="25" y="2" width="1" height="1" style="animation-delay:2.06s"/><rect x="25" y="3" width="1" height="1" style="animation-delay:2.08s"/><rect x="24" y="3" width="1" height="1" style="animation-delay:2.10s"/><rect x="24" y="4" width="1" height="1" style="animation-delay:2.12s"/><rect x="23" y="4" width="1" height="1" style="animation-delay:2.14s"/><rect x="23" y="5" width="1" height="1" style="animation-delay:2.16s"/><rect x="22" y="5" width="1" height="1" style="animation-delay:2.18s"/><rect x="21" y="5" width="1" height="1" style="animation-delay:2.20s"/><rect x="21" y="6" width="1" height="1" style="animation-delay:2.22s"/><rect x="20" y="6" width="1" height="1" style="animation-delay:2.24s"/><rect x="19" y="6" width="1" height="1" style="animation-delay:2.26s"/><rect x="19" y="7" width="1" height="1" style="animation-delay:2.28s"/><rect x="18" y="7" width="1" height="1" style="animation-delay:2.30s"/><rect x="17" y="7" width="1" height="1" style="animation-delay:2.32s"/><rect x="16" y="7" width="1" height="1" style="animation-delay:2.34s"/><rect x="15" y="7" width="1" height="1" style="animation-delay:2.36s"/><rect x="13" y="6" width="1" height="1" style="animation-delay:2.38s"/><rect x="12" y="6" width="1" height="1" style="animation-delay:2.40s"/><rect x="12" y="5" width="1" height="1" style="animation-delay:2.42s"/><rect x="12" y="4" width="1" height="1" style="animation-delay:2.44s"/><rect x="12" y="3" width="1" height="1" style="animation-delay:2.46s"/><rect x="13" y="3" width="1" height="1" style="animation-delay:2.48s"/><rect x="13" y="2" width="1" height="1" style="animation-delay:2.50s"/><rect x="14" y="2" width="1" height="1" style="animation-delay:2.52s"/><rect x="15" y="2" width="1" height="1" style="animation-delay:2.54s"/><rect x="15" y="3" width="1" height="1" style="animation-delay:2.56s"/><rect x="15" y="4" width="1" height="1" style="animation-delay:2.58s"/><rect x="15" y="5" width="1" height="1" style="animation-delay:2.60s"/><rect x="15" y="6" width="1" height="1" style="animation-delay:2.62s"/><rect x="14" y="6" width="1" height="1" style="animation-delay:2.64s"/><rect x="14" y="7" width="1" height="1" style="animation-delay:2.66s"/><rect x="13" y="7" width="1" height="1" style="animation-delay:2.68s"/><rect x="13" y="8" width="1" height="1" style="animation-delay:2.70s"/><rect x="12" y="8" width="1" height="1" style="animation-delay:2.72s"/><rect x="12" y="9" width="1" height="1" style="animation-delay:2.74s"/><rect x="11" y="9" width="1" height="1" style="animation-delay:2.76s"/><rect x="11" y="10" width="1" height="1" style="animation-delay:2.78s"/><rect x="10" y="10" width="1" height="1" style="animation-delay:2.80s"/><rect x="9" y="10" width="1" height="1" style="animation-delay:2.82s"/><rect x="9" y="11" width="1" height="1" style="animation-delay:2.84s"/><rect x="8" y="11" width="1" height="1" style="animation-delay:2.86s"/><rect x="7" y="11" width="1" height="1" style="animation-delay:2.88s"/><rect x="7" y="12" width="1" height="1" style="animation-delay:2.90s"/><rect x="6" y="12" width="1" height="1" style="animation-delay:2.92s"/><rect x="5" y="12" width="1" height="1" style="animation-delay:2.94s"/><rect x="4" y="12" width="1" height="1" style="animation-delay:2.96s"/><rect x="3" y="12" width="1" height="1" style="animation-delay:2.98s"/><rect x="2" y="12" width="1" height="1" style="animation-delay:3.00s"/><rect x="1" y="12" width="1" height="1" style="animation-delay:3.02s"/><rect x="1" y="11" width="1" height="1" style="animation-delay:3.04s"/><rect x="0" y="11" width="1" height="1" style="animation-delay:3.06s"/><rect x="0" y="10" width="1" height="1" style="animation-delay:3.08s"/><rect x="0" y="9" width="1" height="1" style="animation-delay:3.10s"/><rect x="0" y="8" width="1" height="1" style="animation-delay:3.12s"/></g><g transform="translate(16 8)"><rect x="21" y="0" width="1" height="1" style="animation-delay:0.60s"/><rect x="20" y="0" width="1" height="1" style="animation-delay:0.62s"/><rect x="20" y="1" width="1" height="1" style="animation-delay:0.64s"/><rect x="19" y="1" width="1" height="1" style="animation-delay:0.66s"/><rect x="19" y="2" width="1" height="1" style="animation-delay:0.68s"/><rect x="18" y="2" width="1" height="1" style="animation-delay:0.70s"/><rect x="18" y="3" width="1" height="1" style="animation-delay:0.72s"/><rect x="17" y="3" width="1" height="1" style="animation-delay:0.74s"/><rect x="17" y="4" width="1" height="1" style="animation-delay:0.76s"/><rect x="16" y="4" width="1" height="1" style="animation-delay:0.78s"/><rect x="15" y="4" width="1" height="1" style="animation-delay:0.80s"/><rect x="14" y="4" width="1" height="1" style="animation-delay:0.82s"/><rect x="14" y="5" width="1" height="1" style="animation-delay:0.84s"/><rect x="13" y="5" width="1" height="1" style="animation-delay:0.86s"/><rect x="12" y="5" width="1" height="1" style="animation-delay:0.88s"/><rect x="10" y="4" width="1" height="1" style="animation-delay:0.90s"/><rect x="10" y="3" width="1" height="1" style="animation-delay:0.92s"/><rect x="9" y="3" width="1" height="1" style="animation-delay:0.94s"/><rect x="9" y="2" width="1" height="1" style="animation-delay:0.96s"/><rect x="10" y="2" width="1" height="1" style="animation-delay:0.98s"/><rect x="10" y="1" width="1" height="1" style="animation-delay:1.00s"/><rect x="11" y="1" width="1" height="1" style="animation-delay:1.02s"/><rect x="11" y="0" width="1" height="1" style="animation-delay:1.04s"/><rect x="12" y="0" width="1" height="1" style="animation-delay:1.06s"/><rect x="12" y="1" width="1" height="1" style="animation-delay:1.08s"/><rect x="12" y="2" width="1" height="1" style="animation-delay:1.10s"/><rect x="12" y="3" width="1" height="1" style="animation-delay:1.12s"/><rect x="11" y="4" width="1" height="1" style="animation-delay:1.14s"/><rect x="11" y="5" width="1" height="1" style="animation-delay:1.16s"/><rect x="10" y="5" width="1" height="1" style="animation-delay:1.18s"/><rect x="10" y="6" width="1" height="1" style="animation-delay:1.20s"/><rect x="9" y="6" width="1" height="1" style="animation-delay:1.22s"/><rect x="9" y="7" width="1" height="1" style="animation-delay:1.24s"/><rect x="8" y="7" width="1" height="1" style="animation-delay:1.26s"/><rect x="7" y="7" width="1" height="1" style="animation-delay:1.28s"/><rect x="7" y="8" width="1" height="1" style="animation-delay:1.30s"/><rect x="6" y="8" width="1" height="1" style="animation-delay:1.32s"/><rect x="5" y="8" width="1" height="1" style="animation-delay:1.34s"/><rect x="5" y="9" width="1" height="1" style="animation-delay:1.36s"/><rect x="4" y="9" width="1" height="1" style="animation-delay:1.38s"/><rect x="3" y="9" width="1" height="1" style="animation-delay:1.40s"/><rect x="2" y="9" width="1" height="1" style="animation-delay:1.42s"/><rect x="1" y="8" width="1" height="1" style="animation-delay:1.44s"/><rect x="0" y="8" width="1" height="1" style="animation-delay:1.46s"/><rect x="0" y="7" width="1" height="1" style="animation-delay:1.48s"/><rect x="0" y="6" width="1" height="1" style="animation-delay:1.50s"/></g><g transform="translate(112 50)"><rect x="21" y="0" width="1" height="1" style="animation-delay:1.70s"/><rect x="20" y="0" width="1" height="1" style="animation-delay:1.72s"/><rect x="20" y="1" width="1" height="1" style="animation-delay:1.74s"/><rect x="19" y="1" width="1" height="1" style="animation-delay:1.76s"/><rect x="19" y="2" width="1" height="1" style="animation-delay:1.78s"/><rect x="18" y="2" width="1" height="1" style="animation-delay:1.80s"/><rect x="18" y="3" width="1" height="1" style="animation-delay:1.82s"/><rect x="17" y="3" width="1" height="1" style="animation-delay:1.84s"/><rect x="17" y="4" width="1" height="1" style="animation-delay:1.86s"/><rect x="16" y="4" width="1" height="1" style="animation-delay:1.88s"/><rect x="15" y="4" width="1" height="1" style="animation-delay:1.90s"/><rect x="14" y="4" width="1" height="1" style="animation-delay:1.92s"/><rect x="14" y="5" width="1" height="1" style="animation-delay:1.94s"/><rect x="13" y="5" width="1" height="1" style="animation-delay:1.96s"/><rect x="12" y="5" width="1" height="1" style="animation-delay:1.98s"/><rect x="10" y="4" width="1" height="1" style="animation-delay:2.00s"/><rect x="10" y="3" width="1" height="1" style="animation-delay:2.02s"/><rect x="9" y="3" width="1" height="1" style="animation-delay:2.04s"/><rect x="9" y="2" width="1" height="1" style="animation-delay:2.06s"/><rect x="10" y="2" width="1" height="1" style="animation-delay:2.08s"/><rect x="10" y="1" width="1" height="1" style="animation-delay:2.10s"/><rect x="11" y="1" width="1" height="1" style="animation-delay:2.12s"/><rect x="11" y="0" width="1" height="1" style="animation-delay:2.14s"/><rect x="12" y="0" width="1" height="1" style="animation-delay:2.16s"/><rect x="12" y="1" width="1" height="1" style="animation-delay:2.18s"/><rect x="12" y="2" width="1" height="1" style="animation-delay:2.20s"/><rect x="12" y="3" width="1" height="1" style="animation-delay:2.22s"/><rect x="11" y="4" width="1" height="1" style="animation-delay:2.24s"/><rect x="11" y="5" width="1" height="1" style="animation-delay:2.26s"/><rect x="10" y="5" width="1" height="1" style="animation-delay:2.28s"/><rect x="10" y="6" width="1" height="1" style="animation-delay:2.30s"/><rect x="9" y="6" width="1" height="1" style="animation-delay:2.32s"/><rect x="9" y="7" width="1" height="1" style="animation-delay:2.34s"/><rect x="8" y="7" width="1" height="1" style="animation-delay:2.36s"/><rect x="7" y="7" width="1" height="1" style="animation-delay:2.38s"/><rect x="7" y="8" width="1" height="1" style="animation-delay:2.40s"/><rect x="6" y="8" width="1" height="1" style="animation-delay:2.42s"/><rect x="5" y="8" width="1" height="1" style="animation-delay:2.44s"/><rect x="5" y="9" width="1" height="1" style="animation-delay:2.46s"/><rect x="4" y="9" width="1" height="1" style="animation-delay:2.48s"/><rect x="3" y="9" width="1" height="1" style="animation-delay:2.50s"/><rect x="2" y="9" width="1" height="1" style="animation-delay:2.52s"/><rect x="1" y="8" width="1" height="1" style="animation-delay:2.54s"/><rect x="0" y="8" width="1" height="1" style="animation-delay:2.56s"/><rect x="0" y="7" width="1" height="1" style="animation-delay:2.58s"/><rect x="0" y="6" width="1" height="1" style="animation-delay:2.60s"/></g><g transform="translate(168 56)"><rect x="28" y="0" width="1" height="1" style="animation-delay:2.20s"/><rect x="27" y="1" width="1" height="1" style="animation-delay:2.22s"/><rect x="26" y="1" width="1" height="1" style="animation-delay:2.24s"/><rect x="26" y="2" width="1" height="1" style="animation-delay:2.26s"/><rect x="25" y="2" width="1" height="1" style="animation-delay:2.28s"/><rect x="24" y="3" width="1" height="1" style="animation-delay:2.30s"/><rect x="23" y="3" width="1" height="1" style="animation-delay:2.32s"/><rect x="23" y="4" width="1" height="1" style="animation-delay:2.34s"/><rect x="22" y="4" width="1" height="1" style="animation-delay:2.36s"/><rect x="21" y="5" width="1" height="1" style="animation-delay:2.38s"/><rect x="20" y="6" width="1" height="1" style="animation-delay:2.40s"/><rect x="19" y="6" width="1" height="1" style="animation-delay:2.42s"/><rect x="19" y="7" width="1" height="1" style="animation-delay:2.44s"/><rect x="18" y="7" width="1" height="1" style="animation-delay:2.46s"/><rect x="17" y="8" width="1" height="1" style="animation-delay:2.48s"/><rect x="16" y="8" width="1" height="1" style="animation-delay:2.50s"/><rect x="15" y="9" width="1" height="1" style="animation-delay:2.52s"/><rect x="14" y="9" width="1" height="1" style="animation-delay:2.54s"/><rect x="14" y="10" width="1" height="1" style="animation-delay:2.56s"/><rect x="13" y="10" width="1" height="1" style="animation-delay:2.58s"/><rect x="12" y="11" width="1" height="1" style="animation-delay:2.60s"/><rect x="11" y="11" width="1" height="1" style="animation-delay:2.62s"/><rect x="10" y="12" width="1" height="1" style="animation-delay:2.64s"/><rect x="9" y="12" width="1" height="1" style="animation-delay:2.66s"/><rect x="8" y="12" width="1" height="1" style="animation-delay:2.68s"/><rect x="8" y="13" width="1" height="1" style="animation-delay:2.70s"/><rect x="7" y="13" width="1" height="1" style="animation-delay:2.72s"/><rect x="6" y="14" width="1" height="1" style="animation-delay:2.74s"/><rect x="5" y="14" width="1" height="1" style="animation-delay:2.76s"/><rect x="4" y="14" width="1" height="1" style="animation-delay:2.78s"/><rect x="4" y="15" width="1" height="1" style="animation-delay:2.80s"/><rect x="3" y="15" width="1" height="1" style="animation-delay:2.82s"/><rect x="2" y="15" width="1" height="1" style="animation-delay:2.84s"/><rect x="1" y="15" width="1" height="1" style="animation-delay:2.86s"/><rect x="1" y="16" width="1" height="1" style="animation-delay:2.88s"/><rect x="0" y="16" width="1" height="1" style="animation-delay:2.90s"/></g></g>` };
+
+function endChipText(end) {
+  if (end === 'clear') return `${(S.over.day / 365).toFixed(1)}年で、すべての目標を達成した！`;
+  if (end === 'bankrupt') return '資金がマイナスになり、会社は倒産した';
+  return '5年が過ぎた。あと一歩、届かなかった';
+}
+
+// 社員(clap = 拍手 / plain = ふだんの四角い体 / box = 段ボールを抱える)。足元は街の社員と同じ高さ
+function endPerson(x, skill, pose, i) {
+  const col = skillColor(skill);
+  const delay = `animation-delay:${(-(i % 5) * 0.13).toFixed(2)}s`;
+  const body = '<rect x="2" y="77" width="4" height="3" fill="#f8cdbb"/><rect x="2" y="77" width="4" height="1" fill="#2e504a"/>'
+    + `<rect x="1" y="80" width="6" height="3" fill="${col}"/><rect x="2" y="83" width="1" height="2" fill="#2e504a"/><rect x="5" y="83" width="1" height="2" fill="#2e504a"/>`;
+  if (pose === 'clap') {
+    return `<g transform="translate(${x} 0)"><g class="bounce" style="${delay}">${body}
+      <g class="clap-a" style="${delay}"><rect x="-0.5" y="78" width="1.5" height="3" fill="${col}"/><rect x="7" y="78" width="1.5" height="3" fill="${col}"/></g>
+      <g class="clap-b" style="${delay}"><rect x="0" y="80" width="1" height="2" fill="${col}"/><rect x="7" y="80" width="1" height="2" fill="${col}"/><rect x="2.5" y="79.5" width="3" height="1.5" fill="#f8cdbb"/></g>
+    </g></g>`;
+  }
+  // 段ボールは体より小さくして、両手で抱えて見えるようにする
+  const box = pose === 'box' ? '<rect x="1.8" y="80.6" width="4.4" height="3.2" fill="#c8a06a" stroke="#2e504a" stroke-width=".4"/><rect x="3.4" y="80.6" width="1.2" height="1" fill="#e6c892"/><rect x="1" y="81.6" width="1" height="1.4" fill="#f8cdbb"/><rect x="6" y="81.6" width="1" height="1.4" fill="#f8cdbb"/>' : '';
+  return `<g transform="translate(${x} 0)" style="filter:saturate(.55) brightness(.95)">${body}${box}</g>`;
+}
+
+// 旗ひも(なめらかにたるむ曲線)
+function endGarland(x1, y1, x2, y2, sag) {
+  const flags = ['#ff8fb1', '#ffe08a', '#6dcfb2', '#9fd6f5', '#cbbcf3', '#ffb59e'];
+  let out = '', k = 0;
+  for (let x = x1; x < x2; x += 1.5, k++) {
+    const t = (x - x1) / (x2 - x1);
+    const y = Math.round((y1 + (y2 - y1) * t + Math.sin(t * Math.PI) * sag) * 2) / 2;
+    out += bgRect(x, y, 1.7, 1, '#2e504a');
+    if (k % 4 === 2) { const c = flags[(k / 4 | 0) % flags.length]; out += bgRect(x - .3, y + 1, 2.4, 2.4, c); }
+  }
+  return out;
+}
+
+function endBareTree(x, delay) {
+  const c = '#5b4a44';
+  return `<g class="e-sway" style="animation-delay:${delay}s">${bgRect(x + 3, 50, 2.4, 28, c)}${bgRect(x - 2, 57, 5.2, 1.2, c)}${bgRect(x - 2, 54, 1.2, 4, c)}${bgRect(x + 1, 52, 2.4, 1.2, c)}${bgRect(x + 1, 48, 1.2, 5, c)}${bgRect(x + 5, 53, 4.4, 1.2, c)}${bgRect(x + 8.2, 49, 1.2, 5, c)}${bgRect(x + 3.6, 46, 1.2, 5, c)}</g>`;
+}
+
+function endScene(end) {
+  const theme = END_THEME[end];
+  const rows = Math.min(4, Math.max(2, S.level + 1));
+  const bx = 70, bw = 60, bh = 12 + rows * 10.5, by = 72 - bh;
+  const rawName = S.companyName || companyName;
+  const nameSize = rawName.length > 8 ? 3.4 : 4.3;
+  const cloud = theme.cloud;
+  // 背景
+  let back, fore;
+  if (end === 'clear') {
+    const bd = townBackdrop(theme, 'spring', null, { bx, bw, by });
+    back = bd.back;
+    fore = bgLamp(48) + bgLamp(152) + bgFence() + bgTree(8, 52, theme, false, 1) + bgTree(176, 52, theme, false, 1) + bgFlowers(false) + bgRoad() + bgTraffic();
+  } else {
+    back = bgHills(theme.far2, 16, 4, 1) + bgSkyline(theme) + bgHills(theme.far1, 5, 2, 2.3)
+      + bgCloud(11, 1.2, 70, 0.1, cloud) + bgCloud(5, 1, 90, 0.45, cloud) + bgCloud(15, 1, 80, 0.8, cloud);
+    fore = bgLamp(48) + bgLamp(152) + endBareTree(6, 0) + endBareTree(176, -1.7) + bgFence() + bgRoad() + bgTraffic();
+  }
+  // 会社
+  const wall = end === 'clear' ? '#fff7ea' : end === 'bankrupt' ? '#d6d6d2' : '#cbc5d6';
+  const signFill = end === 'clear' ? '#fafffd' : '#b9bdc1';
+  const signInk = end === 'clear' ? '#2e504a' : '#6c767c';
+  const lit = (i) => end === 'clear' ? '#ffe08a' : end === 'timeout' && i === 2 ? '#ffe08a' : end === 'timeout' ? '#443f5e' : '#3b4248';
+  const windows = Array.from({ length: rows * 4 }, (_, i) => {
+    const row = Math.floor(i / 4), col = i % 4;
+    if (row === rows - 1 && (col === 1 || col === 2)) return '';
+    return `<rect x="${bx + 4 + col * 14}" y="${by + 6 + row * 10.5}" width="9" height="8" fill="#2e504a"/><rect x="${bx + 5 + col * 14}" y="${by + 7 + row * 10.5}" width="7" height="6" fill="${lit(i)}"/>`;
+  }).join('');
+  const door = end === 'clear' ? '#6dcfb2' : '#59615f';
+  const poster = end === 'bankrupt' ? `<rect x="${bx + 23}" y="59" width="14" height="9" fill="#fafffd" stroke="#2e504a" stroke-width=".4"/><text x="${bx + 30}" y="63" font-size="3" text-anchor="middle" fill="#c2453a">テナント</text><text x="${bx + 30}" y="66.6" font-size="3" text-anchor="middle" fill="#c2453a">募集</text>` : '';
+  const company = `<g class="company" data-go="company"><rect x="${bx}" y="${by}" width="${bw}" height="${bh}" fill="#2e504a"/><rect x="${bx + 1}" y="${by + 1}" width="${bw - 2}" height="${bh - 1}" fill="${wall}"/><rect class="roof" x="${bx - 3}" y="${by - 4}" width="${bw + 6}" height="5" fill="${theme.roof}"/><rect x="${bx + 8}" y="${by - 16}" width="${bw - 16}" height="11" fill="${signFill}" stroke="#2e504a" stroke-width=".8"/>${rawName ? `<text x="${bx + bw / 2}" y="${by - 8}" font-size="${nameSize}" text-anchor="middle" fill="${signInk}">${esc(rawName)}</text>` : ''}${windows}<rect x="${bx + 24}" y="58" width="12" height="14" fill="#2e504a"/><rect x="${bx + 25}" y="59" width="10" height="13" fill="${door}"/><rect x="${bx + 33}" y="65" width="1" height="1" fill="#2e504a"/>${poster}</g>`;
+  // 社員
+  const list = S.employees.filter((e) => !isAbsent(e)).slice(0, 10);
+  const n = Math.max(1, list.length);
+  const people = list.map((e, i) => {
+    const x = Math.round(8 + (i + 0.5) * (184 / n) - 4);
+    const pose = end === 'clear' ? 'clap' : end === 'bankrupt' && i % 2 === 0 ? 'box' : 'plain';
+    const shadow = end === 'timeout' ? `<rect x="${x + 1}" y="84.8" width="10" height="1" fill="#1d1a33" opacity=".25"/>` : '';
+    return shadow + `<g><title>${esc(e.name)} ${SKILLS[e.skill]}</title>${endPerson(x, e.skill, pose, i)}</g>`;
+  }).join('');
+  // 演出
+  let fx = '', extra = '', banner = '';
+  if (end === 'clear') {
+    extra = endGarland(4, 24, bx - 3, by - 2, 8) + endGarland(bx + bw + 3, by - 2, 196, 24, 8);
+    const cc = ['#ff8fb1', '#ffe08a', '#6dcfb2', '#9fd6f5', '#cbbcf3', '#ffb59e'];
+    fx = Array.from({ length: 34 }, (_, i) => `<rect class="e-conf" x="${(i * 47) % 200}" y="-12" width="1.6" height="1.6" fill="${cc[i % 6]}" style="--dx:${((i % 5) - 2) * 3}px;--d:${3.4 + (i % 4) * 0.6}s;animation-delay:${(-(i * 0.37) % 4).toFixed(2)}s"/>`).join('');
+    banner = `<g class="bg-bob"><rect x="38" y="-12" width="124" height="11" fill="#ffe08a" stroke="#2e504a" stroke-width="1.4"/><text x="100" y="-4" font-size="6.5" text-anchor="middle" fill="#2e504a">★ GAME CLEAR! ★</text></g>`;
+  } else if (end === 'bankrupt') {
+    fx = Array.from({ length: 18 }, (_, i) => `<rect class="e-rain" x="${Math.round(bgRnd(i * 7 + 3) * 200)}" y="${Math.round(bgRnd(i * 11 + 5) * 20) - 8}" width=".8" height="3" fill="#6f8fb0" style="--d:${1.1 + bgRnd(i + 40) * 0.5}s;animation-delay:${(-bgRnd(i * 13 + 9) * 1.6).toFixed(2)}s"/>`).join('');
+    banner = `<g><rect x="50" y="-12" width="100" height="11" fill="#c2453a" stroke="#2e504a" stroke-width="1.4"/><text x="100" y="-4" font-size="6.5" text-anchor="middle" fill="#fff">GAME OVER</text></g>`;
+  } else {
+    // 横なぐりの雪(右から左へ)+提案の風と枯れ葉
+    const snow = Array.from({ length: 44 }, (_, i) => `<rect class="e-snow" x="${110 + (i * 37) % 110}" y="${(i * 17) % 76}" width="1.1" height="1.1" fill="#fff" style="--d:${2.2 + (i % 4) * 0.5}s;animation-delay:${(-(i * 0.29) % 3).toFixed(2)}s"/>`).join('');
+    const leaves = Array.from({ length: 5 }, (_, i) => `<rect class="e-leaf" x="${120 + (i * 23) % 90}" y="${(i * 19) % 40}" width="1.6" height="1.6" fill="${['#b0793a', '#8a5a2a', '#c9923f'][i % 3]}" style="--d:${4.5 + (i % 3) * 0.8}s;animation-delay:${(-(i * 0.9) % 4).toFixed(2)}s"/>`).join('');
+    const gusts = END_WIND.gusts.replace(/<g transform="translate\(([\d.]+ [\d.]+)\)">/g, '<g transform="translate($1) scale(.55)">');   // 風のサイズ
+    fx = snow + gusts + leaves;
+    banner = `<g><rect x="55" y="-12" width="90" height="11" fill="#b9b2d3" stroke="#2e504a" stroke-width="1.4"/><text x="100" y="-4" font-size="6.5" text-anchor="middle" fill="#2e504a">TIME UP</text></g>`;
+  }
+  const sun = end === 'clear' ? '<rect x="150" y="8" width="12" height="12" fill="#fff3b0"/>' : end === 'timeout' ? '<rect x="150" y="34" width="12" height="12" fill="#d8a47e" opacity=".6"/>' : '';
+  return `<div class="end-scene end-scene-${end}"><svg class="town-scene" viewBox="0 -14 200 114" role="img" aria-label="${END_LABEL[end]}の街"><style>${BG_ANIM_CSS}</style>
+    <rect y="-14" width="200" height="14" fill="${theme.sky}"/><rect width="200" height="72" fill="${theme.sky}"/><rect y="40" width="200" height="32" fill="${theme.band}"/>${sun}
+    ${back}
+    <rect y="72" width="200" height="28" fill="${theme.grass}"/><rect y="72" width="200" height="1.5" fill="#2e504a"/><rect y="85" width="200" height="12" fill="${end === 'clear' ? '#d5d5d5' : '#b9bcc0'}"/>
+    ${fore}${extra}${company}${people}${fx}${banner}
+  </svg></div>`;
+}
+
+function judgementText() {
+  const t = S.tally;
+  if (t.incidents === 0) return 'まだ障害を経験していない。';
+  if (t.hide === 0) return `障害に${t.incidents}回対応して、一度も隠さなかった。誠実な社長。`;
+  if (t.hide >= t.honest) return `障害${t.incidents}回のうち、${t.hide}回は隠す選択をした。実際の会社では、信頼を失う原因になる。`;
+  return `障害${t.incidents}回のうち、${t.hide}回は隠す選択をした。隠した障害は、あとで見つかることが多い。`;
+}
+
+function endGoalBars(end) {
+  const rows = goalList().map((g) => {
+    const met = end === 'clear' || g.met;
+    const ratio = end === 'clear' ? 1 : g.ratio;
+    const pct = Math.round(ratio * 100);
+    let val;
+    if (end === 'clear') val = `${g.fmt(g.cur)} / ${g.fmt(g.target)} ✓`;
+    else if (end === 'timeout') val = met ? `${g.fmt(g.cur)} ✓ 達成` : `あと ${g.fmt(Math.max(0, g.target - g.cur))}`;
+    else val = `${g.fmt(g.cur)} / ${g.fmt(g.target)}`;
+    const cls = end === 'clear' ? '' : met ? '' : 'neg';
+    const fill = end === 'bankrupt' && !met ? 'background:#ffb59e;' : '';
+    return `<div class="end-goal"><div class="goal-row"><span>${g.label}</span><span class="${cls}">${val}</span></div><div class="bar"><div class="fill" style="width:${pct}%;${fill}"></div></div></div>`;
+  }).join('');
+  return rows;
+}
+
+function endStatsTable(title) {
+  const t = S.tally;
+  return `<table class="stats"><tr><td>完成させた案件</td><td>${S.done}件</td></tr>
+    <tr><td>対応した障害</td><td>${t.incidents}回(隠した: ${t.hide}回)</td></tr>
+    <tr><td>会社Lv</td><td>Lv.${S.level}</td></tr></table>`;
+}
+
+function endPanels(end) {
+  const o = S.over;
+  const years = (o.day / 365).toFixed(1);
+  let left, right;
+  if (end === 'clear') {
+    const rank = getClearRank();
+    const tags = ['S', 'A', 'B', 'C', 'D'].map((r) => `<span class="stag ${r === rank ? 'ok' : ''}">${r}</span>`).join('');
+    left = `<div class="panel panel-hl"><div class="panel-title">クリア評価</div>
+      <div class="medal-wrap"><div class="medal medal-${rank}"><b>${rank}</b></div><div class="medal-lead">${years}年で、すべての目標を達成した。<br>会社は大きく成長した。</div></div>
+      <div class="chips" style="justify-content:center">${tags}</div>
+      <div class="small muted" style="text-align:center;margin-top:4px">S:1年以内 / A:2年 / B:3年 / C:4年 / D:5年</div></div>
+      <div class="lesson"><div class="small muted">あなたの判断</div>${judgementText()}</div>`;
+    right = `<div class="panel"><div class="panel-title">達成した目標</div>${endGoalBars(end)}</div>
+      <div class="panel"><div class="panel-title">会社の記録</div>${endStatsTable()}</div>`;
+  } else if (end === 'bankrupt') {
+    const events = S.log.slice(0, 4).reverse().map((l) => `<div class="end-log"><span class="small muted">${dateLabel(l.day)}</span> ${esc(l.text)}</div>`).join('') || '<div class="small muted">記録はない。</div>';
+    left = `<div class="panel"><div class="panel-title">結果</div>
+      <div class="medal-wrap"><div class="medal medal-E medal-word"><b>倒産</b></div><div class="medal-lead">${dateLabel(o.day)}、資金が尽きて、<br>会社を続けられなくなった。</div></div></div>
+      <div class="panel"><div class="panel-title">倒産までのできごと</div>${events}</div>
+      <div class="hint">次にためすこと: 給料日(毎月${CONFIG.paydayOfMonth}日)の前に、資金に余裕があるか確認しよう。人を増やす前に、お金を貯めておくと安心。</div>`;
+    right = `<div class="panel"><div class="panel-title">目標の進み具合</div>${endGoalBars(end)}</div>
+      <div class="panel"><div class="panel-title">会社の記録</div>${endStatsTable()}</div>`;
+  } else {
+    left = `<div class="panel"><div class="panel-title">結果</div>
+      <div class="medal-wrap"><div class="medal medal-E medal-word"><b>終</b></div><div class="medal-lead">5年以内に、すべての目標を<br>達成できなかった。</div></div></div>
+      <div class="hint">次にためすこと: 大規模案件は、会社Lv.3まで育て、中規模案件を3件成功させると受けられるようになる。早めに会社を大きくしよう。</div>`;
+    right = `<div class="panel"><div class="panel-title">目標の進み具合</div>${endGoalBars(end)}</div>
+      <div class="panel"><div class="panel-title">5年の記録</div>${endStatsTable()}</div>`;
+  }
+  const dbg = debugPreviewMode ? '<button class="btn-small" data-act="debug-preview-back">デバッグ画面へ戻る</button>' : '';
+  const again = `<button class="btn-main" data-act="restart" ${debugPreviewMode ? 'disabled' : ''}>もう一度あそぶ</button>`;
+  const review = `<button class="btn-main btn-sub" data-act="end-town">街の画面で${end === 'clear' ? '余韻にひたる' : '振り返る'}</button>`;
+  return `<div class="town-grid end-grid"><div>${left}</div><div>${right}</div></div><div class="end-btns">${again}${review}</div>${dbg}`;
+}
+
+function renderEndTown() {
+  const end = S.over.type;
+  document.documentElement.style.setProperty('--page', END_THEME[end].page);
+  document.body.dataset.end = end;
+  let below;
+  if (endView === 'town') {
+    below = `<div class="panel end-mini"><div class="small">${endChipText(end)}</div><div class="end-btns"><button class="btn-main btn-sub" data-act="end-result">結果を見る</button><button class="btn-main" data-act="restart" ${debugPreviewMode ? 'disabled' : ''}>もう一度あそぶ</button></div></div>
+      <div class="small muted" style="text-align:center;margin-top:4px">▲ 会社をクリックすると、中が見られる</div>`;
+  } else {
+    below = `<div class="end-chip end-chip-${end}">${endChipText(end)}</div>` + endPanels(end);
+  }
+  $('town-body').innerHTML = endScene(end) + below;
 }
 
 function renderHome() {
@@ -508,30 +708,6 @@ function renderHome() {
   $('home-side').innerHTML = levelPanel() + goalPanel()
     + '<button class="btn-small mission-toggle" data-act="toggle-missions">ミッションを見る</button>'
     + missionUnlockStatus;
-}
-
-function renderTimeline() {
-  const timeline = $('event-timeline');
-  const timelineScrollTop = timeline ? timeline.scrollTop : 0;
-  const kindLabels = { good: '達成', bad: '注意', warn: '警告' };
-  const entries = S.log.map((entry, index) => {
-    const kind = entry.kind || 'info';
-    const d = dateOf(entry.day);
-    const dateText = `${Math.min(5, Math.floor(entry.day / 365) + 1)}年目 ${d.getMonth() + 1}/${d.getDate()}`;
-    const tagText = index === 0 ? 'NEW' : (kindLabels[kind] || '記録');
-    return `<li class="tl-item tl-${kind}">
-      <span class="tl-dot"></span>
-      <div class="tl-card${index === 0 ? ' tl-new' : ''}">
-        <div class="tl-date"><span>${dateText}</span><span class="tl-tag">${tagText}</span></div>
-        <div class="tl-text">${esc(entry.text)}</div>
-      </div>
-    </li>`;
-  }).join('');
-  $('timeline-container').innerHTML = `<div class="timeline-panel">
-    <div class="tl-head"><b>会社の歩み</b><button class="timeline-latest" data-act="timeline-latest" title="最新の歩みに移動" aria-label="最新の歩みに移動">↑</button></div>
-    <ol id="event-timeline" class="event-timeline">${entries || '<li class="timeline-empty">まだ記録がありません。</li>'}</ol>
-  </div>`;
-  $('event-timeline').scrollTop = timelineScrollTop;
 }
 
 function hintText() {
@@ -597,19 +773,21 @@ function missionPanel() {
     !MISSIONS.filter((mission) => mission.tier === tier).every((mission) => mission.met(S))
       && isMissionTierUnlocked(tier)
   );
-  const challengeMissions = MISSIONS.filter((mission) => mission.tier === 'チャレンジ')
-    .filter((mission) => !mission.met(S));
+  const challengeMissions = MISSIONS.filter((mission) => mission.tier === 'チャレンジ');
   let lists = tiers.map((tier) => {
     const missions = MISSIONS.filter((mission) => mission.tier === tier);
     return `<li class="mission-tier"><div class="mission-tier-title">${tier}</div><ul>${missions.map((mission) => {
       const done = mission.met(S);
-      return `<li class="${done ? 'done' : ''}">${mission.label}<span class="mission-exp">${mission.rewardType === 'money' ? `+${yen(mission.rewardAmount)}` : mission.rewardType === 'reputation' ? `+${mission.rewardAmount}評判` : `+${mission.rewardAmount}EXP`}</span></li>`;
+      return `<li class="${done ? 'done' : ''}">${mission.label}<span class="mission-exp">${mission.rewardType === 'money' ? `+${yen(mission.rewardAmount)}` : 
+        mission.rewardType === 'reputation' ? `+${mission.rewardAmount}評判` : `+${mission.rewardAmount}EXP`}</span></li>`;
     }).join('')}</ul></li>`;
   }).join('');
   if (challengeMissions.length) {
-    lists += `<li class="mission-tier">チャレンジ<ul>${challengeMissions.map((mission) =>
-      `<li>${mission.label}<span class="mission-exp">${mission.rewardType === 'money' ? `+${yen(mission.rewardAmount)}` : mission.rewardType === 'reputation' ? `+${mission.rewardAmount}評判` : `+${mission.rewardAmount}EXP`}</span></li>`
-    ).join('')}</ul></li>`;
+    lists += `<li class="mission-tier">チャレンジ<ul>${challengeMissions.map((mission) => {
+      const done = mission.met(S);
+      return `<li class="${done ? 'done' : ''}">${mission.label}<span class="mission-exp">${mission.rewardType === 'money' ? `+${yen(mission.rewardAmount)}` :
+        mission.rewardType === 'reputation' ? `+${mission.rewardAmount}評判` : `+${mission.rewardAmount}EXP`}</span></li>`;
+    }).join('')}</ul></li>`;
   }
   if (!lists) return '<div class="panel panel-hl"><div class="panel-title">ミッション</div><div class="small">すべてのミッションを達成しました。</div></div>';
   return `<div class="panel panel-hl"><div class="panel-title">ミッション</div><ul class="mission">${lists}</ul></div>`;
@@ -810,6 +988,25 @@ function renderInvestEvent() {
             </div>
           </div>`;
       }
+      if (k === 'trainingProgram') {
+        const disabled =
+          S.trainingProgramCount >= inv.maxCount;
+        const btn = disabled
+          ? '<span class="small">利用不可</span>'
+          : `<button class="act" data-act="training-program">研修する</button>`;
+        return `<div class="card job">
+          <div class="row">
+            <div>
+              <strong>${inv.name}</strong>
+            </div>
+            ${btn}
+          </div>
+          <div class="small">${inv.help}</div>
+          <div class="small muted">
+            ${inv.now(S.trainingProgramCount)}
+          </div>
+        </div>`;
+      }
     const lv = S.invest[k];
     const max = inv.costs.length;
     const btn = lv >= max
@@ -839,9 +1036,9 @@ function updateLive() {
   $('h-date').textContent = dateLabel(S.day);
   $('track-fill').style.width = (S.day / CONFIG.totalDays * 100) + '%';
   const eventActive = S.pending || S.recruiting ;
-  $('play-btn').textContent = eventActive ? 'イベント中' : S.playing && !S.pending ? '❚❚ 一時停止' : '▶ 再生';
-  $('play-btn').disabled = eventActive;
-  $('speed-btn').disabled = eventActive;
+  $('play-btn').textContent = S.over ? END_LABEL[S.over.type] : eventActive ? 'イベント中' : S.playing && !S.pending ? '❚❚ 一時停止' : '▶ 再生';
+  $('play-btn').disabled = eventActive || !!S.over;
+  $('speed-btn').disabled = eventActive || !!S.over;
   $('speed-btn').textContent = CONFIG.speeds[S.speedIdx].label;
 
   S.jobs.forEach((job) => {
@@ -871,7 +1068,6 @@ function render() {
   renderRecruit();
   renderUpgrades();
   renderInvestEvent();
-  renderTimeline();
   renderTrack();
   updateLive();
   renderModal();
@@ -1105,8 +1301,34 @@ function renderModal() {
     $('modal').classList.remove('hidden');
     return;
   }
+  if (S.trainingSelecting) {
+    body.innerHTML = `
+      <div class="modal-head">
+        <span class="badge badge-low">特別研修プログラム</span>
+      </div>
+      <h3>研修規模選択</h3>
+      <p class="small muted">
+        評判を消費して社員全員の経験値を向上させます。
+      </p>
+      <div class="choices">
+        <button class="choice" data-act="training-level" data-level="1">
+          小規模研修（評判20）
+        </button>
+        <button class="choice" data-act="training-level" data-level="2">
+          中規模研修（評判40）
+        </button>
+        <button class="choice" data-act="training-level" data-level="3">
+          大規模研修（評判60）
+        </button>
+      </div>
+      <button class="btn-small" data-act="cancel-training">
+        キャンセル
+      </button>
+    `;
+    $('modal').classList.remove('hidden');
+    return;
+  }
   if (!p || screenMode !== null) return;
-
 
   if (stage === 2 && lastResult) {
     body.innerHTML = `<div class="modal-head"><span class="badge badge-low">結果</span></div><h3>${lastResult.title}</h3>
@@ -1199,64 +1421,16 @@ function updateDifficultyPreview() {
 }
 
 function showEnd() {
+  // 終了画面は、街の画面を使って表示する(上: 街の様子 / 下: 結果のパネル)
   screenMode = 'end';
-  const o = S.over;
-  const goals = goalList();
-  const elapsedDate = dateOf(S.day);
-  const elapsedMonths =
-    (elapsedDate.getFullYear() - CONFIG.startYear) * 12
-    + elapsedDate.getMonth() - CONFIG.startMonth;
-  const elapsedYears = Math.floor(elapsedMonths / 12);
-  const elapsedMonthCount = elapsedMonths % 12;
-  const elapsedLabel = `${elapsedYears}年${elapsedMonthCount}ヵ月`;
-  let title, lead;
-  let rank = o.type === 'timeout' ? 'E' : 'C';
-  if (o.type === 'clear') {
-    rank = getClearRank();
-    title = `ゲームクリア！ 評価 ${rank}`;
-    lead = `${elapsedLabel}で、すべての目標を達成しました。会社は大きく成長しました。`;
-  }
-  else if (o.type === 'bankrupt') { title = 'ゲームオーバー'; lead = `${dateLabel(o.day)}、資金が尽きたため、会社を続けられなくなりました。`; }
-  else if (o.type === 'timeout') {
-    title = '5年経過';
-    lead = '5年以内にすべての目標を達成できませんでした。評価は最低ランクです。';
-  }
-  const t = S.tally;
-  const totalEvents = t.incidents + t.managementEvents;
-  let style;
-  if (totalEvents === 0) style = 'インシデントや会社イベントは発生しませんでした。';
-  else {
-    const signed = (value, suffix = '') => `${value >= 0 ? '+' : ''}${value}${suffix}`;
-    const changes = [];
-    if (t.money !== 0) changes.push(`資金の累計変化 ${t.money >= 0 ? '+' : ''}${yen(t.money)}`);
-    if (t.rep !== 0) changes.push(`評判の累計変化 ${signed(t.rep)}`);
-    if (t.employees !== 0) changes.push(`社員数の累計変化 ${signed(t.employees, '人')}`);
-    if (t.morale !== 0) changes.push(`社員の士気合計の累計変化 ${signed(t.morale)}`);
-    if (Math.abs(t.jobProgress) >= 0.05) changes.push(`案件進捗合計の累計変化 ${signed(Math.round(t.jobProgress * 10) / 10)}`);
-    if (t.workload !== 0) changes.push(`案件の作業量の累計変化 ${signed(t.workload)}`);
-    const changesText = changes.length
-      ? `選択による累計変化は、${changes.join('、')}です。`
-      : '選択によってもたらされた直接的な数値変化はありませんでした。';
-    style = `インシデント${t.incidents}件、会社イベント${t.managementEvents}件に対応しました。${changesText}`;
-  }
-
-  const rows = goals.map((g) => `<tr class="${g.met ? 'met' : ''}">
-    <td>${g.met ? '■' : '□'} ${g.label}</td><td>${g.fmt(g.cur)} / ${g.fmt(g.target)}</td></tr>`).join('');
-  $('screen-body').innerHTML = `<div class="modal-head">
-    <span class="badge badge-${o.type === 'clear' ? 'low' : o.type === 'bankrupt' ? 'high' : 'mid'}">結果</span></div>
-    <h1 class="big-title end-title">${title}</h1>${o.type === 'bankrupt' ? `<p>${lead}</p>` : `
-    <div class="medal-wrap"><div class="medal medal-${rank}"><b>${rank}</b></div><div class="medal-lead">${lead}</div></div>`}
-    <table class="stats">${rows}
-      <tr><td>完了した案件</td><td>${S.done}件</td></tr>
-      <tr><td>成功した案件</td><td>${S.successes}件</td></tr>
-      <tr><td>対応したインシデント</td><td>${t.incidents}件</td></tr>
-      <tr><td>対応した会社イベント</td><td>${t.managementEvents}件</td></tr>
-      <tr><td>会社レベル</td><td>Lv.${S.level}</td></tr></table>
-    <div class="lesson"><div class="small muted"></div>${style}</div>
-    <button class="btn-main" data-act="restart" ${debugPreviewMode ? 'disabled' : ''}>もう一度プレイ</button>
-    ${debugPreviewMode ? '<button class="btn-small" data-act="debug-preview-back">デバッグ画面へ戻る</button>' : ''}`;
-  $('screen').classList.remove('hidden');
+  endView = 'result';
+  S.pending = null;
+  S.recruiting = false;
+  $('screen').classList.add('hidden');
   $('modal').classList.add('hidden');
+  showPage('town', true);
+  render();
+  window.scrollTo(0, 0);
 }
 
 function startGame() {
@@ -1274,6 +1448,8 @@ function startGame() {
 
 function restart() {
   clearTimeout(timer);
+  delete document.body.dataset.end;
+  endView = 'result';
   newGame(S.employeeDatabase, S.eventDatabase, S.projectDatabase, S.missionDatabase, companyName, S.difficulty);
   showPage('town');
   render();
@@ -1324,6 +1500,8 @@ function showDebugScreen(type) {
   };
   if (pageTypes[type]) {
     debugPreviewMode = false;
+    S.over = null;
+    delete document.body.dataset.end;
     screenMode = null;
     $('screen').classList.add('hidden');
     if (type === 'recruit') {
@@ -1454,13 +1632,10 @@ document.addEventListener('click', (ev) => {
     setTimeout(() => { resetArmed = false; el.textContent = '最初から'; }, 3000);
     return;
   }
-  if (a === 'timeline-latest') {
-    $('event-timeline').scrollTop = 0;
-    return;
-  }
   if (a === 'debug-preview-back') {
     debugPreviewMode = false;
     S.over = null;
+    delete document.body.dataset.end;
     screenMode = null;
     S.pending = null;
     stage = 1;
@@ -1471,6 +1646,8 @@ document.addEventListener('click', (ev) => {
     renderModal();
     return;
   }
+  if (a === 'end-town') { endView = 'town'; renderTown(); return; }
+  if (a === 'end-result') { endView = 'result'; renderTown(); return; }
   if (screenMode !== null) return;
 
   if (a === 'play') {
@@ -1671,15 +1848,15 @@ document.addEventListener('click', (ev) => {
       S.recruitContractCount >=
       INVEST.recruitContract.maxCount
     ) {
-      notify('利用回数の上限です', 'warn');
+      toast('利用回数の上限です', 'bad');
       return;
     }
     if (S.recruitContractActive) {
-      notify('契約実行待ちです', 'warn');
+      toast('契約実行待ちです', 'bad');
       return;
     }
     if (S.rep < INVEST.recruitContract.repCost) {
-      notify('評判が足りません', 'warn');
+      toast('評判が足りません', 'bad');
       return;
     }
     S.recruitSelectingJob = true;
@@ -1691,15 +1868,15 @@ document.addEventListener('click', (ev) => {
     const contract = INVEST.recruitContract;
     const hasJobType = S.employeeDatabase.some((candidate) => candidate.skill === jobType);
     if (!hasJobType) {
-      notify('その職種の候補者データがありません', 'warn');
+      toast('その職種の候補者データがありません', 'bad');
       return;
     }
     if (S.recruitContractCount >= contract.maxCount || S.recruitContractActive) {
-      notify('この契約は利用できません', 'warn');
+      toast('この契約は利用できません', 'bad');
       return;
     }
     if (S.rep < contract.repCost) {
-      notify('評判が足りません', 'warn');
+      toast('評判が足りません', 'bad');
       return;
     }
     S.rep -= contract.repCost;
@@ -1715,6 +1892,37 @@ document.addEventListener('click', (ev) => {
   else if (a === 'cancel-recruit-contract') {
     S.recruitSelectingJob = false;
     $('modal').classList.add('hidden');
+    return;
+  }
+  else if (a === 'training-program') {
+    S.trainingSelecting = true;
+    renderModal();
+    return;
+  }
+  else if (a === 'cancel-training') {
+    S.trainingSelecting = false;
+    $('modal').classList.add('hidden');
+    return;
+  }
+  else if (a === 'training-level') {
+    const level = Number(el.dataset.level);
+    const cost = level * 20;
+    if (S.rep < cost) {
+      toast('評判が足りません', 'bad');
+      return;
+    }
+    S.rep -= cost;
+    S.employees.forEach((emp) => {
+      emp.exp += level;
+    });
+    S.trainingProgramCount += 1;
+    S.trainingSelecting = false;
+    $('modal').classList.add('hidden');
+    toast(
+      `全社員の経験値が${level}上昇しました`,
+      'good'
+    );
+    render();
     return;
   }
 });
@@ -1762,6 +1970,7 @@ document.addEventListener('keydown', (ev) => {
     if (debugPreviewMode) {
       debugPreviewMode = false;
       S.over = null;
+      delete document.body.dataset.end;
       screenMode = null;
       S.pending = null;
       stage = 1;
