@@ -1,10 +1,26 @@
 // 難易度の調整を行うための関数を定義する
 
 const DIFFICULTY = {
-  normal: {startMoneyRate: 1,goalMoneyRate: 1,goalRepRate: 1},
-  hard: {startMoneyRate: 0.9,goalMoneyRate: 1.2,goalRepRate: 1.5},
-  expert: {startMoneyRate: 0.8,goalMoneyRate: 1.5,goalRepRate: 3}
+  normal: {
+    startMoneyRate: 1,
+    goalMoneyRate: 1,
+    goalRepRate: 1,
+    projectNeedRate: 1
+  },
+  hard: {
+    startMoneyRate: 0.9,
+    goalMoneyRate: 1.1,
+    goalRepRate: 1.1,
+    projectNeedRate: 1.2
+  },
+  expert: {
+    startMoneyRate: 0.8,
+    goalMoneyRate: 1.25,
+    goalRepRate: 1.25,
+    projectNeedRate: 1.5
+  }
 };
+
 
 function getDifficultyConfig(difficulty) {
   return DIFFICULTY[difficulty] || DIFFICULTY.normal;
@@ -27,4 +43,9 @@ function getGoalMoney(baseMoney, difficulty) {
 function getGoalReputation(baseRep, difficulty) {
   const config = getDifficultyConfig(difficulty);
   return applyRate(baseRep, config.goalRepRate);
+}
+
+function getProjectNeed(value, difficulty) {
+  const config = getDifficultyConfig(difficulty);
+  return applyRate(value, config.projectNeedRate);
 }
