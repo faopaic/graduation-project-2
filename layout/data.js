@@ -131,7 +131,7 @@ const INVEST = {
   },
   recruitContract: {
     name: '人材紹介会社との特別契約',
-    repCost: 15,
+    repCost: 30,
     maxCount: 3,
     help: '次回の採用で、指定した職種の候補者だけを紹介してもらう。',
     now: (used, active, jobType) => {
