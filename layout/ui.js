@@ -778,13 +778,15 @@ function missionPanel() {
     const missions = MISSIONS.filter((mission) => mission.tier === tier);
     return `<li class="mission-tier"><div class="mission-tier-title">${tier}</div><ul>${missions.map((mission) => {
       const done = mission.met(S);
-      return `<li class="${done ? 'done' : ''}">${mission.label}<span class="mission-exp">${mission.rewardType === 'money' ? `+${yen(mission.rewardAmount)}` : mission.rewardType === 'reputation' ? `+${mission.rewardAmount}評判` : `+${mission.rewardAmount}EXP`}</span></li>`;
+      return `<li class="${done ? 'done' : ''}">${mission.label}<span class="mission-exp">${mission.rewardType === 'money' ? `+${yen(mission.rewardAmount)}` : 
+        mission.rewardType === 'reputation' ? `+${mission.rewardAmount}評判` : `+${mission.rewardAmount}EXP`}</span></li>`;
     }).join('')}</ul></li>`;
   }).join('');
   if (challengeMissions.length) {
     lists += `<li class="mission-tier">チャレンジ<ul>${challengeMissions.map((mission) => {
       const done = mission.met(S);
-      return `<li class="${done ? 'done' : ''}">${mission.label}<span class="mission-exp">${mission.rewardType === 'money' ? `+${yen(mission.rewardAmount)}` : mission.rewardType === 'reputation' ? `+${mission.rewardAmount}評判` : `+${mission.rewardAmount}EXP`}</span></li>`;
+      return `<li class="${done ? 'done' : ''}">${mission.label}<span class="mission-exp">${mission.rewardType === 'money' ? `+${yen(mission.rewardAmount)}` :
+        mission.rewardType === 'reputation' ? `+${mission.rewardAmount}評判` : `+${mission.rewardAmount}EXP`}</span></li>`;
     }).join('')}</ul></li>`;
   }
   if (!lists) return '<div class="panel panel-hl"><div class="panel-title">ミッション</div><div class="small">すべてのミッションを達成しました。</div></div>';
@@ -991,7 +993,7 @@ function renderInvestEvent() {
           S.trainingProgramCount >= inv.maxCount;
         const btn = disabled
           ? '<span class="small">利用不可</span>'
-          : `<button class="act" data-act="training-program">研修する 評判${inv.repCost}</button>`;
+          : `<button class="act" data-act="training-program">研修する</button>`;
         return `<div class="card job">
           <div class="row">
             <div>
@@ -1299,8 +1301,34 @@ function renderModal() {
     $('modal').classList.remove('hidden');
     return;
   }
+  if (S.trainingSelecting) {
+    body.innerHTML = `
+      <div class="modal-head">
+        <span class="badge badge-low">特別研修プログラム</span>
+      </div>
+      <h3>研修規模選択</h3>
+      <p class="small muted">
+        評判を消費して社員全員の経験値を向上させます。
+      </p>
+      <div class="choices">
+        <button class="choice" data-act="training-level" data-level="1">
+          小規模研修（評判20）
+        </button>
+        <button class="choice" data-act="training-level" data-level="2">
+          中規模研修（評判40）
+        </button>
+        <button class="choice" data-act="training-level" data-level="3">
+          大規模研修（評判60）
+        </button>
+      </div>
+      <button class="btn-small" data-act="cancel-training">
+        キャンセル
+      </button>
+    `;
+    $('modal').classList.remove('hidden');
+    return;
+  }
   if (!p || screenMode !== null) return;
-
 
   if (stage === 2 && lastResult) {
     body.innerHTML = `<div class="modal-head"><span class="badge badge-low">結果</span></div><h3>${lastResult.title}</h3>
@@ -1820,15 +1848,15 @@ document.addEventListener('click', (ev) => {
       S.recruitContractCount >=
       INVEST.recruitContract.maxCount
     ) {
-      notify('利用回数の上限です', 'warn');
+      toast('利用回数の上限です', 'bad');
       return;
     }
     if (S.recruitContractActive) {
-      notify('契約実行待ちです', 'warn');
+      toast('契約実行待ちです', 'bad');
       return;
     }
     if (S.rep < INVEST.recruitContract.repCost) {
-      notify('評判が足りません', 'warn');
+      toast('評判が足りません', 'bad');
       return;
     }
     S.recruitSelectingJob = true;
@@ -1840,15 +1868,15 @@ document.addEventListener('click', (ev) => {
     const contract = INVEST.recruitContract;
     const hasJobType = S.employeeDatabase.some((candidate) => candidate.skill === jobType);
     if (!hasJobType) {
-      notify('その職種の候補者データがありません', 'warn');
+      toast('その職種の候補者データがありません', 'bad');
       return;
     }
     if (S.recruitContractCount >= contract.maxCount || S.recruitContractActive) {
-      notify('この契約は利用できません', 'warn');
+      toast('この契約は利用できません', 'bad');
       return;
     }
     if (S.rep < contract.repCost) {
-      notify('評判が足りません', 'warn');
+      toast('評判が足りません', 'bad');
       return;
     }
     S.rep -= contract.repCost;
@@ -1867,27 +1895,31 @@ document.addEventListener('click', (ev) => {
     return;
   }
   else if (a === 'training-program') {
-    if (
-      S.trainingProgramCount >=
-      INVEST.trainingProgram.maxCount
-    ) {
-      notify('利用回数の上限です', 'warn');
+    S.trainingSelecting = true;
+    renderModal();
+    return;
+  }
+  else if (a === 'cancel-training') {
+    S.trainingSelecting = false;
+    $('modal').classList.add('hidden');
+    return;
+  }
+  else if (a === 'training-level') {
+    const level = Number(el.dataset.level);
+    const cost = level * 20;
+    if (S.rep < cost) {
+      toast('評判が足りません', 'bad');
       return;
     }
-    if (
-      S.rep <
-      INVEST.trainingProgram.repCost
-    ) {
-      notify('評判が足りません', 'warn');
-      return;
-    }
-    S.rep -= INVEST.trainingProgram.repCost;
+    S.rep -= cost;
     S.employees.forEach((emp) => {
-      emp.exp += 1;
+      emp.exp += level;
     });
     S.trainingProgramCount += 1;
-    notify(
-      '全社員が経験を積んだ',
+    S.trainingSelecting = false;
+    $('modal').classList.add('hidden');
+    toast(
+      `全社員の経験値が${level}上昇しました`,
       'good'
     );
     render();

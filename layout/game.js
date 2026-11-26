@@ -182,6 +182,7 @@ function newGame(
     recruitContractJobType: null,
     recruitSelectingJob: false,
     trainingProgramCount: 0,
+    trainingSelecting: false,
     difficulty,
     employees: [], jobs: [], offers: [], candidates: [],
     invest: { backup: 0, security: 0, qa: 0,recruitContract: 0 },
