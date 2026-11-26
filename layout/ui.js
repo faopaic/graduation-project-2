@@ -597,8 +597,7 @@ function missionPanel() {
     !MISSIONS.filter((mission) => mission.tier === tier).every((mission) => mission.met(S))
       && isMissionTierUnlocked(tier)
   );
-  const challengeMissions = MISSIONS.filter((mission) => mission.tier === 'チャレンジ')
-    .filter((mission) => !mission.met(S));
+  const challengeMissions = MISSIONS.filter((mission) => mission.tier === 'チャレンジ');
   let lists = tiers.map((tier) => {
     const missions = MISSIONS.filter((mission) => mission.tier === tier);
     return `<li class="mission-tier"><div class="mission-tier-title">${tier}</div><ul>${missions.map((mission) => {
@@ -607,9 +606,10 @@ function missionPanel() {
     }).join('')}</ul></li>`;
   }).join('');
   if (challengeMissions.length) {
-    lists += `<li class="mission-tier">チャレンジ<ul>${challengeMissions.map((mission) =>
-      `<li>${mission.label}<span class="mission-exp">${mission.rewardType === 'money' ? `+${yen(mission.rewardAmount)}` : mission.rewardType === 'reputation' ? `+${mission.rewardAmount}評判` : `+${mission.rewardAmount}EXP`}</span></li>`
-    ).join('')}</ul></li>`;
+    lists += `<li class="mission-tier">チャレンジ<ul>${challengeMissions.map((mission) => {
+      const done = mission.met(S);
+      return `<li class="${done ? 'done' : ''}">${mission.label}<span class="mission-exp">${mission.rewardType === 'money' ? `+${yen(mission.rewardAmount)}` : mission.rewardType === 'reputation' ? `+${mission.rewardAmount}評判` : `+${mission.rewardAmount}EXP`}</span></li>`;
+    }).join('')}</ul></li>`;
   }
   if (!lists) return '<div class="panel panel-hl"><div class="panel-title">ミッション</div><div class="small">すべてのミッションを達成しました。</div></div>';
   return `<div class="panel panel-hl"><div class="panel-title">ミッション</div><ul class="mission">${lists}</ul></div>`;

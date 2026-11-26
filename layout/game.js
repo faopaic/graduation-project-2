@@ -220,7 +220,13 @@ function newGame(
   }
   const selectedChallengeMissions = challengeMissions
     .slice(0, 3)
-    .map((mission) => ({ ...mission, tier: 'チャレンジ' }));
+    .map((mission) => ({
+      ...mission,
+      tier: 'チャレンジ',
+      target: ['max_investments', 'all_investments_max'].includes(mission.conditionType)
+        ? 1
+        : mission.target
+    }));
 
   MISSIONS = [...FIXED_MISSIONS, ...selectedChallengeMissions].map((mission) => ({
     ...mission,
