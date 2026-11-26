@@ -810,6 +810,25 @@ function renderInvestEvent() {
             </div>
           </div>`;
       }
+      if (k === 'trainingProgram') {
+        const disabled =
+          S.trainingProgramCount >= inv.maxCount;
+        const btn = disabled
+          ? '<span class="small">利用不可</span>'
+          : `<button class="act" data-act="training-program">研修する 評判${inv.repCost}</button>`;
+        return `<div class="card job">
+          <div class="row">
+            <div>
+              <strong>${inv.name}</strong>
+            </div>
+            ${btn}
+          </div>
+          <div class="small">${inv.help}</div>
+          <div class="small muted">
+            ${inv.now(S.trainingProgramCount)}
+          </div>
+        </div>`;
+      }
     const lv = S.invest[k];
     const max = inv.costs.length;
     const btn = lv >= max
@@ -1715,6 +1734,33 @@ document.addEventListener('click', (ev) => {
   else if (a === 'cancel-recruit-contract') {
     S.recruitSelectingJob = false;
     $('modal').classList.add('hidden');
+    return;
+  }
+  else if (a === 'training-program') {
+    if (
+      S.trainingProgramCount >=
+      INVEST.trainingProgram.maxCount
+    ) {
+      notify('利用回数の上限です', 'warn');
+      return;
+    }
+    if (
+      S.rep <
+      INVEST.trainingProgram.repCost
+    ) {
+      notify('評判が足りません', 'warn');
+      return;
+    }
+    S.rep -= INVEST.trainingProgram.repCost;
+    S.employees.forEach((emp) => {
+      emp.exp += 1;
+    });
+    S.trainingProgramCount += 1;
+    notify(
+      '全社員が経験を積んだ',
+      'good'
+    );
+    render();
     return;
   }
 });
