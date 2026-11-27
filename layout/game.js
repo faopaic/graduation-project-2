@@ -428,17 +428,6 @@ function toggleAssign(jobId, empId) {
   S.dirty = true;
 }
 
-function toggleSales(empId) {
-  const e = empById(empId);
-  if (!e) return;
-  if (e.sales) {
-    e.sales = false;
-  } else {
-    unassign(e);
-    e.sales = true;
-  }
-  S.dirty = true;
-}
 
 function fireEmployee(empId) {
   const employee = empById(empId);

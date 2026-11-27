@@ -680,9 +680,6 @@ function renderAssignment() {
 // ----- 社員一覧 -----
 function renderEmployees() {
   const slots = levelInfo().slots;
-  const salesButton = (e) => e.sales
-    ? `<button class="btn-small" data-act="toggle-sales" data-id="${e.id}">営業担当を外す</button>`
-    : `<button class="btn-small" data-act="toggle-sales" data-id="${e.id}">営業担当にする</button>`;
   const fireButton = (e) => S.employees.length <= 1
     ? '<span class="small muted">社員は最低1人必要です</span>'
     : `<button class="btn-small" data-act="arm-fire-employee" data-id="${e.id}">解雇する（退職金 ${yen(e.salary * EMPLOYEE_SEVERANCE_MONTHS)}）</button>`;
@@ -695,7 +692,7 @@ function renderEmployees() {
         <div class="employee-card-head" style="background:${skillColor(e.skill)}"><div class="employee-avatar">${avatar(e.skill, e.name + 'のドット絵')}</div><div><div class="small muted">社員 / 営業担当</div><strong class="employee-name">${e.name}</strong><span class="employee-skill">${SKILLS[e.skill]}</span></div></div>
         ${isAbsent(e) ? employeeStatusMarkup(e) : `<div class="employee-status">${status}</div>`}${employeeMoraleMarkup(e)}<div class="employee-info"><span>営業力</span><strong>${e.salesSkill}/100</strong></div>
         <div class="small">${employeeStats(e)}</div><div class="small muted">案件獲得率 ${salesSuccessRate(e.salesSkill)}%（基礎30%） / 獲得後1〜3か月休止</div>
-        <div class="employee-actions">${salesButton(e)}${fireButton(e)}</div></div>`;
+        <div class="employee-actions">${fireButton(e)}</div></div>`;
     }).join('') || '<div class="card muted">営業担当がいません。社員一覧から担当者を設定してください。</div>';
     $('employees-body').innerHTML = `<div class="row"><h2>社員一覧 <span class="muted small">${S.employees.length} / ${slots}人</span></h2><div>${viewButton('staff')} <button class="btn-small" data-go="upgrades">社員強化</button></div></div>
       <div class="employee-morale-summary">全社員の平均士気 <strong>${averageEmployeeMorale()} / 100</strong></div>
@@ -710,7 +707,7 @@ function renderEmployees() {
       <div class="employee-card-head" style="background:${skillColor(e.skill)}"><div class="employee-avatar">${avatar(e.skill, e.name + 'のドット絵')}</div><div><div class="small muted">社員</div><strong class="employee-name">${e.name}</strong><span class="employee-skill">${SKILLS[e.skill]}</span></div></div>
       <div class="small employee-help">${SKILL_HELP[e.skill]}</div>${employeeStatusMarkup(e)}${employeeMoraleMarkup(e)}
       <div class="employee-info"><span>月給</span><strong>${yen(e.salary)}</strong></div><div class="small">営業力 ${e.salesSkill}/100</div><div class="small">${employeeStats(e)}</div>
-      <div class="employee-actions">${salesButton(e)}${fireButton(e)}</div></div>`;
+      <div class="employee-actions">${fireButton(e)}</div></div>`;
   }).join('') || '<div class="card muted">営業担当以外の社員はいません。「営業担当を見る」から確認できます。</div>';
   $('employees-body').innerHTML = `<div class="row"><h2>社員一覧 <span class="muted small">${S.employees.length} / ${slots}人</span></h2><div>${viewButton('sales')} <button class="btn-small" data-go="upgrades">社員強化</button></div></div>
     <div class="employee-morale-summary">全社員の平均士気 <strong>${averageEmployeeMorale()} / 100</strong></div>
@@ -1501,7 +1498,6 @@ document.addEventListener('click', (ev) => {
   else if (a === 'toggle-missions') { S.missionsOpen = !S.missionsOpen; render(); }
   else if (a === 'employee-view') { S.employeeView = el.dataset.view; render(); }
   else if (a === 'assign') { toggleAssign(Number(el.dataset.job), Number(el.dataset.emp)); render(); }
-  else if (a === 'toggle-sales') { toggleSales(Number(el.dataset.id)); render(); }
   else if (a === 'arm-fire-employee') {
     if (S.employees.length <= 1) {
       toast('社員が1人しかいないため、これ以上解雇できません。', 'bad');
