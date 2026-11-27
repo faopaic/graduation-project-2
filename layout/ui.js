@@ -175,6 +175,23 @@ const BG_ANIM_CSS = `
   @keyframes bg-burst { 0% { transform: scale(.15); opacity: 1; } 55% { transform: scale(1); opacity: 1; } 100% { transform: scale(1.2); opacity: 0; } }
   @keyframes bg-rain { to { transform: translateY(20px); } }
   @keyframes bg-sleigh { from { transform: translateX(-26px); } to { transform: translateX(230px); } }
+  .lw-sway { transform-box: fill-box; transform-origin: var(--o, 50% 100%); animation: lw-sway var(--p, 2s) ease-in-out infinite; animation-delay: var(--d, 0s); }
+  .lw-gl { animation: lw-gl 1.7s steps(1) infinite; }
+  .lw-tail { transform-box: fill-box; transform-origin: 0% 100%; animation: lw-tail 1.8s ease-in-out infinite; }
+  .lw-blink { animation: lw-blink 4s steps(1) infinite; }
+  .lw-tw { transform-box: fill-box; transform-origin: 50% 50%; animation: lw-tw 1.2s ease-in-out infinite; animation-delay: var(--d, 0s); }
+  .lw-lfx { animation: lw-lfx var(--t) linear infinite; animation-delay: var(--delay); }
+  .lw-lfy { animation: lw-lfy 1.9s ease-in-out infinite; animation-delay: var(--d, 0s); }
+  .lw-lfr { transform-box: fill-box; transform-origin: 50% 50%; animation: lw-lfr 2.6s linear infinite; animation-delay: var(--d, 0s); }
+  @keyframes lw-sway { 0%, 100% { transform: rotate(calc(var(--a, 5deg) * -1)); } 50% { transform: rotate(var(--a, 5deg)); } }
+  @keyframes lw-gl { 0% { opacity: 1; } 30% { opacity: .35; } 45% { opacity: 1; } 75% { opacity: .6; } }
+  @keyframes lw-tail { 0%, 100% { transform: rotate(-12deg); } 50% { transform: rotate(14deg); } }
+  @keyframes lw-blink { 0%, 90% { opacity: 1; } 93%, 97% { opacity: 0; } }
+  @keyframes lw-tw { 0%, 100% { transform: scale(.45) rotate(0deg); opacity: .4; } 50% { transform: scale(1.15) rotate(45deg); opacity: 1; } }
+  @keyframes lw-lfx { from { transform: translateX(-10px); } to { transform: translateX(215px); } }
+  @keyframes lw-lfy { 0%, 100% { transform: translateY(-4px); } 50% { transform: translateY(4px); } }
+  @keyframes lw-lfr { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) { .lw-sway, .lw-gl, .lw-tail, .lw-blink, .lw-tw, .lw-lfx, .lw-lfy, .lw-lfr { animation: none; } }
   @media (prefers-reduced-motion: reduce) { .bg-cloud, .bg-fly, .bg-bob, .bg-wing-a, .bg-wing-b, .bg-tree, .bg-lane, .bg-lane-l, .bg-hop, .bg-carp, .bg-rise, .bg-glow, .bg-ghost, .bg-kite, .bg-strip, .bg-burst, .bg-rain, .bg-sleigh { animation: none; } }`;
 const bgPhase = (frac, period) => -((Date.now() / 1000 + frac * period) % period).toFixed(2);   // frac = 最初の位置(0〜1)
 const bgCloud = (y, s, period, seed, color = '#fff') => `<g class="bg-cloud" style="--t:${period}s;--delay:${bgPhase(seed, period)}s">${bgRect(0, y, 22 * s, 5 * s, color)}${bgRect(4 * s, y - 3 * s, 14 * s, 4 * s, color)}</g>`;
@@ -211,7 +228,9 @@ function bgFence() {
   out += bgRect(134, 76, 64, 1.4, '#fff7ea', 'stroke="#2e504a" stroke-width=".3"');
   return out;
 }
-const bgRoad = () => bgRect(0, 85, 200, .8, '#fff') + bgRect(0, 96, 200, .8, '#fff');   // 路側帯の白線(道路の上下のふち)
+const bgRoadOne = () => bgRect(0, 85, 200, .8, '#fff') + bgRect(0, 96, 200, .8, '#fff');   // 1車線の道路(終了画面用)
+const bgRoad = () => bgRect(0, 85, 200, .8, '#fff') + bgRect(0, 108, 200, .8, '#fff')   // 路側帯の白線(2車線の道路の上下のふち)
+  + Array.from({ length: 17 }, (_, i) => bgRect(2 + i * 12, 96, 6, .8, '#fff')).join('');   // 真ん中の点線
 // ----- 道路を走る乗り物 -----
 // 同じ車線の乗り物は同じ速さで進むので、重なったり追い越したりしない。各スプライトは { w: 幅, svg: 絵 }
 const bgCar = (c) => ({ w: 14, h: 5, svg: bgRect(0, 2, 14, 2.4, c) + bgRect(3, 0, 7, 2.2, c) + bgRect(4, .6, 2.2, 1.4, '#cfe8f5') + bgRect(7, .6, 2.2, 1.4, '#cfe8f5')
@@ -248,7 +267,7 @@ function bgLane(vehicles, bottom, length, period, frac) {
   const items = vehicles.map(({ s, off }) => `<g transform="translate(${off - length} ${(bottom - s.h).toFixed(2)})">${s.svg}</g>`).join('');
   return `<g class="bg-lane" style="--l:${length}px;--t:${period}s;--delay:${bgPhase(frac, period)}s">${items}</g>`;
 }
-function bgTraffic() {
+function bgTrafficOne() {
   const car = (c) => bgScale(bgCar(c), 1.4);
   // 走る順番(車・バイク・キックボードは3色ずつ)。間隔は少しずつ変えてある
   const queue = [
@@ -260,6 +279,28 @@ function bgTraffic() {
   const vehicles = queue.map((s, i) => { const v = { s, off }; off += s.w + 30 + (i * 17) % 40; return v; });
   const length = Math.ceil(off);
   return bgLane(vehicles, 96, length, Math.round(length / 26.7), 0.2);   // 速さは 約26.7 / 秒
+}
+
+function bgTraffic() {
+  const car = (c) => bgScale(bgCar(c), 1.4);
+  const lane = (queue, gap, step) => {   // 並べて、出てくる順番と間隔を決める
+    let off = 210;
+    const vehicles = queue.map((s, i) => { const v = { s, off }; off += s.w + gap + (i * step) % (step === 17 ? 40 : 36); return v; });
+    return { vehicles, length: Math.ceil(off) };
+  };
+  // 上の車線(左→右)。車・バイク・キックボードは3色ずつ
+  const up = lane([
+    car('#e0453a'), bgKickboard('#f0c040'), bgMotorbike('#7a5ac8', '#6dcfb2', '#ffe08a'), bgTruck('#4a8fd8'),
+    car('#4a8fd8'), bgKickboard('#6dcfb2', '#ffd6e4'), bgMotorbike('#e0453a', '#fff7ea', '#3a4a6a'), car('#4fb583'),
+    bgKickboard('#ff8fb1', '#e6f0ff'), bgMotorbike('#2e7fd0', '#ffb59e', '#fff'), bgTruck('#f0b840')
+  ], 30, 17);
+  // 下の車線(右→左)。絵を左右反転させて、同じように走らせる
+  const down = lane([
+    bgTruck('#f0b840'), bgMotorbike('#2e7fd0', '#ffb59e', '#fff'), car('#4fb583'), bgKickboard('#ff8fb1', '#e6f0ff'),
+    car('#4a8fd8'), bgMotorbike('#e0453a', '#fff7ea', '#3a4a6a'), bgKickboard('#6dcfb2', '#ffd6e4'), bgTruck('#4a8fd8')
+  ], 34, 13);
+  return bgLane(up.vehicles, 96, up.length, Math.round(up.length / 26.7), 0.2)   // 速さは 約26.7 / 秒
+    + `<g transform="translate(200 0) scale(-1 1)">${bgLane(down.vehicles, 108, down.length, Math.round(down.length / 26.7), 0.55)}</g>`;
 }
 
 // ----- 月ごとの飾り(4月イースター / 5月こどもの日 / 10月ハロウィン) -----
@@ -284,11 +325,7 @@ function bgKoinobori() {
   return bgRect(px, 26, 1.4, 54, '#7a5a46') + bgRect(px - 1.2, 22.5, 3.8, 3.8, '#f0c040') + bgRect(px + .3, 20, .8, 2.6, '#f0c040')
     + `<g class="bg-rise">${streamer}${carp('#3a3a4a', 34, 11, 0)}${carp('#e0453a', 41.5, 10, 1)}${carp('#4a8fd8', 49, 8, 2)}</g>`;
 }
-function bgPumpkins() {
-  return [[60, 79, 1.1], [132, 79, 1.1], [14, 80, .9], [186, 80, .9]].map(([x, y, k]) => `<g transform="translate(${x} ${y}) scale(${k})">`
-    + bgRect(0, 1, 6, 4, '#f08a2a', 'stroke="#2e504a" stroke-width=".3"') + bgRect(1, .4, 4, 1, '#f08a2a') + bgRect(2.6, -.6, .9, 1.4, '#4a7a3a')
-    + `<g class="bg-glow">${bgRect(1.1, 2, 1, 1, '#ffe08a')}${bgRect(3.9, 2, 1, 1, '#ffe08a')}${bgRect(1.5, 3.6, 3, .8, '#ffe08a')}</g></g>`).join('');
-}
+const bgPumpkins = () => [[60, 79, 1.1], [132, 79, 1.1], [14, 80, .9], [186, 80, .9]].map(([x, y, k]) => lwJack(x, y, 6 * k, 4 * k, '#f08a2a')).join('');
 const bgMoon = () => bgRect(148, 6, 16, 16, '#ffd98a') + bgRect(151, 10, 3, 3, '#f0c070') + bgRect(157, 15, 4, 4, '#f0c070');
 const bgStars = () => Array.from({ length: 16 }, (_, i) => bgRect(4 + bgRnd(i + 5) * 190, 2 + bgRnd(i + 40) * 26, 1, 1, '#fff')).join('');
 const bgGhost = (x, y, k) => `<g transform="translate(${x} ${y}) scale(${k})"><g class="bg-ghost" opacity=".92">`
@@ -399,6 +436,149 @@ function bgRoofLights(geo) {   // 屋根のイルミネーション
   for (let x = geo.bx - 2, i = 0; x < geo.bx + geo.bw + 3; x += 3.2, i++) out += `<g class="bg-glow" style="animation-delay:${(i % 2) * -0.9}s">${bgRect(x.toFixed(1), (y + (i % 2 ? .6 : 0)).toFixed(1), 1.4, 1.4, colors[i % 4])}</g>`;
   return out;
 }
+// ----- 道路の下の芝生の、月ごとの飾り(風でゆれたり、光ったりする) -----
+const lwO = 'stroke="#2e504a" stroke-width=".3"';
+// ゆれる(a = 角度 / p = 1往復の秒数 / d = ずらす秒数 / o = ゆれの支点)
+const lwSw = (inner, a, p, d, o) => `<g class="lw-sway" style="--a:${a}deg;--p:${p}s;--d:${-d}s${o ? ';--o:' + o : ''}">${inner}</g>`;
+// カボチャ(顔はぜんぶ同じ。目と口がちらちら光る)
+const lwJack = (x, y, w, h, col) => bgRect(x, y + 1, w, h, col, lwO) + bgRect(x + w * .17, y + .3, w * .66, 1, col) + bgRect(x + w * .43, y - .7, .9, 1.4, '#4a7a3a')
+  + `<g class="lw-gl" style="animation-delay:${-((x * 7) % 5) * .3}s">${bgRect(x + w * .2, y + 1 + h * .26, w * .17, w * .17, '#ffe08a')}${bgRect(x + w * .62, y + 1 + h * .26, w * .17, w * .17, '#ffe08a')}${bgRect(x + w * .25, y + 1 + h * .62, w * .5, .8, '#ffe08a')}</g>`;
+
+// 1月: 門松(動かない)
+const lwKado = (x) => bgRect(x - 6, 112, 12, 3, '#2f7f62') + bgRect(x - 4, 109.5, 8, 3, '#2f7f62')
+  + bgRect(x - 3.6, 100, 2.4, 13, '#6dbf6a') + bgRect(x - 1.2, 95, 2.4, 18, '#6dbf6a') + bgRect(x + 1.2, 103, 2.4, 10, '#6dbf6a') + bgRect(x - 1.2, 95, 2.4, 1, '#d8f0c0')
+  + bgRect(x - 3.6, 104, 2.4, .4, '#2e504a') + bgRect(x - 1.2, 100, 2.4, .4, '#2e504a') + bgRect(x - 1.2, 106, 2.4, .4, '#2e504a') + bgRect(x + 1.2, 108, 2.4, .4, '#2e504a')
+  + bgRect(x - 5, 113.5, 10, 8.5, '#c8a070') + bgRect(x - 5, 116.5, 10, 1, '#8a6a3a') + bgRect(x - 5, 119.5, 10, 1, '#8a6a3a') + bgRect(x - 1.5, 113, 3, 1.4, '#e0453a');
+
+// 2月: 雪だるま(体は動かない。帽子・ポンポン・マフラー・腕だけ動く)
+const lwSnow = (x, hat, scarf, band, i) => bgRect(x + 1, 112, 12, 10, '#fff', lwO) + bgRect(x + 3, 104, 8, 8.4, '#fff', lwO)
+  + bgRect(x + 4.6, 106.6, 1, 1, '#2e504a') + bgRect(x + 8.4, 106.6, 1, 1, '#2e504a') + bgRect(x + 6.4, 108.2, 3, 1, '#f08a2a')
+  + bgRect(x + 6.4, 115, 1, 1, '#2e504a') + bgRect(x + 6.4, 117.6, 1, 1, '#2e504a') + bgRect(x + 6.4, 120, 1, 1, '#2e504a')
+  + lwSw(bgRect(x - 4, 113.4, 5.4, .9, '#7a5a46') + bgRect(x - 4, 112.4, .9, 1.4, '#7a5a46'), 12, 1.6, i, '100% 50%')
+  + lwSw(bgRect(x + 12.6, 113.4, 5.4, .9, '#7a5a46') + bgRect(x + 17, 112.4, .9, 1.4, '#7a5a46'), 12, 1.6, i + .8, '0% 50%')
+  + bgRect(x + 2.4, 111.6, 9.2, 2, scarf) + bgRect(x + 2.4, 112.4, 9.2, .5, band)
+  + lwSw(bgRect(x + 9.6, 113.8, 2, 5.4, scarf) + bgRect(x + 9.6, 117.4, 2, .8, band), 10, 1.4, i + .3, '50% 0%')
+  + lwSw(bgRect(x + 4, 99.4, 6, 5, hat) + bgRect(x + 2.6, 103.6, 8.8, 1.4, hat) + bgRect(x + 4, 102, 6, .8, band), 5, 2, i, '50% 100%')
+  + lwSw(bgRect(x + 6.1, 97.6, 1.8, 1.8, '#fff', lwO), 20, 1.2, i + .5, '50% 100%');
+
+// 3〜5月: 花壇(花が風でゆれる)
+const lwHead = {
+  nano: (x, y, c) => bgRect(x - 1.2, y, 2.6, 2.6, c) + bgRect(x - .3, y + .8, 1, 1, '#e8a800'),
+  tulip: (x, y, c) => bgRect(x - 1.3, y + .8, 2.8, 2.4, c) + bgRect(x - 1.3, y - .2, .9, 1.2, c) + bgRect(x - .2, y - .6, .9, 1.4, c) + bgRect(x + .7, y - .2, .8, 1.2, c),
+  iris: (x, y, c) => bgRect(x - .6, y - 1.4, 1.4, 3.4, c) + bgRect(x - 1.8, y - .2, 3.8, 1.4, c) + bgRect(x - .4, y + 1.2, 1, 1.2, '#ffe08a')
+};
+function lwBed(x0, w, type, cols, seed) {
+  let out = bgRect(x0, 118.6, w, 2.2, '#8a6a46') + bgRect(x0, 118.6, w, .8, '#a98458');
+  for (let k = 0; k < Math.floor(w / 4); k++) out += bgRect(x0 + k * 4 + .2, 120.6, 3.4, 1.4, '#c26a4a', lwO);
+  for (let k = 0, x = x0 + 3; x < x0 + w - 2; k++, x += 4) {
+    const h = 6 + ((k * 7 + seed) % 3) * 2.2, y = 118.6 - h - 1;
+    out += lwSw(bgRect(x - .3, y + 2, .7, h, '#4a9a5a') + (k % 2 ? bgRect(x - 2, y + h - .5, 1.8, .9, '#4a9a5a') : bgRect(x + .5, y + h - 1.5, 1.8, .9, '#4a9a5a'))
+      + lwHead[type](x, y, cols[k % cols.length]), 9, 1.5, (k * .37) % 1.5, '50% 100%');
+  }
+  return out;
+}
+
+// 6月: あじさい(小さな花が集まった丸い花を3つずつ)
+function lwHyd(x0, i) {
+  const pal = [['#8aa8e8', '#6a88d8', '#b4c8f4'], ['#b69af0', '#9a7ad8', '#d4c4f8'], ['#e69ac8', '#d67ab0', '#f4c4de']][i % 3];
+  const head = (cx, cy) => {
+    let o = bgRect(cx - .3, cy + 6, .7, 3, '#4a9a5a') + bgRect(cx - 4, cy + 6.4, 3.4, 1.2, '#4a9a5a') + bgRect(cx + .8, cy + 6.8, 3.4, 1.2, '#4a9a5a');
+    [3, 5, 5, 5, 3].forEach((n, r) => { for (let k = 0; k < n; k++) o += bgRect((cx - n * 1.5 / 2 + k * 1.5).toFixed(2), (cy + r * 1.4).toFixed(2), 1.3, 1.3, pal[(r + k) % 3]); });
+    return o;
+  };
+  return bgRect(x0, 121, 24, 1, '#4a9a5a') + lwSw(head(x0 + 4, 113) + head(x0 + 11.5, 110.6) + head(x0 + 19, 113.6), 2.2, 2.4, i * .5, '50% 100%');
+}
+
+// 7月: 笹(笹は動かない。短冊だけゆれる)
+function lwTanab(x, i) {
+  const cs = ['#ff8fb1', '#ffe08a', '#9fd6f5', '#fff', '#b8e6a8', '#cbbcf3'];
+  let o = bgRect(x, 94, 1.4, 28, '#8aa860') + bgRect(x - 3, 92, 8, 2, '#4a9a5a');
+  [[1, 98], [-1, 103], [1, 108], [-1, 113], [1, 118]].forEach(([d, y]) => { o += bgRect(x + (d > 0 ? 1.4 : -4), y, 4, 1.2, '#4a9a5a') + bgRect(x + (d > 0 ? 4.4 : -6), y + 1, 3, 1, '#6dbf6a'); });
+  for (let k = 0; k < 5; k++) {
+    o += `<g transform="translate(${x + (k % 2 ? 4.6 : -5.2)} ${96 + k * 5.2})">` + lwSw(bgRect(0, 0, .3, 1.5, '#7a5a46') + bgRect(-.5, 1.5, 1.5, 4, cs[(i + k) % 6], 'stroke="#2e504a" stroke-width=".2"'), 16, 1.3, k * .5 + i, '50% 0%') + '</g>';
+  }
+  return o;
+}
+
+// 8月: ひまわり(風でゆれる)
+const lwSun = (x, hh, i) => {
+  const y = 106 + hh;
+  return lwSw(bgRect(x - .4, y + 6, .9, 122 - y - 6, '#4a9a5a') + bgRect(x - 3.4, 116, 3.2, 1.2, '#4a9a5a') + bgRect(x + .6, 118, 3.2, 1.2, '#4a9a5a')
+    + bgRect(x - 3.2, y + 1.2, 7, 4.2, '#f0c040') + bgRect(x - 1.6, y - .4, 3.8, 7.4, '#f0c040') + bgRect(x - 2.4, y + .4, 5.6, 6, '#f0c040')
+    + bgRect(x - 1.4, y + 1.6, 3.4, 3.4, '#7a4a2a') + bgRect(x - .6, y + 2.2, 1, 1, '#9a6a3a'), 4, 1.9, i * .4, '50% 100%');
+};
+
+// 9月: すすき(風でゆれる)
+function lwTsuki(x) {
+  let o = bgRect(x - 1, 121, 17, 1, '#6aa860');
+  for (let k = 0; k < 5; k++) {
+    const sx = x + k * 3.2, h = 13 + ((k * 5) % 4) * 3.5;
+    o += lwSw(bgRect(sx, 122 - h, .6, h, '#c8a060') + bgRect(sx - 1, 122 - h - 4, 2.6, 5, '#e8d29a') + bgRect(sx - 1.8, 122 - h - 2, 1, 3, '#e8d29a') + bgRect(sx + 1.6, 122 - h - 2, 1, 3, '#e8d29a'), 7, 1.6, k * .3, '50% 100%');
+  }
+  return o;
+}
+
+// 10月: ハロウィン
+const lwStack = (x, flip) => lwJack(x, 116.8, 7, 4.2, flip ? '#3a3a4a' : '#f08a2a') + lwJack(x + 7.6, 117, 6, 4, flip ? '#f08a2a' : '#3a3a4a') + lwJack(x + 3, 112.6, 6, 4, '#f08a2a');
+const lwCat = (x) => { const y = 114, c = '#2a1b3d';
+  return lwSw(bgRect(x + 5, y + 6, 2, 1.2, c) + bgRect(x + 6.2, y + 3, 1.1, 4, c), 14, 1.8, 0, '0% 100%')
+    + bgRect(x, y + 3, 5, 5, c) + bgRect(x + .5, y, 4.4, 3.4, c) + bgRect(x + .5, y - 1, 1, 1, c) + bgRect(x + 3.9, y - 1, 1, 1, c)
+    + `<g class="lw-blink">${bgRect(x + 1.2, y + 1, .9, .9, '#ffe08a')}${bgRect(x + 3.2, y + 1, .9, .9, '#ffe08a')}</g>`;
+};
+const lwDeadT = (x) => bgRect(x, 100, 2.4, 22, '#5a3a2a') + bgRect(x - 1.4, 120.6, 5.2, 1.4, '#5a3a2a')
+  + bgRect(x - 5, 104, 5, 1, '#5a3a2a') + bgRect(x - 5, 102.5, 1, 2, '#5a3a2a') + bgRect(x - 3, 110, 3, 1, '#5a3a2a') + bgRect(x - 3, 108.4, .9, 2, '#5a3a2a')
+  + bgRect(x + 2.4, 107, 6, 1, '#5a3a2a') + bgRect(x + 7.4, 104.6, 1, 3, '#5a3a2a') + bgRect(x + 1, 98, 1, 2.4, '#5a3a2a')
+  + `<g transform="translate(0 0)">` + lwSw(bgRect(x - 4.5, 105, .4, 4, '#7a5a46') + lwJack(x - 7.2, 108.6, 5.4, 3.6, '#f08a2a'), 7, 2.4, x % 3, '50% 0%') + '</g>';
+const lwTomb = (x) => bgRect(x + 1, 112, 6, 10, '#b8bcc8', lwO) + bgRect(x + 2, 111, 4, 1, '#b8bcc8') + bgRect(x + 3.6, 114, .9, 4, '#6a6e7a') + bgRect(x + 2.6, 115, 2.9, .9, '#6a6e7a');
+const lwCandy = (x) => bgRect(x + 1, 119, 2, 1, '#fff') + bgRect(x, 120, 4, 1, '#f0b030') + bgRect(x - .5, 121, 5, 1, '#f08a2a');
+const lwLolly = (x, c) => bgRect(x + 1.2, 118.6, .5, 3.4, '#fff') + bgRect(x, 116.6, 2.4, 2.4, c, lwO) + bgRect(x + .8, 117.4, .8, .8, '#fff');
+
+// 11月: 落ち葉・どんぐり・くり、風で舞う葉
+const lwMaple = (x, y, c) => `<g transform="translate(${x} ${y})">` + bgDot(2, 0, 1, 1, c) + bgDot(1, 1, 3, 1, c) + bgDot(0, 2, 5, 1, c) + bgDot(1, 3, 3, 1, c) + bgDot(2, 4, 1, 2, '#7a4a2a') + '</g>';
+const lwGinkgo = (x, y) => `<g transform="translate(${x} ${y})">` + bgDot(0, 0, 5, 1, '#f0c030') + bgDot(1, 1, 3, 1, '#f0c030') + bgDot(2, 2, 1, 1, '#d8a820') + bgDot(2, 3, 1, 1, '#7a5a2a') + '</g>';
+const lwAcorn = (x, y) => `<g transform="translate(${x} ${y})">` + bgDot(0, 0, 4, 1, '#7a4a2a') + bgDot(0, 1, 4, 1, '#8a5a3a') + bgDot(0, 2, 4, 2, '#c8873a') + bgDot(1, 4, 2, 1, '#c8873a') + bgDot(2, -1, 1, 1, '#5a3a2a') + '</g>';
+const lwKuri = (x, y) => `<g transform="translate(${x} ${y})">` + bgDot(1, 0, 4, 1, '#7a4a2a') + bgDot(0, 1, 6, 4, '#7a4a2a') + bgDot(1, 5, 4, 1, '#7a4a2a') + bgDot(1, 4, 4, 1, '#d8b878') + bgDot(2, 1, 2, 1, '#a06a3a') + '</g>';
+const lwFly = (y, period, frac, leaf) => `<g class="lw-lfx" style="--t:${period}s;--delay:${bgPhase(frac, period)}s"><g transform="translate(0 ${y})"><g class="lw-lfy" style="--d:${-frac * 2}s"><g class="lw-lfr" style="--d:${-frac * 3}s">${leaf}</g></g></g></g>`;
+function lwLeaves() {
+  const cols = ['#e0693a', '#c2453a', '#f0b030'];
+  let o = '';
+  for (let i = 0; i < 26; i++) {
+    const x = +(4 + bgRnd(i + 7) * 188).toFixed(1), y = +(110 + bgRnd(i + 21) * 10).toFixed(1);
+    const t = i % 5;
+    o += t === 3 ? lwAcorn(x, y) : t === 4 ? lwKuri(x, y) : t === 2 ? lwGinkgo(x, y) : lwMaple(x, y, cols[i % 3]);
+  }
+  return o + lwFly(100, 15, .1, lwMaple(0, 0, '#e0693a')) + lwFly(108, 19, .4, lwGinkgo(0, 0)) + lwFly(114, 13, .7, lwMaple(0, 0, '#f0b030'))
+    + lwFly(97, 21, .85, lwMaple(0, 0, '#c2453a')) + lwFly(118, 17, .25, lwGinkgo(0, 0)) + lwFly(104, 24, .55, lwMaple(0, 0, '#e0693a'));
+}
+
+// 12月: プレゼントと、きらきら(大きくて金色)
+const lwStar = (x, y, s, i) => `<g transform="translate(${x} ${y})"><g class="lw-tw" style="--d:${-i * .4}s">`
+  + bgRect(-.6 * s, -3.6 * s, 1.2 * s, 7.2 * s, '#ffbf1f', 'stroke="#c88a00" stroke-width=".2"') + bgRect(-3.6 * s, -.6 * s, 7.2 * s, 1.2 * s, '#ffbf1f', 'stroke="#c88a00" stroke-width=".2"')
+  + bgRect(-1.2 * s, -1.2 * s, 2.4 * s, 2.4 * s, '#fff7c0') + '</g></g>';
+const lwGift = (x) => bgRect(x - 9, 116, 8, 6, '#4fb583', lwO) + bgRect(x - 6, 116, 2, 6, '#fff')
+  + bgRect(x, 109, 16, 13, '#e0453a', lwO) + bgRect(x - 1, 107, 18, 3.4, '#c8352c', lwO) + bgRect(x + 7, 107, 2, 15, '#ffe08a') + bgRect(x - 1, 108.2, 18, 1.2, '#ffe08a')
+  + bgRect(x + 3, 104.4, 4.4, 3, '#ffe08a', lwO) + bgRect(x + 8.6, 104.4, 4.4, 3, '#ffe08a', lwO) + bgRect(x + 7, 105.6, 2, 2, '#e8a800')
+  + bgRect(x + 17, 114, 9, 8, '#4a8fd8', lwO) + bgRect(x + 17, 114, 9, 2, '#3a7fc8') + bgRect(x + 20.6, 114, 1.8, 8, '#fff') + bgRect(x + 19.4, 112, 2.4, 2, '#fff') + bgRect(x + 22.4, 112, 2.4, 2, '#fff')
+  + [[-6, 103, 1.1], [18, 101, 1.3], [27, 109, 1, ], [8, 98, 1.2], [-11, 112, .9], [31, 118, 1]].map(([dx, y, s], i) => lwStar(x + dx, y, s, i)).join('');
+
+const BG_LOW = {
+  0: () => lwKado(22) + lwKado(166),
+  1: () => lwSnow(20, '#4a8fd8', '#ffd34a', '#fff', 0) + lwSnow(92, '#ff8fb1', '#fff', '#e0453a', 3) + lwSnow(166, '#4fb583', '#d6453a', '#fff', 6),
+  2: () => lwBed(8, 56, 'nano', ['#ffd34a'], 0) + lwBed(78, 44, 'nano', ['#ff8fb1', '#ffb6cf', '#fff'], 2) + lwBed(136, 56, 'nano', ['#ffd34a'], 4),
+  3: () => lwBed(8, 56, 'tulip', ['#e0453a', '#ffd34a', '#ff8fb1'], 0) + lwBed(78, 44, 'tulip', ['#fff', '#ff8fb1', '#cbbcf3'], 2) + lwBed(136, 56, 'tulip', ['#ffd34a', '#e0453a', '#fff'], 4),
+  4: () => lwBed(8, 56, 'iris', ['#8a6ad8', '#b69af0', '#fff'], 0) + lwBed(78, 44, 'iris', ['#4a8fd8', '#cbbcf3', '#8a6ad8'], 2) + lwBed(136, 56, 'iris', ['#b69af0', '#8a6ad8', '#fff'], 4),
+  5: () => [10, 50, 90, 130, 170].map((x, i) => lwHyd(x, i)).join(''),
+  6: () => [22, 100, 172].map((x, i) => lwTanab(x, i)).join(''),
+  7: () => [10, 34, 58, 82, 106, 130, 154, 178].map((x, i) => lwSun(x, [0, 1.5, .5, 2, 0, 1.5, .5, 2][i], i)).join(''),
+  8: () => lwTsuki(22) + lwTsuki(160),
+  9: () => lwStack(8, false) + lwCat(30) + lwDeadT(52) + bgGhost(72, 103, 1.2) + lwTomb(84)
+    + lwJack(98, 118, 6, 4.5, '#f08a2a') + lwJack(105, 119, 5, 4, '#3a3a4a') + lwJack(112, 117.5, 7, 5.5, '#f08a2a') + lwDeadT(148)
+    + bgBird(100, 24, .2, '#2a1b3d', 3) + bgBird(104, 30, .55, '#2a1b3d', 3) + bgBird(98, 36, .85, '#2a1b3d', 3)
+    + lwStack(168, true) + lwCandy(40) + lwCandy(124) + lwCandy(188) + lwLolly(64, '#ff8fb1') + lwLolly(134, '#6dcfb2'),
+  10: lwLeaves,
+  11: () => lwGift(18) + lwGift(150)
+};
+
 const MONTH_EVENT = { 0: 'お正月', 1: '節分', 2: 'ひなまつり', 3: 'イースター', 4: 'こどもの日', 5: '梅雨', 6: '七夕', 7: '夏祭り', 8: 'お月見', 9: 'ハロウィン', 10: '紅葉', 11: 'クリスマス' };
 const MONTH_THEME = {   // 月ごとの空や街の色(書いていない月は、季節の色のまま)
   0: { sky: '#ffbf8f', band: '#ffe6bf' },   // 初日の出
@@ -432,7 +612,7 @@ function townBackdrop(theme, season, monthIdx, geo) {
   return {
     back: (m.pre ? m.pre() : '') + bgHills(theme.far2, 16, 4, 1) + bgSkyline(theme) + bgHills(theme.far1, 5, 2, 2.3)
       + bgCloud(11, 1.2, 70, 0.1, m.cloud) + bgCloud(5, 1, 90, 0.45, m.cloud) + bgCloud(15, 1, 80, 0.8, m.cloud) + (m.sky ? m.sky() : m.night ? '' : bgBirds()),
-    fore: bgFence() + bgLamp(48) + bgLamp(152) + bgTree(8, 52, theme, snow, 1) + bgTree(176, 52, rightTree, snow, 1) + bgFlowers(snow) + bgRoad() + bgTraffic() + (m.fore ? m.fore() : ''),
+    fore: bgFence() + bgLamp(48) + bgLamp(152) + bgTree(8, 52, theme, snow, 1) + bgTree(176, 52, rightTree, snow, 1) + bgFlowers(snow) + bgRoad() + bgTraffic() + (m.fore ? m.fore() : '') + (BG_LOW[monthIdx] ? BG_LOW[monthIdx]() : ''),
     front: m.front ? m.front(geo) : ''
   };
 }
@@ -466,10 +646,10 @@ function townScene() {
     </g>`;
   }).join('');
   const decor = theme.n ? Array.from({ length: theme.n }, (_, i) => `<rect x="${(i * 37) % 200}" y="${(i * 53) % 70}" width="${theme.sz}" height="${theme.sz}" fill="${theme.deco[i % theme.deco.length]}"/>`).join('') : '';
-  return `<svg class="town-scene" viewBox="0 0 200 100" role="img" aria-label="会社のある街"><style>${BG_ANIM_CSS}</style>
+  return `<svg class="town-scene" viewBox="0 0 200 124" role="img" aria-label="会社のある街"><style>${BG_ANIM_CSS}</style>
     <rect width="200" height="72" fill="${theme.sky}"/><rect y="40" width="200" height="32" fill="${theme.band}"/><rect x="150" y="8" width="12" height="12" fill="#fff3b0"/>
     ${backdrop.back}
-    <rect y="72" width="200" height="28" fill="${theme.grass}"/><rect y="72" width="200" height="1.5" fill="#2e504a"/><rect y="85" width="200" height="12" fill="#d5d5d5"/>
+    <rect y="72" width="200" height="52" fill="${theme.grass}"/><rect y="72" width="200" height="1.5" fill="#2e504a"/><rect y="85" width="200" height="24" fill="#d5d5d5"/>
     ${backdrop.fore}
     <g class="company" data-go="company"><rect x="${bx}" y="${by}" width="${bw}" height="${bh}" fill="#2e504a"/><rect x="${bx + 1}" y="${by + 1}" width="${bw - 2}" height="${bh - 1}" fill="#fff7ea"/><rect class="roof" x="${bx - 3}" y="${by - 4}" width="${bw + 6}" height="5" fill="${theme.roof}"/><rect x="${bx + 8}" y="${by - 16}" width="${bw - 16}" height="11" fill="#fafffd" stroke="#2e504a" stroke-width=".8"/>${rawName ? `<text x="${bx + bw / 2}" y="${by - 8}" font-size="${nameSize}" text-anchor="middle" fill="#2e504a">${esc(rawName)}</text>` : ''}${windows}<rect x="${bx + 24}" y="58" width="12" height="14" fill="#2e504a"/><rect x="${bx + 25}" y="59" width="10" height="13" fill="#6dcfb2"/><rect x="${bx + 33}" y="65" width="1" height="1" fill="#2e504a"/></g>
     ${backdrop.front}${decor}${walkers}<rect x="3" y="3" width="27" height="8" fill="#fafffd" stroke="#2e504a" stroke-width=".6"/><text x="16.5" y="9" font-size="4.4" text-anchor="middle" fill="#2e504a">${theme.name}・${month}月</text>
@@ -484,8 +664,11 @@ function renderTown() {
   if (hint) alerts.push(`<div class="hint">${hint}</div>`);
   if (S.money < monthlyCost() * 1.5) alerts.push('<div class="alert"><span>資金が少なくなっています。このままでは、来月の給与を支払えない可能性があります。</span></div>');
   S.jobs.filter((j) => j.late).forEach((j) => alerts.push(`<div class="alert"><span>「${j.name}」は納期を過ぎています。早めに完成させましょう。</span></div>`));
-  const projects = S.jobs.length ? S.jobs.map((j) => `<div class="town-job"><div class="row"><strong class="small">${j.name}</strong><span class="small ${remainDays(j) <= 7 ? 'neg' : 'muted'}" data-left="${j.id}">${leftText(j)}</span></div><div class="bar"><div class="fill" data-bar="${j.id}" style="width:${progressPct(j)}%"></div></div></div>`).join('') : '<div class="small muted">進行中の案件はありません。「案件」から受注できます。</div>';
-  $('town-body').innerHTML = townScene() + `<div class="town-grid"><div>${alerts.join('')}<div class="panel"><div class="panel-title">いまの会社</div><div class="goal-row"><span>資金</span><span data-live="money">${yen(S.money)}</span></div><div class="goal-row"><span>評判</span><span data-live="rep">${S.rep} / 100</span></div><div class="goal-row"><span>社員</span><span data-live="staff">${S.employees.length} / ${levelInfo().slots}人</span></div><div class="goal-row"><span>社員の平均士気</span><span>${averageEmployeeMorale()} / 100</span></div><div class="goal-row"><span>会社Lv</span><span>Lv.${S.level}</span></div></div>${levelPanel()}</div><div class="panel"><div class="panel-title">進行中の案件</div>${projects}</div></div>`;
+  const tile = (cls, k, v, live) => `<div class="tile ${cls}"><div class="k">${k}</div><div class="v"${live ? ` data-live="${live}"` : ''}>${v}</div></div>`;
+  $('town-body').innerHTML = townScene() + `<div class="town-grid"><div>${alerts.join('')}<div class="panel"><div class="panel-title">いまの会社</div><div class="tiles">`
+    + tile('t1', '資金', yen(S.money), 'money') + tile('t2', '評判', `${S.rep} / 100`, 'rep') + tile('t3', '社員', `${S.employees.length} / ${levelInfo().slots}人`, 'staff')
+    + tile('t4', '社員の平均士気', `${averageEmployeeMorale()} / 100`) + tile('t5', '会社Lv', `Lv.${S.level}`)
+    + '</div></div></div></div>';
 }
 
 // ===== ゲーム終了画面(クリア / ゲームオーバー / タイムアップ) =====
@@ -551,11 +734,11 @@ function endScene(end) {
   if (end === 'clear') {
     const bd = townBackdrop(theme, 'spring', null, { bx, bw, by });
     back = bd.back;
-    fore = bgLamp(48) + bgLamp(152) + bgFence() + bgTree(8, 52, theme, false, 1) + bgTree(176, 52, theme, false, 1) + bgFlowers(false) + bgRoad() + bgTraffic();
+    fore = bgLamp(48) + bgLamp(152) + bgFence() + bgTree(8, 52, theme, false, 1) + bgTree(176, 52, theme, false, 1) + bgFlowers(false) + bgRoadOne() + bgTrafficOne();
   } else {
     back = bgHills(theme.far2, 16, 4, 1) + bgSkyline(theme) + bgHills(theme.far1, 5, 2, 2.3)
       + bgCloud(11, 1.2, 70, 0.1, cloud) + bgCloud(5, 1, 90, 0.45, cloud) + bgCloud(15, 1, 80, 0.8, cloud);
-    fore = bgLamp(48) + bgLamp(152) + endBareTree(6, 0) + endBareTree(176, -1.7) + bgFence() + bgRoad() + bgTraffic();
+    fore = bgLamp(48) + bgLamp(152) + endBareTree(6, 0) + endBareTree(176, -1.7) + bgFence() + bgRoadOne() + bgTrafficOne();
   }
   // 会社
   const wall = end === 'clear' ? '#fff7ea' : end === 'bankrupt' ? '#d6d6d2' : '#cbc5d6';

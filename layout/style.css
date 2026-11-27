@@ -782,13 +782,23 @@ button[data-key]::after {
 @keyframes bob { 50% { transform: translateY(-1.5px); } }
 .town-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   gap: 12px;
   margin-top: 12px;
 }
 .town-menu { display: flex; justify-content: flex-end; margin-top: 8px; }
+/* いまの会社(色つきのタイル) */
+.tiles { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
+.tile { border: var(--line-thin); background: var(--paper); padding: 8px 10px; text-align: center; }
+.tile .k { font-size: 11px; color: var(--ink-sub); }
+.tile .v { font-size: 19px; margin-top: 2px; }
+.tile.t1 { background: var(--main); }
+.tile.t2 { background: var(--hl); }
+.tile.t3 { background: var(--sub); }
+.tile.t4 { background: var(--lav); }
+.tile.t5 { background: var(--sky); }
 @media (max-width: 700px) {
-  .town-grid { grid-template-columns: 1fr; }
+  .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 .emp-tip { display: none; pointer-events: none; }
 .emp-tip text { font-family: "DotGothic16", sans-serif; }
