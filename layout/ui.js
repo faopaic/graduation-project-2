@@ -86,6 +86,7 @@ function showPage(name, force = false) {
   ['town', 'home', 'jobs', 'assignment', 'employees', 'recruit', 'upgrades', 'invest-event'].forEach((p) => 
     $('page-' + p).classList.toggle('hidden', p !== name));
   document.querySelector('.bottom-nav').classList.toggle('hidden', name === 'town');
+  $('timeline-container').classList.toggle('hidden', name === 'town');   // 街の画面では「会社の歩み」を隠す
   document.querySelectorAll('.nav').forEach((b) => b.classList.toggle('active', b.dataset.go === name));
 }
 
@@ -895,6 +896,30 @@ function renderHome() {
     + missionUnlockStatus;
 }
 
+function renderTimeline() {
+  const timeline = $('event-timeline');
+  const timelineScrollTop = timeline ? timeline.scrollTop : 0;
+  const kindLabels = { good: '達成', bad: '注意', warn: '警告' };
+  const entries = S.log.map((entry, index) => {
+    const kind = entry.kind || 'info';
+    const d = dateOf(entry.day);
+    const dateText = `${Math.min(5, Math.floor(entry.day / 365) + 1)}年目 ${d.getMonth() + 1}/${d.getDate()}`;
+    const tagText = index === 0 ? 'NEW' : (kindLabels[kind] || '記録');
+    return `<li class="tl-item tl-${kind}">
+      <span class="tl-dot"></span>
+      <div class="tl-card${index === 0 ? ' tl-new' : ''}">
+        <div class="tl-date"><span>${dateText}</span><span class="tl-tag">${tagText}</span></div>
+        <div class="tl-text">${esc(entry.text)}</div>
+      </div>
+    </li>`;
+  }).join('');
+  $('timeline-container').innerHTML = `<div class="timeline-panel">
+    <div class="tl-head"><b>会社の歩み</b><button class="timeline-latest" data-act="timeline-latest" title="最新の歩みに移動" aria-label="最新の歩みに移動">↑</button></div>
+    <ol id="event-timeline" class="event-timeline">${entries || '<li class="timeline-empty">まだ記録がありません。</li>'}</ol>
+  </div>`;
+  $('event-timeline').scrollTop = timelineScrollTop;
+}
+
 function hintText() {
   if (S.counts.accepted === 0) return 'まずは「案件」ページで案件を受注しましょう。最初は難易度の低い案件がおすすめです。';
   if (S.jobs.length === 0) return '案件がない間も給与は発生します。「案件」ページで次の案件を受注しましょう。';
@@ -1253,6 +1278,7 @@ function render() {
   renderRecruit();
   renderUpgrades();
   renderInvestEvent();
+  renderTimeline();
   renderTrack();
   updateLive();
   renderModal();
@@ -1562,6 +1588,7 @@ function nextPending() {
 // ----- 開始画面と終了画面 -----
 function showTitle() {
   screenMode = 'title';
+  showPage('town', true);   // タイトル画面の裏では、下のメニューや「会社の歩み」を出さない
   const g = CONFIG.goals;
   $('screen-body').innerHTML = `<h1 class="big-title end-title">IT会社経営シミュレーター（仮）</h1>
     <p>設立したばかりのIT会社の社長として、5年間で会社を成長させましょう。</p>
@@ -1829,6 +1856,10 @@ document.addEventListener('click', (ev) => {
     debugEventSelecting = true;
     render();
     renderModal();
+    return;
+  }
+  if (a === 'timeline-latest') {
+    $('event-timeline').scrollTop = 0;
     return;
   }
   if (a === 'end-town') { endView = 'town'; renderTown(); return; }
