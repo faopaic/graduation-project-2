@@ -140,5 +140,12 @@ const INVEST = {
       }
       return `利用済み ${used}/3回`;
     }
+  },
+  trainingProgram: {
+    name: '特別研修プログラム',
+    repCost: 20,
+    maxCount: 5,
+    help: '外部講師を招き、社員全員の経験値を上昇させる。',
+    now: (used) => `利用済み ${used}/5回`
   }
 };

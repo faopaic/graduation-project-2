@@ -77,6 +77,7 @@ app.get('/api/events', async (req, res) => {
         type: event.event_type,
         description: event.description,
         triggerCondition: event.trigger_condition,
+        triggerRule: event.trigger_rule,
         occurrenceRate: Number(event.occurrence_rate) || 0,
         choices: [
             { label: event.choice_a, effects: event.choice_a_effects, lesson: event.choice_a_comment },

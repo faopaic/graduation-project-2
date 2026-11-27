@@ -14,6 +14,7 @@ let selectedDifficulty = 'normal'; // 難易度
 let companyName = '';   // 会社名(タイトル画面で入力)
 let debugEventSelecting = false;
 let debugPreviewMode = false;
+let endView = 'result';   // 終了画面: 'result' = 結果 / 'town' = 街だけ見る
 const esc = (t) => String(t).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 // ----- 部品 -----
@@ -59,12 +60,14 @@ const employeeMoraleMarkup = (e) => {
 const requirementSkills = (job) => ['design', 'dev', 'security', 'infra']
   .filter((skill) => Number(job.requirements?.[skill]) > 0);
 const requirementText = (job) => requirementSkills(job)
-  .map((skill) => `${SKILLS[skill]} ${Number(job.requirements?.[skill]) || 0}`)
+  .map((skill) => `${SKILLS[skill]} ${getProjectNeed(
+    Number(job.requirements?.[skill]) || 0,S.difficulty)}`)
   .join(' / ');
 const requirementProgressText = (job, employees) => requirementSkills(job)
-  .map((skill) => `${SKILLS[skill]} ${abilityTotalWithoutSkillMatch(employees, skill)}/${Number(job.requirements?.[skill]) || 0}`)
+  .map((skill) => `${SKILLS[skill]} ${abilityTotalWithoutSkillMatch(
+    employees, skill)}/${getProjectNeed(
+      Number(job.requirements?.[skill]) || 0,S.difficulty)}`)
   .join(' / ');
-
 async function fetchJson(url) {
   const response = await fetch(url, { cache: 'no-store' });
   if (!response.ok) throw new Error(`${url} の読み込みに失敗しました (${response.status})`);
@@ -83,6 +86,7 @@ function showPage(name, force = false) {
   ['town', 'home', 'jobs', 'assignment', 'employees', 'recruit', 'upgrades', 'invest-event'].forEach((p) => 
     $('page-' + p).classList.toggle('hidden', p !== name));
   document.querySelector('.bottom-nav').classList.toggle('hidden', name === 'town');
+  $('timeline-container').classList.toggle('hidden', name === 'town');   // 街の画面では「会社の歩み」を隠す
   document.querySelectorAll('.nav').forEach((b) => b.classList.toggle('active', b.dataset.go === name));
 }
 
@@ -172,6 +176,23 @@ const BG_ANIM_CSS = `
   @keyframes bg-burst { 0% { transform: scale(.15); opacity: 1; } 55% { transform: scale(1); opacity: 1; } 100% { transform: scale(1.2); opacity: 0; } }
   @keyframes bg-rain { to { transform: translateY(20px); } }
   @keyframes bg-sleigh { from { transform: translateX(-26px); } to { transform: translateX(230px); } }
+  .lw-sway { transform-box: fill-box; transform-origin: var(--o, 50% 100%); animation: lw-sway var(--p, 2s) ease-in-out infinite; animation-delay: var(--d, 0s); }
+  .lw-gl { animation: lw-gl 1.7s steps(1) infinite; }
+  .lw-tail { transform-box: fill-box; transform-origin: 0% 100%; animation: lw-tail 1.8s ease-in-out infinite; }
+  .lw-blink { animation: lw-blink 4s steps(1) infinite; }
+  .lw-tw { transform-box: fill-box; transform-origin: 50% 50%; animation: lw-tw 1.2s ease-in-out infinite; animation-delay: var(--d, 0s); }
+  .lw-lfx { animation: lw-lfx var(--t) linear infinite; animation-delay: var(--delay); }
+  .lw-lfy { animation: lw-lfy 1.9s ease-in-out infinite; animation-delay: var(--d, 0s); }
+  .lw-lfr { transform-box: fill-box; transform-origin: 50% 50%; animation: lw-lfr 2.6s linear infinite; animation-delay: var(--d, 0s); }
+  @keyframes lw-sway { 0%, 100% { transform: rotate(calc(var(--a, 5deg) * -1)); } 50% { transform: rotate(var(--a, 5deg)); } }
+  @keyframes lw-gl { 0% { opacity: 1; } 30% { opacity: .35; } 45% { opacity: 1; } 75% { opacity: .6; } }
+  @keyframes lw-tail { 0%, 100% { transform: rotate(-12deg); } 50% { transform: rotate(14deg); } }
+  @keyframes lw-blink { 0%, 90% { opacity: 1; } 93%, 97% { opacity: 0; } }
+  @keyframes lw-tw { 0%, 100% { transform: scale(.45) rotate(0deg); opacity: .4; } 50% { transform: scale(1.15) rotate(45deg); opacity: 1; } }
+  @keyframes lw-lfx { from { transform: translateX(-10px); } to { transform: translateX(215px); } }
+  @keyframes lw-lfy { 0%, 100% { transform: translateY(-4px); } 50% { transform: translateY(4px); } }
+  @keyframes lw-lfr { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) { .lw-sway, .lw-gl, .lw-tail, .lw-blink, .lw-tw, .lw-lfx, .lw-lfy, .lw-lfr { animation: none; } }
   @media (prefers-reduced-motion: reduce) { .bg-cloud, .bg-fly, .bg-bob, .bg-wing-a, .bg-wing-b, .bg-tree, .bg-lane, .bg-lane-l, .bg-hop, .bg-carp, .bg-rise, .bg-glow, .bg-ghost, .bg-kite, .bg-strip, .bg-burst, .bg-rain, .bg-sleigh { animation: none; } }`;
 const bgPhase = (frac, period) => -((Date.now() / 1000 + frac * period) % period).toFixed(2);   // frac = 最初の位置(0〜1)
 const bgCloud = (y, s, period, seed, color = '#fff') => `<g class="bg-cloud" style="--t:${period}s;--delay:${bgPhase(seed, period)}s">${bgRect(0, y, 22 * s, 5 * s, color)}${bgRect(4 * s, y - 3 * s, 14 * s, 4 * s, color)}</g>`;
@@ -208,7 +229,9 @@ function bgFence() {
   out += bgRect(134, 76, 64, 1.4, '#fff7ea', 'stroke="#2e504a" stroke-width=".3"');
   return out;
 }
-const bgRoad = () => bgRect(0, 85, 200, .8, '#fff') + bgRect(0, 96, 200, .8, '#fff');   // 路側帯の白線(道路の上下のふち)
+const bgRoadOne = () => bgRect(0, 85, 200, .8, '#fff') + bgRect(0, 96, 200, .8, '#fff');   // 1車線の道路(終了画面用)
+const bgRoad = () => bgRect(0, 85, 200, .8, '#fff') + bgRect(0, 108, 200, .8, '#fff')   // 路側帯の白線(2車線の道路の上下のふち)
+  + Array.from({ length: 17 }, (_, i) => bgRect(2 + i * 12, 96, 6, .8, '#fff')).join('');   // 真ん中の点線
 // ----- 道路を走る乗り物 -----
 // 同じ車線の乗り物は同じ速さで進むので、重なったり追い越したりしない。各スプライトは { w: 幅, svg: 絵 }
 const bgCar = (c) => ({ w: 14, h: 5, svg: bgRect(0, 2, 14, 2.4, c) + bgRect(3, 0, 7, 2.2, c) + bgRect(4, .6, 2.2, 1.4, '#cfe8f5') + bgRect(7, .6, 2.2, 1.4, '#cfe8f5')
@@ -228,7 +251,7 @@ const bgMotorbike = (c, rider, helmet = '#fff') => ({ w: 12, h: 7, svg: bgDot(8,
   + bgWheel(4, 11) + bgWheel(19, 11) });
 // 電動キックボード(立って乗る小さな乗り物。ロゴなどは入れない一般的な形)。accent = 板とヘルメットの色 / top = 上着の色
 const bgKickboard = (accent, top = '#f4efe4') => {
-  const skin = '#f8cdbb', dark = '#2e504a', pants = '#cfd3d6';
+  const skin = '#f8cdbb', dark = '#2e504a', pants = '#213852';
   const head = bgDot(8, 0, 5, 1, accent) + bgDot(7, 1, 7, 2, accent) + bgDot(7, 3, 4, 1, accent) + bgDot(11, 3, 3, 1, skin) + bgDot(12, 3, 1, 1, dark) + bgDot(8, 4, 5, 1, skin) + bgDot(7, 4, 1, 1, '#3a3a4a');
   const body = bgDot(8, 5, 5, 5, top) + bgDot(8, 9, 5, 1, '#d9d4c7') + bgDot(12, 5, 4, 2, top) + bgDot(16, 5, 2, 2, skin)
     + bgDot(7, 10, 3, 4, pants) + bgDot(10, 10, 3, 4, pants) + bgDot(6, 14, 4, 1, '#fff') + bgDot(10, 14, 4, 1, '#fff');
@@ -245,7 +268,7 @@ function bgLane(vehicles, bottom, length, period, frac) {
   const items = vehicles.map(({ s, off }) => `<g transform="translate(${off - length} ${(bottom - s.h).toFixed(2)})">${s.svg}</g>`).join('');
   return `<g class="bg-lane" style="--l:${length}px;--t:${period}s;--delay:${bgPhase(frac, period)}s">${items}</g>`;
 }
-function bgTraffic() {
+function bgTrafficOne() {
   const car = (c) => bgScale(bgCar(c), 1.4);
   // 走る順番(車・バイク・キックボードは3色ずつ)。間隔は少しずつ変えてある
   const queue = [
@@ -257,6 +280,28 @@ function bgTraffic() {
   const vehicles = queue.map((s, i) => { const v = { s, off }; off += s.w + 30 + (i * 17) % 40; return v; });
   const length = Math.ceil(off);
   return bgLane(vehicles, 96, length, Math.round(length / 26.7), 0.2);   // 速さは 約26.7 / 秒
+}
+
+function bgTraffic() {
+  const car = (c) => bgScale(bgCar(c), 1.4);
+  const lane = (queue, gap, step) => {   // 並べて、出てくる順番と間隔を決める
+    let off = 210;
+    const vehicles = queue.map((s, i) => { const v = { s, off }; off += s.w + gap + (i * step) % (step === 17 ? 40 : 36); return v; });
+    return { vehicles, length: Math.ceil(off) };
+  };
+  // 上の車線(左→右)。車・バイク・キックボードは3色ずつ
+  const up = lane([
+    car('#e0453a'), bgKickboard('#f0c040'), bgMotorbike('#7a5ac8', '#6dcfb2', '#ffe08a'), bgTruck('#4a8fd8'),
+    car('#4a8fd8'), bgKickboard('#6dcfb2', '#ffd6e4'), bgMotorbike('#e0453a', '#fff7ea', '#3a4a6a'), car('#4fb583'),
+    bgKickboard('#ff8fb1', '#e6f0ff'), bgMotorbike('#2e7fd0', '#ffb59e', '#fff'), bgTruck('#f0b840')
+  ], 30, 17);
+  // 下の車線(右→左)。絵を左右反転させて、同じように走らせる
+  const down = lane([
+    bgTruck('#f0b840'), bgMotorbike('#2e7fd0', '#ffb59e', '#fff'), car('#4fb583'), bgKickboard('#ff8fb1', '#e6f0ff'),
+    car('#4a8fd8'), bgMotorbike('#e0453a', '#fff7ea', '#3a4a6a'), bgKickboard('#6dcfb2', '#ffd6e4'), bgTruck('#4a8fd8')
+  ], 34, 13);
+  return bgLane(up.vehicles, 96, up.length, Math.round(up.length / 26.7), 0.2)   // 速さは 約26.7 / 秒
+    + `<g transform="translate(200 0) scale(-1 1)">${bgLane(down.vehicles, 108, down.length, Math.round(down.length / 26.7), 0.55)}</g>`;
 }
 
 // ----- 月ごとの飾り(4月イースター / 5月こどもの日 / 10月ハロウィン) -----
@@ -281,11 +326,7 @@ function bgKoinobori() {
   return bgRect(px, 26, 1.4, 54, '#7a5a46') + bgRect(px - 1.2, 22.5, 3.8, 3.8, '#f0c040') + bgRect(px + .3, 20, .8, 2.6, '#f0c040')
     + `<g class="bg-rise">${streamer}${carp('#3a3a4a', 34, 11, 0)}${carp('#e0453a', 41.5, 10, 1)}${carp('#4a8fd8', 49, 8, 2)}</g>`;
 }
-function bgPumpkins() {
-  return [[60, 79, 1.1], [132, 79, 1.1], [14, 80, .9], [186, 80, .9]].map(([x, y, k]) => `<g transform="translate(${x} ${y}) scale(${k})">`
-    + bgRect(0, 1, 6, 4, '#f08a2a', 'stroke="#2e504a" stroke-width=".3"') + bgRect(1, .4, 4, 1, '#f08a2a') + bgRect(2.6, -.6, .9, 1.4, '#4a7a3a')
-    + `<g class="bg-glow">${bgRect(1.1, 2, 1, 1, '#ffe08a')}${bgRect(3.9, 2, 1, 1, '#ffe08a')}${bgRect(1.5, 3.6, 3, .8, '#ffe08a')}</g></g>`).join('');
-}
+const bgPumpkins = () => [[60, 79, 1.1], [132, 79, 1.1], [14, 80, .9], [186, 80, .9]].map(([x, y, k]) => lwJack(x, y, 6 * k, 4 * k, '#f08a2a')).join('');
 const bgMoon = () => bgRect(148, 6, 16, 16, '#ffd98a') + bgRect(151, 10, 3, 3, '#f0c070') + bgRect(157, 15, 4, 4, '#f0c070');
 const bgStars = () => Array.from({ length: 16 }, (_, i) => bgRect(4 + bgRnd(i + 5) * 190, 2 + bgRnd(i + 40) * 26, 1, 1, '#fff')).join('');
 const bgGhost = (x, y, k) => `<g transform="translate(${x} ${y}) scale(${k})"><g class="bg-ghost" opacity=".92">`
@@ -396,6 +437,149 @@ function bgRoofLights(geo) {   // 屋根のイルミネーション
   for (let x = geo.bx - 2, i = 0; x < geo.bx + geo.bw + 3; x += 3.2, i++) out += `<g class="bg-glow" style="animation-delay:${(i % 2) * -0.9}s">${bgRect(x.toFixed(1), (y + (i % 2 ? .6 : 0)).toFixed(1), 1.4, 1.4, colors[i % 4])}</g>`;
   return out;
 }
+// ----- 道路の下の芝生の、月ごとの飾り(風でゆれたり、光ったりする) -----
+const lwO = 'stroke="#2e504a" stroke-width=".3"';
+// ゆれる(a = 角度 / p = 1往復の秒数 / d = ずらす秒数 / o = ゆれの支点)
+const lwSw = (inner, a, p, d, o) => `<g class="lw-sway" style="--a:${a}deg;--p:${p}s;--d:${-d}s${o ? ';--o:' + o : ''}">${inner}</g>`;
+// カボチャ(顔はぜんぶ同じ。目と口がちらちら光る)
+const lwJack = (x, y, w, h, col) => bgRect(x, y + 1, w, h, col, lwO) + bgRect(x + w * .17, y + .3, w * .66, 1, col) + bgRect(x + w * .43, y - .7, .9, 1.4, '#4a7a3a')
+  + `<g class="lw-gl" style="animation-delay:${-((x * 7) % 5) * .3}s">${bgRect(x + w * .2, y + 1 + h * .26, w * .17, w * .17, '#ffe08a')}${bgRect(x + w * .62, y + 1 + h * .26, w * .17, w * .17, '#ffe08a')}${bgRect(x + w * .25, y + 1 + h * .62, w * .5, .8, '#ffe08a')}</g>`;
+
+// 1月: 門松(動かない)
+const lwKado = (x) => bgRect(x - 6, 112, 12, 3, '#2f7f62') + bgRect(x - 4, 109.5, 8, 3, '#2f7f62')
+  + bgRect(x - 3.6, 100, 2.4, 13, '#6dbf6a') + bgRect(x - 1.2, 95, 2.4, 18, '#6dbf6a') + bgRect(x + 1.2, 103, 2.4, 10, '#6dbf6a') + bgRect(x - 1.2, 95, 2.4, 1, '#d8f0c0')
+  + bgRect(x - 3.6, 104, 2.4, .4, '#2e504a') + bgRect(x - 1.2, 100, 2.4, .4, '#2e504a') + bgRect(x - 1.2, 106, 2.4, .4, '#2e504a') + bgRect(x + 1.2, 108, 2.4, .4, '#2e504a')
+  + bgRect(x - 5, 113.5, 10, 8.5, '#c8a070') + bgRect(x - 5, 116.5, 10, 1, '#8a6a3a') + bgRect(x - 5, 119.5, 10, 1, '#8a6a3a') + bgRect(x - 1.5, 113, 3, 1.4, '#e0453a');
+
+// 2月: 雪だるま(体は動かない。帽子・ポンポン・マフラー・腕だけ動く)
+const lwSnow = (x, hat, scarf, band, i) => bgRect(x + 1, 112, 12, 10, '#fff', lwO) + bgRect(x + 3, 104, 8, 8.4, '#fff', lwO)
+  + bgRect(x + 4.6, 106.6, 1, 1, '#2e504a') + bgRect(x + 8.4, 106.6, 1, 1, '#2e504a') + bgRect(x + 6.4, 108.2, 3, 1, '#f08a2a')
+  + bgRect(x + 6.4, 115, 1, 1, '#2e504a') + bgRect(x + 6.4, 117.6, 1, 1, '#2e504a') + bgRect(x + 6.4, 120, 1, 1, '#2e504a')
+  + lwSw(bgRect(x - 4, 113.4, 5.4, .9, '#7a5a46') + bgRect(x - 4, 112.4, .9, 1.4, '#7a5a46'), 12, 1.6, i, '100% 50%')
+  + lwSw(bgRect(x + 12.6, 113.4, 5.4, .9, '#7a5a46') + bgRect(x + 17, 112.4, .9, 1.4, '#7a5a46'), 12, 1.6, i + .8, '0% 50%')
+  + bgRect(x + 2.4, 111.6, 9.2, 2, scarf) + bgRect(x + 2.4, 112.4, 9.2, .5, band)
+  + lwSw(bgRect(x + 9.6, 113.8, 2, 5.4, scarf) + bgRect(x + 9.6, 117.4, 2, .8, band), 10, 1.4, i + .3, '50% 0%')
+  + lwSw(bgRect(x + 4, 99.4, 6, 5, hat) + bgRect(x + 2.6, 103.6, 8.8, 1.4, hat) + bgRect(x + 4, 102, 6, .8, band), 5, 2, i, '50% 100%')
+  + lwSw(bgRect(x + 6.1, 97.6, 1.8, 1.8, '#fff', lwO), 20, 1.2, i + .5, '50% 100%');
+
+// 3〜5月: 花壇(花が風でゆれる)
+const lwHead = {
+  nano: (x, y, c) => bgRect(x - 1.2, y, 2.6, 2.6, c) + bgRect(x - .3, y + .8, 1, 1, '#e8a800'),
+  tulip: (x, y, c) => bgRect(x - 1.3, y + .8, 2.8, 2.4, c) + bgRect(x - 1.3, y - .2, .9, 1.2, c) + bgRect(x - .2, y - .6, .9, 1.4, c) + bgRect(x + .7, y - .2, .8, 1.2, c),
+  iris: (x, y, c) => bgRect(x - .6, y - 1.4, 1.4, 3.4, c) + bgRect(x - 1.8, y - .2, 3.8, 1.4, c) + bgRect(x - .4, y + 1.2, 1, 1.2, '#ffe08a')
+};
+function lwBed(x0, w, type, cols, seed) {
+  let out = bgRect(x0, 118.6, w, 2.2, '#8a6a46') + bgRect(x0, 118.6, w, .8, '#a98458');
+  for (let k = 0; k < Math.floor(w / 4); k++) out += bgRect(x0 + k * 4 + .2, 120.6, 3.4, 1.4, '#c26a4a', lwO);
+  for (let k = 0, x = x0 + 3; x < x0 + w - 2; k++, x += 4) {
+    const h = 6 + ((k * 7 + seed) % 3) * 2.2, y = 118.6 - h - 1;
+    out += lwSw(bgRect(x - .3, y + 2, .7, h, '#4a9a5a') + (k % 2 ? bgRect(x - 2, y + h - .5, 1.8, .9, '#4a9a5a') : bgRect(x + .5, y + h - 1.5, 1.8, .9, '#4a9a5a'))
+      + lwHead[type](x, y, cols[k % cols.length]), 9, 1.5, (k * .37) % 1.5, '50% 100%');
+  }
+  return out;
+}
+
+// 6月: あじさい(小さな花が集まった丸い花を3つずつ)
+function lwHyd(x0, i) {
+  const pal = [['#8aa8e8', '#6a88d8', '#b4c8f4'], ['#b69af0', '#9a7ad8', '#d4c4f8'], ['#e69ac8', '#d67ab0', '#f4c4de']][i % 3];
+  const head = (cx, cy) => {
+    let o = bgRect(cx - .3, cy + 6, .7, 3, '#4a9a5a') + bgRect(cx - 4, cy + 6.4, 3.4, 1.2, '#4a9a5a') + bgRect(cx + .8, cy + 6.8, 3.4, 1.2, '#4a9a5a');
+    [3, 5, 5, 5, 3].forEach((n, r) => { for (let k = 0; k < n; k++) o += bgRect((cx - n * 1.5 / 2 + k * 1.5).toFixed(2), (cy + r * 1.4).toFixed(2), 1.3, 1.3, pal[(r + k) % 3]); });
+    return o;
+  };
+  return bgRect(x0, 121, 24, 1, '#4a9a5a') + lwSw(head(x0 + 4, 113) + head(x0 + 11.5, 110.6) + head(x0 + 19, 113.6), 2.2, 2.4, i * .5, '50% 100%');
+}
+
+// 7月: 笹(笹は動かない。短冊だけゆれる)
+function lwTanab(x, i) {
+  const cs = ['#ff8fb1', '#ffe08a', '#9fd6f5', '#fff', '#b8e6a8', '#cbbcf3'];
+  let o = bgRect(x, 94, 1.4, 28, '#8aa860') + bgRect(x - 3, 92, 8, 2, '#4a9a5a');
+  [[1, 98], [-1, 103], [1, 108], [-1, 113], [1, 118]].forEach(([d, y]) => { o += bgRect(x + (d > 0 ? 1.4 : -4), y, 4, 1.2, '#4a9a5a') + bgRect(x + (d > 0 ? 4.4 : -6), y + 1, 3, 1, '#6dbf6a'); });
+  for (let k = 0; k < 5; k++) {
+    o += `<g transform="translate(${x + (k % 2 ? 4.6 : -5.2)} ${96 + k * 5.2})">` + lwSw(bgRect(0, 0, .3, 1.5, '#7a5a46') + bgRect(-.5, 1.5, 1.5, 4, cs[(i + k) % 6], 'stroke="#2e504a" stroke-width=".2"'), 16, 1.3, k * .5 + i, '50% 0%') + '</g>';
+  }
+  return o;
+}
+
+// 8月: ひまわり(風でゆれる)
+const lwSun = (x, hh, i) => {
+  const y = 106 + hh;
+  return lwSw(bgRect(x - .4, y + 6, .9, 122 - y - 6, '#4a9a5a') + bgRect(x - 3.4, 116, 3.2, 1.2, '#4a9a5a') + bgRect(x + .6, 118, 3.2, 1.2, '#4a9a5a')
+    + bgRect(x - 3.2, y + 1.2, 7, 4.2, '#f0c040') + bgRect(x - 1.6, y - .4, 3.8, 7.4, '#f0c040') + bgRect(x - 2.4, y + .4, 5.6, 6, '#f0c040')
+    + bgRect(x - 1.4, y + 1.6, 3.4, 3.4, '#7a4a2a') + bgRect(x - .6, y + 2.2, 1, 1, '#9a6a3a'), 4, 1.9, i * .4, '50% 100%');
+};
+
+// 9月: すすき(風でゆれる)
+function lwTsuki(x) {
+  let o = bgRect(x - 1, 121, 17, 1, '#6aa860');
+  for (let k = 0; k < 5; k++) {
+    const sx = x + k * 3.2, h = 13 + ((k * 5) % 4) * 3.5;
+    o += lwSw(bgRect(sx, 122 - h, .6, h, '#c8a060') + bgRect(sx - 1, 122 - h - 4, 2.6, 5, '#e8d29a') + bgRect(sx - 1.8, 122 - h - 2, 1, 3, '#e8d29a') + bgRect(sx + 1.6, 122 - h - 2, 1, 3, '#e8d29a'), 7, 1.6, k * .3, '50% 100%');
+  }
+  return o;
+}
+
+// 10月: ハロウィン
+const lwStack = (x, flip) => lwJack(x, 116.8, 7, 4.2, flip ? '#3a3a4a' : '#f08a2a') + lwJack(x + 7.6, 117, 6, 4, flip ? '#f08a2a' : '#3a3a4a') + lwJack(x + 3, 112.6, 6, 4, '#f08a2a');
+const lwCat = (x) => { const y = 114, c = '#2a1b3d';
+  return lwSw(bgRect(x + 5, y + 6, 2, 1.2, c) + bgRect(x + 6.2, y + 3, 1.1, 4, c), 14, 1.8, 0, '0% 100%')
+    + bgRect(x, y + 3, 5, 5, c) + bgRect(x + .5, y, 4.4, 3.4, c) + bgRect(x + .5, y - 1, 1, 1, c) + bgRect(x + 3.9, y - 1, 1, 1, c)
+    + `<g class="lw-blink">${bgRect(x + 1.2, y + 1, .9, .9, '#ffe08a')}${bgRect(x + 3.2, y + 1, .9, .9, '#ffe08a')}</g>`;
+};
+const lwDeadT = (x) => bgRect(x, 100, 2.4, 22, '#5a3a2a') + bgRect(x - 1.4, 120.6, 5.2, 1.4, '#5a3a2a')
+  + bgRect(x - 5, 104, 5, 1, '#5a3a2a') + bgRect(x - 5, 102.5, 1, 2, '#5a3a2a') + bgRect(x - 3, 110, 3, 1, '#5a3a2a') + bgRect(x - 3, 108.4, .9, 2, '#5a3a2a')
+  + bgRect(x + 2.4, 107, 6, 1, '#5a3a2a') + bgRect(x + 7.4, 104.6, 1, 3, '#5a3a2a') + bgRect(x + 1, 98, 1, 2.4, '#5a3a2a')
+  + `<g transform="translate(0 0)">` + lwSw(bgRect(x - 4.5, 105, .4, 4, '#7a5a46') + lwJack(x - 7.2, 108.6, 5.4, 3.6, '#f08a2a'), 7, 2.4, x % 3, '50% 0%') + '</g>';
+const lwTomb = (x) => bgRect(x + 1, 112, 6, 10, '#b8bcc8', lwO) + bgRect(x + 2, 111, 4, 1, '#b8bcc8') + bgRect(x + 3.6, 114, .9, 4, '#6a6e7a') + bgRect(x + 2.6, 115, 2.9, .9, '#6a6e7a');
+const lwCandy = (x) => bgRect(x + 1, 119, 2, 1, '#fff') + bgRect(x, 120, 4, 1, '#f0b030') + bgRect(x - .5, 121, 5, 1, '#f08a2a');
+const lwLolly = (x, c) => bgRect(x + 1.2, 118.6, .5, 3.4, '#fff') + bgRect(x, 116.6, 2.4, 2.4, c, lwO) + bgRect(x + .8, 117.4, .8, .8, '#fff');
+
+// 11月: 落ち葉・どんぐり・くり、風で舞う葉
+const lwMaple = (x, y, c) => `<g transform="translate(${x} ${y})">` + bgDot(2, 0, 1, 1, c) + bgDot(1, 1, 3, 1, c) + bgDot(0, 2, 5, 1, c) + bgDot(1, 3, 3, 1, c) + bgDot(2, 4, 1, 2, '#7a4a2a') + '</g>';
+const lwGinkgo = (x, y) => `<g transform="translate(${x} ${y})">` + bgDot(0, 0, 5, 1, '#f0c030') + bgDot(1, 1, 3, 1, '#f0c030') + bgDot(2, 2, 1, 1, '#d8a820') + bgDot(2, 3, 1, 1, '#7a5a2a') + '</g>';
+const lwAcorn = (x, y) => `<g transform="translate(${x} ${y})">` + bgDot(0, 0, 4, 1, '#7a4a2a') + bgDot(0, 1, 4, 1, '#8a5a3a') + bgDot(0, 2, 4, 2, '#c8873a') + bgDot(1, 4, 2, 1, '#c8873a') + bgDot(2, -1, 1, 1, '#5a3a2a') + '</g>';
+const lwKuri = (x, y) => `<g transform="translate(${x} ${y})">` + bgDot(1, 0, 4, 1, '#7a4a2a') + bgDot(0, 1, 6, 4, '#7a4a2a') + bgDot(1, 5, 4, 1, '#7a4a2a') + bgDot(1, 4, 4, 1, '#d8b878') + bgDot(2, 1, 2, 1, '#a06a3a') + '</g>';
+const lwFly = (y, period, frac, leaf) => `<g class="lw-lfx" style="--t:${period}s;--delay:${bgPhase(frac, period)}s"><g transform="translate(0 ${y})"><g class="lw-lfy" style="--d:${-frac * 2}s"><g class="lw-lfr" style="--d:${-frac * 3}s">${leaf}</g></g></g></g>`;
+function lwLeaves() {
+  const cols = ['#e0693a', '#c2453a', '#f0b030'];
+  let o = '';
+  for (let i = 0; i < 26; i++) {
+    const x = +(4 + bgRnd(i + 7) * 188).toFixed(1), y = +(110 + bgRnd(i + 21) * 10).toFixed(1);
+    const t = i % 5;
+    o += t === 3 ? lwAcorn(x, y) : t === 4 ? lwKuri(x, y) : t === 2 ? lwGinkgo(x, y) : lwMaple(x, y, cols[i % 3]);
+  }
+  return o + lwFly(100, 15, .1, lwMaple(0, 0, '#e0693a')) + lwFly(108, 19, .4, lwGinkgo(0, 0)) + lwFly(114, 13, .7, lwMaple(0, 0, '#f0b030'))
+    + lwFly(97, 21, .85, lwMaple(0, 0, '#c2453a')) + lwFly(118, 17, .25, lwGinkgo(0, 0)) + lwFly(104, 24, .55, lwMaple(0, 0, '#e0693a'));
+}
+
+// 12月: プレゼントと、きらきら(大きくて金色)
+const lwStar = (x, y, s, i) => `<g transform="translate(${x} ${y})"><g class="lw-tw" style="--d:${-i * .4}s">`
+  + bgRect(-.6 * s, -3.6 * s, 1.2 * s, 7.2 * s, '#ffbf1f', 'stroke="#c88a00" stroke-width=".2"') + bgRect(-3.6 * s, -.6 * s, 7.2 * s, 1.2 * s, '#ffbf1f', 'stroke="#c88a00" stroke-width=".2"')
+  + bgRect(-1.2 * s, -1.2 * s, 2.4 * s, 2.4 * s, '#fff7c0') + '</g></g>';
+const lwGift = (x) => bgRect(x - 9, 116, 8, 6, '#4fb583', lwO) + bgRect(x - 6, 116, 2, 6, '#fff')
+  + bgRect(x, 109, 16, 13, '#e0453a', lwO) + bgRect(x - 1, 107, 18, 3.4, '#c8352c', lwO) + bgRect(x + 7, 107, 2, 15, '#ffe08a') + bgRect(x - 1, 108.2, 18, 1.2, '#ffe08a')
+  + bgRect(x + 3, 104.4, 4.4, 3, '#ffe08a', lwO) + bgRect(x + 8.6, 104.4, 4.4, 3, '#ffe08a', lwO) + bgRect(x + 7, 105.6, 2, 2, '#e8a800')
+  + bgRect(x + 17, 114, 9, 8, '#4a8fd8', lwO) + bgRect(x + 17, 114, 9, 2, '#3a7fc8') + bgRect(x + 20.6, 114, 1.8, 8, '#fff') + bgRect(x + 19.4, 112, 2.4, 2, '#fff') + bgRect(x + 22.4, 112, 2.4, 2, '#fff')
+  + [[-6, 103, 1.1], [18, 101, 1.3], [27, 109, 1, ], [8, 98, 1.2], [-11, 112, .9], [31, 118, 1]].map(([dx, y, s], i) => lwStar(x + dx, y, s, i)).join('');
+
+const BG_LOW = {
+  0: () => lwKado(22) + lwKado(166),
+  1: () => lwSnow(20, '#4a8fd8', '#ffd34a', '#fff', 0) + lwSnow(92, '#ff8fb1', '#fff', '#e0453a', 3) + lwSnow(166, '#4fb583', '#d6453a', '#fff', 6),
+  2: () => lwBed(8, 56, 'nano', ['#ffd34a'], 0) + lwBed(78, 44, 'nano', ['#ff8fb1', '#ffb6cf', '#fff'], 2) + lwBed(136, 56, 'nano', ['#ffd34a'], 4),
+  3: () => lwBed(8, 56, 'tulip', ['#e0453a', '#ffd34a', '#ff8fb1'], 0) + lwBed(78, 44, 'tulip', ['#fff', '#ff8fb1', '#cbbcf3'], 2) + lwBed(136, 56, 'tulip', ['#ffd34a', '#e0453a', '#fff'], 4),
+  4: () => lwBed(8, 56, 'iris', ['#8a6ad8', '#b69af0', '#fff'], 0) + lwBed(78, 44, 'iris', ['#4a8fd8', '#cbbcf3', '#8a6ad8'], 2) + lwBed(136, 56, 'iris', ['#b69af0', '#8a6ad8', '#fff'], 4),
+  5: () => [10, 50, 90, 130, 170].map((x, i) => lwHyd(x, i)).join(''),
+  6: () => [22, 100, 172].map((x, i) => lwTanab(x, i)).join(''),
+  7: () => [10, 34, 58, 82, 106, 130, 154, 178].map((x, i) => lwSun(x, [0, 1.5, .5, 2, 0, 1.5, .5, 2][i], i)).join(''),
+  8: () => lwTsuki(22) + lwTsuki(160),
+  9: () => lwStack(8, false) + lwCat(30) + lwDeadT(52) + bgGhost(72, 103, 1.2) + lwTomb(84)
+    + lwJack(98, 118, 6, 4.5, '#f08a2a') + lwJack(105, 119, 5, 4, '#3a3a4a') + lwJack(112, 117.5, 7, 5.5, '#f08a2a') + lwDeadT(148)
+    + bgBird(100, 24, .2, '#2a1b3d', 3) + bgBird(104, 30, .55, '#2a1b3d', 3) + bgBird(98, 36, .85, '#2a1b3d', 3)
+    + lwStack(168, true) + lwCandy(40) + lwCandy(124) + lwCandy(188) + lwLolly(64, '#ff8fb1') + lwLolly(134, '#6dcfb2'),
+  10: lwLeaves,
+  11: () => lwGift(18) + lwGift(150)
+};
+
 const MONTH_EVENT = { 0: 'お正月', 1: '節分', 2: 'ひなまつり', 3: 'イースター', 4: 'こどもの日', 5: '梅雨', 6: '七夕', 7: '夏祭り', 8: 'お月見', 9: 'ハロウィン', 10: '紅葉', 11: 'クリスマス' };
 const MONTH_THEME = {   // 月ごとの空や街の色(書いていない月は、季節の色のまま)
   0: { sky: '#ffbf8f', band: '#ffe6bf' },   // 初日の出
@@ -429,7 +613,7 @@ function townBackdrop(theme, season, monthIdx, geo) {
   return {
     back: (m.pre ? m.pre() : '') + bgHills(theme.far2, 16, 4, 1) + bgSkyline(theme) + bgHills(theme.far1, 5, 2, 2.3)
       + bgCloud(11, 1.2, 70, 0.1, m.cloud) + bgCloud(5, 1, 90, 0.45, m.cloud) + bgCloud(15, 1, 80, 0.8, m.cloud) + (m.sky ? m.sky() : m.night ? '' : bgBirds()),
-    fore: bgFence() + bgLamp(48) + bgLamp(152) + bgTree(8, 52, theme, snow, 1) + bgTree(176, 52, rightTree, snow, 1) + bgFlowers(snow) + bgRoad() + bgTraffic() + (m.fore ? m.fore() : ''),
+    fore: bgFence() + bgLamp(48) + bgLamp(152) + bgTree(8, 52, theme, snow, 1) + bgTree(176, 52, rightTree, snow, 1) + bgFlowers(snow) + bgRoad() + bgTraffic() + (m.fore ? m.fore() : '') + (BG_LOW[monthIdx] ? BG_LOW[monthIdx]() : ''),
     front: m.front ? m.front(geo) : ''
   };
 }
@@ -459,20 +643,21 @@ function townScene() {
         <text x="7" y="60" text-anchor="middle" font-size="3.1" fill="#2e504a">${e.name}</text>
         <text x="7" y="63.5" text-anchor="middle" font-size="2.8" fill="#57756f">${SKILLS[e.skill]}</text>
       </g>
-      <g class="bounce"><rect x="2" y="77" width="4" height="3" fill="#f8cdbb"/><rect x="1" y="80" width="6" height="3" fill="${SKILL_COLOR[e.skill]}"/><rect x="2" y="83" width="1" height="2" fill="#2e504a"/><rect x="5" y="83" width="1" height="2" fill="#2e504a"/></g>
+      <g class="bounce"><rect x="2" y="77" width="4" height="3" fill="#f8cdbb"/><rect x="2" y="77" width="4" height="1" fill="#2e504a"/><rect x="1" y="80" width="6" height="3" fill="${SKILL_COLOR[e.skill]}"/><rect x="2" y="83" width="1" height="2" fill="#2e504a"/><rect x="5" y="83" width="1" height="2" fill="#2e504a"/></g>
     </g>`;
   }).join('');
   const decor = theme.n ? Array.from({ length: theme.n }, (_, i) => `<rect x="${(i * 37) % 200}" y="${(i * 53) % 70}" width="${theme.sz}" height="${theme.sz}" fill="${theme.deco[i % theme.deco.length]}"/>`).join('') : '';
-  return `<svg class="town-scene" viewBox="0 0 200 100" role="img" aria-label="会社のある街"><style>${BG_ANIM_CSS}</style>
+  return `<svg class="town-scene" viewBox="0 0 200 124" role="img" aria-label="会社のある街"><style>${BG_ANIM_CSS}</style>
     <rect width="200" height="72" fill="${theme.sky}"/><rect y="40" width="200" height="32" fill="${theme.band}"/><rect x="150" y="8" width="12" height="12" fill="#fff3b0"/>
     ${backdrop.back}
-    <rect y="72" width="200" height="28" fill="${theme.grass}"/><rect y="72" width="200" height="1.5" fill="#2e504a"/><rect y="85" width="200" height="12" fill="#d5d5d5"/>
+    <rect y="72" width="200" height="52" fill="${theme.grass}"/><rect y="72" width="200" height="1.5" fill="#2e504a"/><rect y="85" width="200" height="24" fill="#d5d5d5"/>
     ${backdrop.fore}
     <g class="company" data-go="company"><rect x="${bx}" y="${by}" width="${bw}" height="${bh}" fill="#2e504a"/><rect x="${bx + 1}" y="${by + 1}" width="${bw - 2}" height="${bh - 1}" fill="#fff7ea"/><rect class="roof" x="${bx - 3}" y="${by - 4}" width="${bw + 6}" height="5" fill="${theme.roof}"/><rect x="${bx + 8}" y="${by - 16}" width="${bw - 16}" height="11" fill="#fafffd" stroke="#2e504a" stroke-width=".8"/>${rawName ? `<text x="${bx + bw / 2}" y="${by - 8}" font-size="${nameSize}" text-anchor="middle" fill="#2e504a">${esc(rawName)}</text>` : ''}${windows}<rect x="${bx + 24}" y="58" width="12" height="14" fill="#2e504a"/><rect x="${bx + 25}" y="59" width="10" height="13" fill="#6dcfb2"/><rect x="${bx + 33}" y="65" width="1" height="1" fill="#2e504a"/></g>
     ${backdrop.front}${decor}${walkers}<rect x="3" y="3" width="27" height="8" fill="#fafffd" stroke="#2e504a" stroke-width=".6"/><text x="16.5" y="9" font-size="4.4" text-anchor="middle" fill="#2e504a">${theme.name}・${month}月</text>
   </svg><div class="small muted" style="text-align:center;margin-top:4px">▲ 会社をクリックすると、社内画面を開けます。</div>`;
 }
 function renderTown() {
+  if (S.over) { renderEndTown(); return; }
   const theme = SEASONS[seasonOf(S.day)];
   document.documentElement.style.setProperty('--page', theme.page);
   const alerts = [];
@@ -480,8 +665,209 @@ function renderTown() {
   if (hint) alerts.push(`<div class="hint">${hint}</div>`);
   if (S.money < monthlyCost() * 1.5) alerts.push('<div class="alert"><span>資金が少なくなっています。このままでは、来月の給与を支払えない可能性があります。</span></div>');
   S.jobs.filter((j) => j.late).forEach((j) => alerts.push(`<div class="alert"><span>「${j.name}」は納期を過ぎています。早めに完成させましょう。</span></div>`));
-  const projects = S.jobs.length ? S.jobs.map((j) => `<div class="town-job"><div class="row"><strong class="small">${j.name}</strong><span class="small ${remainDays(j) <= 7 ? 'neg' : 'muted'}" data-left="${j.id}">${leftText(j)}</span></div><div class="bar"><div class="fill" data-bar="${j.id}" style="width:${progressPct(j)}%"></div></div></div>`).join('') : '<div class="small muted">進行中の案件はありません。「案件」から受注できます。</div>';
-  $('town-body').innerHTML = townScene() + `<div class="town-grid"><div>${alerts.join('')}<div class="panel"><div class="panel-title">いまの会社</div><div class="goal-row"><span>資金</span><span data-live="money">${yen(S.money)}</span></div><div class="goal-row"><span>評判</span><span data-live="rep">${S.rep} / 100</span></div><div class="goal-row"><span>社員</span><span data-live="staff">${S.employees.length} / ${levelInfo().slots}人</span></div><div class="goal-row"><span>社員の平均士気</span><span>${averageEmployeeMorale()} / 100</span></div><div class="goal-row"><span>会社Lv</span><span>Lv.${S.level}</span></div></div>${levelPanel()}</div><div class="panel"><div class="panel-title">進行中の案件</div>${projects}</div></div>`;
+  const tile = (cls, k, v, live) => `<div class="tile ${cls}"><div class="k">${k}</div><div class="v"${live ? ` data-live="${live}"` : ''}>${v}</div></div>`;
+  $('town-body').innerHTML = townScene() + `<div class="town-grid"><div>${alerts.join('')}<div class="panel"><div class="panel-title">いまの会社</div><div class="tiles">`
+    + tile('t1', '資金', yen(S.money), 'money') + tile('t2', '評判', `${S.rep} / 100`, 'rep') + tile('t3', '社員', `${S.employees.length} / ${levelInfo().slots}人`, 'staff')
+    + tile('t4', '社員の平均士気', `${averageEmployeeMorale()} / 100`) + tile('t5', '会社Lv', `Lv.${S.level}`)
+    + '</div></div></div></div>';
+}
+
+// ===== ゲーム終了画面(クリア / ゲームオーバー / タイムアップ) =====
+// 街の画面を使って、上に「結果の街」、下に「結果のパネル」を出す。
+const END_THEME = {
+  clear: Object.assign({}, SEASONS.spring, { page: '#ffe9f0' }),
+  bankrupt: { sky: '#aeb8c0', band: '#cdd4da', grass: '#9db0a2', far1: '#a0aab3', far2: '#959cac', roof: '#868f96', win: '#7f8890', page: '#dde2e6', cloud: '#8a939d' },
+  timeout: { sky: '#6a628e', band: '#a496b4', grass: '#c6cbd6', far1: '#7b759d', far2: '#6b678f', roof: '#9893b2', win: '#55506f', page: '#e4e1ee', cloud: '#8a83a8' }
+};
+const END_LABEL = { clear: '★ クリア', bankrupt: '× ゲームオーバー', timeout: '◆ タイムアップ' };
+const END_WIND = { gusts: `<g class="eg-gusts" fill="#8a93ad"><g transform="translate(110 2)"><rect x="27" y="0" width="1" height="1" style="animation-delay:0.00s"/><rect x="26" y="1" width="1" height="1" style="animation-delay:0.02s"/><rect x="26" y="2" width="1" height="1" style="animation-delay:0.04s"/><rect x="25" y="2" width="1" height="1" style="animation-delay:0.06s"/><rect x="25" y="3" width="1" height="1" style="animation-delay:0.08s"/><rect x="24" y="3" width="1" height="1" style="animation-delay:0.10s"/><rect x="24" y="4" width="1" height="1" style="animation-delay:0.12s"/><rect x="23" y="4" width="1" height="1" style="animation-delay:0.14s"/><rect x="23" y="5" width="1" height="1" style="animation-delay:0.16s"/><rect x="22" y="5" width="1" height="1" style="animation-delay:0.18s"/><rect x="21" y="5" width="1" height="1" style="animation-delay:0.20s"/><rect x="21" y="6" width="1" height="1" style="animation-delay:0.22s"/><rect x="20" y="6" width="1" height="1" style="animation-delay:0.24s"/><rect x="19" y="6" width="1" height="1" style="animation-delay:0.26s"/><rect x="19" y="7" width="1" height="1" style="animation-delay:0.28s"/><rect x="18" y="7" width="1" height="1" style="animation-delay:0.30s"/><rect x="17" y="7" width="1" height="1" style="animation-delay:0.32s"/><rect x="16" y="7" width="1" height="1" style="animation-delay:0.34s"/><rect x="15" y="7" width="1" height="1" style="animation-delay:0.36s"/><rect x="13" y="6" width="1" height="1" style="animation-delay:0.38s"/><rect x="12" y="6" width="1" height="1" style="animation-delay:0.40s"/><rect x="12" y="5" width="1" height="1" style="animation-delay:0.42s"/><rect x="12" y="4" width="1" height="1" style="animation-delay:0.44s"/><rect x="12" y="3" width="1" height="1" style="animation-delay:0.46s"/><rect x="13" y="3" width="1" height="1" style="animation-delay:0.48s"/><rect x="13" y="2" width="1" height="1" style="animation-delay:0.50s"/><rect x="14" y="2" width="1" height="1" style="animation-delay:0.52s"/><rect x="15" y="2" width="1" height="1" style="animation-delay:0.54s"/><rect x="15" y="3" width="1" height="1" style="animation-delay:0.56s"/><rect x="15" y="4" width="1" height="1" style="animation-delay:0.58s"/><rect x="15" y="5" width="1" height="1" style="animation-delay:0.60s"/><rect x="15" y="6" width="1" height="1" style="animation-delay:0.62s"/><rect x="14" y="6" width="1" height="1" style="animation-delay:0.64s"/><rect x="14" y="7" width="1" height="1" style="animation-delay:0.66s"/><rect x="13" y="7" width="1" height="1" style="animation-delay:0.68s"/><rect x="13" y="8" width="1" height="1" style="animation-delay:0.70s"/><rect x="12" y="8" width="1" height="1" style="animation-delay:0.72s"/><rect x="12" y="9" width="1" height="1" style="animation-delay:0.74s"/><rect x="11" y="9" width="1" height="1" style="animation-delay:0.76s"/><rect x="11" y="10" width="1" height="1" style="animation-delay:0.78s"/><rect x="10" y="10" width="1" height="1" style="animation-delay:0.80s"/><rect x="9" y="10" width="1" height="1" style="animation-delay:0.82s"/><rect x="9" y="11" width="1" height="1" style="animation-delay:0.84s"/><rect x="8" y="11" width="1" height="1" style="animation-delay:0.86s"/><rect x="7" y="11" width="1" height="1" style="animation-delay:0.88s"/><rect x="7" y="12" width="1" height="1" style="animation-delay:0.90s"/><rect x="6" y="12" width="1" height="1" style="animation-delay:0.92s"/><rect x="5" y="12" width="1" height="1" style="animation-delay:0.94s"/><rect x="4" y="12" width="1" height="1" style="animation-delay:0.96s"/><rect x="3" y="12" width="1" height="1" style="animation-delay:0.98s"/><rect x="2" y="12" width="1" height="1" style="animation-delay:1.00s"/><rect x="1" y="12" width="1" height="1" style="animation-delay:1.02s"/><rect x="1" y="11" width="1" height="1" style="animation-delay:1.04s"/><rect x="0" y="11" width="1" height="1" style="animation-delay:1.06s"/><rect x="0" y="10" width="1" height="1" style="animation-delay:1.08s"/><rect x="0" y="9" width="1" height="1" style="animation-delay:1.10s"/><rect x="0" y="8" width="1" height="1" style="animation-delay:1.12s"/></g><g transform="translate(150 8)"><rect x="28" y="0" width="1" height="1" style="animation-delay:0.30s"/><rect x="27" y="1" width="1" height="1" style="animation-delay:0.32s"/><rect x="26" y="1" width="1" height="1" style="animation-delay:0.34s"/><rect x="26" y="2" width="1" height="1" style="animation-delay:0.36s"/><rect x="25" y="2" width="1" height="1" style="animation-delay:0.38s"/><rect x="24" y="3" width="1" height="1" style="animation-delay:0.40s"/><rect x="23" y="3" width="1" height="1" style="animation-delay:0.42s"/><rect x="23" y="4" width="1" height="1" style="animation-delay:0.44s"/><rect x="22" y="4" width="1" height="1" style="animation-delay:0.46s"/><rect x="21" y="5" width="1" height="1" style="animation-delay:0.48s"/><rect x="20" y="6" width="1" height="1" style="animation-delay:0.50s"/><rect x="19" y="6" width="1" height="1" style="animation-delay:0.52s"/><rect x="19" y="7" width="1" height="1" style="animation-delay:0.54s"/><rect x="18" y="7" width="1" height="1" style="animation-delay:0.56s"/><rect x="17" y="8" width="1" height="1" style="animation-delay:0.58s"/><rect x="16" y="8" width="1" height="1" style="animation-delay:0.60s"/><rect x="15" y="9" width="1" height="1" style="animation-delay:0.62s"/><rect x="14" y="9" width="1" height="1" style="animation-delay:0.64s"/><rect x="14" y="10" width="1" height="1" style="animation-delay:0.66s"/><rect x="13" y="10" width="1" height="1" style="animation-delay:0.68s"/><rect x="12" y="11" width="1" height="1" style="animation-delay:0.70s"/><rect x="11" y="11" width="1" height="1" style="animation-delay:0.72s"/><rect x="10" y="12" width="1" height="1" style="animation-delay:0.74s"/><rect x="9" y="12" width="1" height="1" style="animation-delay:0.76s"/><rect x="8" y="12" width="1" height="1" style="animation-delay:0.78s"/><rect x="8" y="13" width="1" height="1" style="animation-delay:0.80s"/><rect x="7" y="13" width="1" height="1" style="animation-delay:0.82s"/><rect x="6" y="14" width="1" height="1" style="animation-delay:0.84s"/><rect x="5" y="14" width="1" height="1" style="animation-delay:0.86s"/><rect x="4" y="14" width="1" height="1" style="animation-delay:0.88s"/><rect x="4" y="15" width="1" height="1" style="animation-delay:0.90s"/><rect x="3" y="15" width="1" height="1" style="animation-delay:0.92s"/><rect x="2" y="15" width="1" height="1" style="animation-delay:0.94s"/><rect x="1" y="15" width="1" height="1" style="animation-delay:0.96s"/><rect x="1" y="16" width="1" height="1" style="animation-delay:0.98s"/><rect x="0" y="16" width="1" height="1" style="animation-delay:1.00s"/></g><g transform="translate(150 40)"><rect x="21" y="0" width="1" height="1" style="animation-delay:1.20s"/><rect x="20" y="0" width="1" height="1" style="animation-delay:1.22s"/><rect x="20" y="1" width="1" height="1" style="animation-delay:1.24s"/><rect x="19" y="1" width="1" height="1" style="animation-delay:1.26s"/><rect x="19" y="2" width="1" height="1" style="animation-delay:1.28s"/><rect x="18" y="2" width="1" height="1" style="animation-delay:1.30s"/><rect x="18" y="3" width="1" height="1" style="animation-delay:1.32s"/><rect x="17" y="3" width="1" height="1" style="animation-delay:1.34s"/><rect x="17" y="4" width="1" height="1" style="animation-delay:1.36s"/><rect x="16" y="4" width="1" height="1" style="animation-delay:1.38s"/><rect x="15" y="4" width="1" height="1" style="animation-delay:1.40s"/><rect x="14" y="4" width="1" height="1" style="animation-delay:1.42s"/><rect x="14" y="5" width="1" height="1" style="animation-delay:1.44s"/><rect x="13" y="5" width="1" height="1" style="animation-delay:1.46s"/><rect x="12" y="5" width="1" height="1" style="animation-delay:1.48s"/><rect x="10" y="4" width="1" height="1" style="animation-delay:1.50s"/><rect x="10" y="3" width="1" height="1" style="animation-delay:1.52s"/><rect x="9" y="3" width="1" height="1" style="animation-delay:1.54s"/><rect x="9" y="2" width="1" height="1" style="animation-delay:1.56s"/><rect x="10" y="2" width="1" height="1" style="animation-delay:1.58s"/><rect x="10" y="1" width="1" height="1" style="animation-delay:1.60s"/><rect x="11" y="1" width="1" height="1" style="animation-delay:1.62s"/><rect x="11" y="0" width="1" height="1" style="animation-delay:1.64s"/><rect x="12" y="0" width="1" height="1" style="animation-delay:1.66s"/><rect x="12" y="1" width="1" height="1" style="animation-delay:1.68s"/><rect x="12" y="2" width="1" height="1" style="animation-delay:1.70s"/><rect x="12" y="3" width="1" height="1" style="animation-delay:1.72s"/><rect x="11" y="4" width="1" height="1" style="animation-delay:1.74s"/><rect x="11" y="5" width="1" height="1" style="animation-delay:1.76s"/><rect x="10" y="5" width="1" height="1" style="animation-delay:1.78s"/><rect x="10" y="6" width="1" height="1" style="animation-delay:1.80s"/><rect x="9" y="6" width="1" height="1" style="animation-delay:1.82s"/><rect x="9" y="7" width="1" height="1" style="animation-delay:1.84s"/><rect x="8" y="7" width="1" height="1" style="animation-delay:1.86s"/><rect x="7" y="7" width="1" height="1" style="animation-delay:1.88s"/><rect x="7" y="8" width="1" height="1" style="animation-delay:1.90s"/><rect x="6" y="8" width="1" height="1" style="animation-delay:1.92s"/><rect x="5" y="8" width="1" height="1" style="animation-delay:1.94s"/><rect x="5" y="9" width="1" height="1" style="animation-delay:1.96s"/><rect x="4" y="9" width="1" height="1" style="animation-delay:1.98s"/><rect x="3" y="9" width="1" height="1" style="animation-delay:2.00s"/><rect x="2" y="9" width="1" height="1" style="animation-delay:2.02s"/><rect x="1" y="8" width="1" height="1" style="animation-delay:2.04s"/><rect x="0" y="8" width="1" height="1" style="animation-delay:2.06s"/><rect x="0" y="7" width="1" height="1" style="animation-delay:2.08s"/><rect x="0" y="6" width="1" height="1" style="animation-delay:2.10s"/></g><g transform="translate(92 26)"><rect x="24" y="0" width="1" height="1" style="animation-delay:1.50s"/><rect x="23" y="1" width="1" height="1" style="animation-delay:1.52s"/><rect x="22" y="1" width="1" height="1" style="animation-delay:1.54s"/><rect x="22" y="2" width="1" height="1" style="animation-delay:1.56s"/><rect x="21" y="2" width="1" height="1" style="animation-delay:1.58s"/><rect x="20" y="3" width="1" height="1" style="animation-delay:1.60s"/><rect x="19" y="3" width="1" height="1" style="animation-delay:1.62s"/><rect x="19" y="4" width="1" height="1" style="animation-delay:1.64s"/><rect x="18" y="4" width="1" height="1" style="animation-delay:1.66s"/><rect x="17" y="5" width="1" height="1" style="animation-delay:1.68s"/><rect x="16" y="5" width="1" height="1" style="animation-delay:1.70s"/><rect x="16" y="6" width="1" height="1" style="animation-delay:1.72s"/><rect x="15" y="6" width="1" height="1" style="animation-delay:1.74s"/><rect x="14" y="6" width="1" height="1" style="animation-delay:1.76s"/><rect x="14" y="7" width="1" height="1" style="animation-delay:1.78s"/><rect x="13" y="7" width="1" height="1" style="animation-delay:1.80s"/><rect x="12" y="8" width="1" height="1" style="animation-delay:1.82s"/><rect x="11" y="8" width="1" height="1" style="animation-delay:1.84s"/><rect x="10" y="9" width="1" height="1" style="animation-delay:1.86s"/><rect x="9" y="9" width="1" height="1" style="animation-delay:1.88s"/><rect x="8" y="10" width="1" height="1" style="animation-delay:1.90s"/><rect x="7" y="10" width="1" height="1" style="animation-delay:1.92s"/><rect x="6" y="11" width="1" height="1" style="animation-delay:1.94s"/><rect x="5" y="11" width="1" height="1" style="animation-delay:1.96s"/><rect x="4" y="11" width="1" height="1" style="animation-delay:1.98s"/><rect x="4" y="12" width="1" height="1" style="animation-delay:2.00s"/><rect x="3" y="12" width="1" height="1" style="animation-delay:2.02s"/><rect x="2" y="12" width="1" height="1" style="animation-delay:2.04s"/><rect x="1" y="13" width="1" height="1" style="animation-delay:2.06s"/><rect x="0" y="13" width="1" height="1" style="animation-delay:2.08s"/></g><g transform="translate(52 34)"><rect x="27" y="0" width="1" height="1" style="animation-delay:2.00s"/><rect x="26" y="1" width="1" height="1" style="animation-delay:2.02s"/><rect x="26" y="2" width="1" height="1" style="animation-delay:2.04s"/><rect x="25" y="2" width="1" height="1" style="animation-delay:2.06s"/><rect x="25" y="3" width="1" height="1" style="animation-delay:2.08s"/><rect x="24" y="3" width="1" height="1" style="animation-delay:2.10s"/><rect x="24" y="4" width="1" height="1" style="animation-delay:2.12s"/><rect x="23" y="4" width="1" height="1" style="animation-delay:2.14s"/><rect x="23" y="5" width="1" height="1" style="animation-delay:2.16s"/><rect x="22" y="5" width="1" height="1" style="animation-delay:2.18s"/><rect x="21" y="5" width="1" height="1" style="animation-delay:2.20s"/><rect x="21" y="6" width="1" height="1" style="animation-delay:2.22s"/><rect x="20" y="6" width="1" height="1" style="animation-delay:2.24s"/><rect x="19" y="6" width="1" height="1" style="animation-delay:2.26s"/><rect x="19" y="7" width="1" height="1" style="animation-delay:2.28s"/><rect x="18" y="7" width="1" height="1" style="animation-delay:2.30s"/><rect x="17" y="7" width="1" height="1" style="animation-delay:2.32s"/><rect x="16" y="7" width="1" height="1" style="animation-delay:2.34s"/><rect x="15" y="7" width="1" height="1" style="animation-delay:2.36s"/><rect x="13" y="6" width="1" height="1" style="animation-delay:2.38s"/><rect x="12" y="6" width="1" height="1" style="animation-delay:2.40s"/><rect x="12" y="5" width="1" height="1" style="animation-delay:2.42s"/><rect x="12" y="4" width="1" height="1" style="animation-delay:2.44s"/><rect x="12" y="3" width="1" height="1" style="animation-delay:2.46s"/><rect x="13" y="3" width="1" height="1" style="animation-delay:2.48s"/><rect x="13" y="2" width="1" height="1" style="animation-delay:2.50s"/><rect x="14" y="2" width="1" height="1" style="animation-delay:2.52s"/><rect x="15" y="2" width="1" height="1" style="animation-delay:2.54s"/><rect x="15" y="3" width="1" height="1" style="animation-delay:2.56s"/><rect x="15" y="4" width="1" height="1" style="animation-delay:2.58s"/><rect x="15" y="5" width="1" height="1" style="animation-delay:2.60s"/><rect x="15" y="6" width="1" height="1" style="animation-delay:2.62s"/><rect x="14" y="6" width="1" height="1" style="animation-delay:2.64s"/><rect x="14" y="7" width="1" height="1" style="animation-delay:2.66s"/><rect x="13" y="7" width="1" height="1" style="animation-delay:2.68s"/><rect x="13" y="8" width="1" height="1" style="animation-delay:2.70s"/><rect x="12" y="8" width="1" height="1" style="animation-delay:2.72s"/><rect x="12" y="9" width="1" height="1" style="animation-delay:2.74s"/><rect x="11" y="9" width="1" height="1" style="animation-delay:2.76s"/><rect x="11" y="10" width="1" height="1" style="animation-delay:2.78s"/><rect x="10" y="10" width="1" height="1" style="animation-delay:2.80s"/><rect x="9" y="10" width="1" height="1" style="animation-delay:2.82s"/><rect x="9" y="11" width="1" height="1" style="animation-delay:2.84s"/><rect x="8" y="11" width="1" height="1" style="animation-delay:2.86s"/><rect x="7" y="11" width="1" height="1" style="animation-delay:2.88s"/><rect x="7" y="12" width="1" height="1" style="animation-delay:2.90s"/><rect x="6" y="12" width="1" height="1" style="animation-delay:2.92s"/><rect x="5" y="12" width="1" height="1" style="animation-delay:2.94s"/><rect x="4" y="12" width="1" height="1" style="animation-delay:2.96s"/><rect x="3" y="12" width="1" height="1" style="animation-delay:2.98s"/><rect x="2" y="12" width="1" height="1" style="animation-delay:3.00s"/><rect x="1" y="12" width="1" height="1" style="animation-delay:3.02s"/><rect x="1" y="11" width="1" height="1" style="animation-delay:3.04s"/><rect x="0" y="11" width="1" height="1" style="animation-delay:3.06s"/><rect x="0" y="10" width="1" height="1" style="animation-delay:3.08s"/><rect x="0" y="9" width="1" height="1" style="animation-delay:3.10s"/><rect x="0" y="8" width="1" height="1" style="animation-delay:3.12s"/></g><g transform="translate(16 8)"><rect x="21" y="0" width="1" height="1" style="animation-delay:0.60s"/><rect x="20" y="0" width="1" height="1" style="animation-delay:0.62s"/><rect x="20" y="1" width="1" height="1" style="animation-delay:0.64s"/><rect x="19" y="1" width="1" height="1" style="animation-delay:0.66s"/><rect x="19" y="2" width="1" height="1" style="animation-delay:0.68s"/><rect x="18" y="2" width="1" height="1" style="animation-delay:0.70s"/><rect x="18" y="3" width="1" height="1" style="animation-delay:0.72s"/><rect x="17" y="3" width="1" height="1" style="animation-delay:0.74s"/><rect x="17" y="4" width="1" height="1" style="animation-delay:0.76s"/><rect x="16" y="4" width="1" height="1" style="animation-delay:0.78s"/><rect x="15" y="4" width="1" height="1" style="animation-delay:0.80s"/><rect x="14" y="4" width="1" height="1" style="animation-delay:0.82s"/><rect x="14" y="5" width="1" height="1" style="animation-delay:0.84s"/><rect x="13" y="5" width="1" height="1" style="animation-delay:0.86s"/><rect x="12" y="5" width="1" height="1" style="animation-delay:0.88s"/><rect x="10" y="4" width="1" height="1" style="animation-delay:0.90s"/><rect x="10" y="3" width="1" height="1" style="animation-delay:0.92s"/><rect x="9" y="3" width="1" height="1" style="animation-delay:0.94s"/><rect x="9" y="2" width="1" height="1" style="animation-delay:0.96s"/><rect x="10" y="2" width="1" height="1" style="animation-delay:0.98s"/><rect x="10" y="1" width="1" height="1" style="animation-delay:1.00s"/><rect x="11" y="1" width="1" height="1" style="animation-delay:1.02s"/><rect x="11" y="0" width="1" height="1" style="animation-delay:1.04s"/><rect x="12" y="0" width="1" height="1" style="animation-delay:1.06s"/><rect x="12" y="1" width="1" height="1" style="animation-delay:1.08s"/><rect x="12" y="2" width="1" height="1" style="animation-delay:1.10s"/><rect x="12" y="3" width="1" height="1" style="animation-delay:1.12s"/><rect x="11" y="4" width="1" height="1" style="animation-delay:1.14s"/><rect x="11" y="5" width="1" height="1" style="animation-delay:1.16s"/><rect x="10" y="5" width="1" height="1" style="animation-delay:1.18s"/><rect x="10" y="6" width="1" height="1" style="animation-delay:1.20s"/><rect x="9" y="6" width="1" height="1" style="animation-delay:1.22s"/><rect x="9" y="7" width="1" height="1" style="animation-delay:1.24s"/><rect x="8" y="7" width="1" height="1" style="animation-delay:1.26s"/><rect x="7" y="7" width="1" height="1" style="animation-delay:1.28s"/><rect x="7" y="8" width="1" height="1" style="animation-delay:1.30s"/><rect x="6" y="8" width="1" height="1" style="animation-delay:1.32s"/><rect x="5" y="8" width="1" height="1" style="animation-delay:1.34s"/><rect x="5" y="9" width="1" height="1" style="animation-delay:1.36s"/><rect x="4" y="9" width="1" height="1" style="animation-delay:1.38s"/><rect x="3" y="9" width="1" height="1" style="animation-delay:1.40s"/><rect x="2" y="9" width="1" height="1" style="animation-delay:1.42s"/><rect x="1" y="8" width="1" height="1" style="animation-delay:1.44s"/><rect x="0" y="8" width="1" height="1" style="animation-delay:1.46s"/><rect x="0" y="7" width="1" height="1" style="animation-delay:1.48s"/><rect x="0" y="6" width="1" height="1" style="animation-delay:1.50s"/></g><g transform="translate(112 50)"><rect x="21" y="0" width="1" height="1" style="animation-delay:1.70s"/><rect x="20" y="0" width="1" height="1" style="animation-delay:1.72s"/><rect x="20" y="1" width="1" height="1" style="animation-delay:1.74s"/><rect x="19" y="1" width="1" height="1" style="animation-delay:1.76s"/><rect x="19" y="2" width="1" height="1" style="animation-delay:1.78s"/><rect x="18" y="2" width="1" height="1" style="animation-delay:1.80s"/><rect x="18" y="3" width="1" height="1" style="animation-delay:1.82s"/><rect x="17" y="3" width="1" height="1" style="animation-delay:1.84s"/><rect x="17" y="4" width="1" height="1" style="animation-delay:1.86s"/><rect x="16" y="4" width="1" height="1" style="animation-delay:1.88s"/><rect x="15" y="4" width="1" height="1" style="animation-delay:1.90s"/><rect x="14" y="4" width="1" height="1" style="animation-delay:1.92s"/><rect x="14" y="5" width="1" height="1" style="animation-delay:1.94s"/><rect x="13" y="5" width="1" height="1" style="animation-delay:1.96s"/><rect x="12" y="5" width="1" height="1" style="animation-delay:1.98s"/><rect x="10" y="4" width="1" height="1" style="animation-delay:2.00s"/><rect x="10" y="3" width="1" height="1" style="animation-delay:2.02s"/><rect x="9" y="3" width="1" height="1" style="animation-delay:2.04s"/><rect x="9" y="2" width="1" height="1" style="animation-delay:2.06s"/><rect x="10" y="2" width="1" height="1" style="animation-delay:2.08s"/><rect x="10" y="1" width="1" height="1" style="animation-delay:2.10s"/><rect x="11" y="1" width="1" height="1" style="animation-delay:2.12s"/><rect x="11" y="0" width="1" height="1" style="animation-delay:2.14s"/><rect x="12" y="0" width="1" height="1" style="animation-delay:2.16s"/><rect x="12" y="1" width="1" height="1" style="animation-delay:2.18s"/><rect x="12" y="2" width="1" height="1" style="animation-delay:2.20s"/><rect x="12" y="3" width="1" height="1" style="animation-delay:2.22s"/><rect x="11" y="4" width="1" height="1" style="animation-delay:2.24s"/><rect x="11" y="5" width="1" height="1" style="animation-delay:2.26s"/><rect x="10" y="5" width="1" height="1" style="animation-delay:2.28s"/><rect x="10" y="6" width="1" height="1" style="animation-delay:2.30s"/><rect x="9" y="6" width="1" height="1" style="animation-delay:2.32s"/><rect x="9" y="7" width="1" height="1" style="animation-delay:2.34s"/><rect x="8" y="7" width="1" height="1" style="animation-delay:2.36s"/><rect x="7" y="7" width="1" height="1" style="animation-delay:2.38s"/><rect x="7" y="8" width="1" height="1" style="animation-delay:2.40s"/><rect x="6" y="8" width="1" height="1" style="animation-delay:2.42s"/><rect x="5" y="8" width="1" height="1" style="animation-delay:2.44s"/><rect x="5" y="9" width="1" height="1" style="animation-delay:2.46s"/><rect x="4" y="9" width="1" height="1" style="animation-delay:2.48s"/><rect x="3" y="9" width="1" height="1" style="animation-delay:2.50s"/><rect x="2" y="9" width="1" height="1" style="animation-delay:2.52s"/><rect x="1" y="8" width="1" height="1" style="animation-delay:2.54s"/><rect x="0" y="8" width="1" height="1" style="animation-delay:2.56s"/><rect x="0" y="7" width="1" height="1" style="animation-delay:2.58s"/><rect x="0" y="6" width="1" height="1" style="animation-delay:2.60s"/></g><g transform="translate(168 56)"><rect x="28" y="0" width="1" height="1" style="animation-delay:2.20s"/><rect x="27" y="1" width="1" height="1" style="animation-delay:2.22s"/><rect x="26" y="1" width="1" height="1" style="animation-delay:2.24s"/><rect x="26" y="2" width="1" height="1" style="animation-delay:2.26s"/><rect x="25" y="2" width="1" height="1" style="animation-delay:2.28s"/><rect x="24" y="3" width="1" height="1" style="animation-delay:2.30s"/><rect x="23" y="3" width="1" height="1" style="animation-delay:2.32s"/><rect x="23" y="4" width="1" height="1" style="animation-delay:2.34s"/><rect x="22" y="4" width="1" height="1" style="animation-delay:2.36s"/><rect x="21" y="5" width="1" height="1" style="animation-delay:2.38s"/><rect x="20" y="6" width="1" height="1" style="animation-delay:2.40s"/><rect x="19" y="6" width="1" height="1" style="animation-delay:2.42s"/><rect x="19" y="7" width="1" height="1" style="animation-delay:2.44s"/><rect x="18" y="7" width="1" height="1" style="animation-delay:2.46s"/><rect x="17" y="8" width="1" height="1" style="animation-delay:2.48s"/><rect x="16" y="8" width="1" height="1" style="animation-delay:2.50s"/><rect x="15" y="9" width="1" height="1" style="animation-delay:2.52s"/><rect x="14" y="9" width="1" height="1" style="animation-delay:2.54s"/><rect x="14" y="10" width="1" height="1" style="animation-delay:2.56s"/><rect x="13" y="10" width="1" height="1" style="animation-delay:2.58s"/><rect x="12" y="11" width="1" height="1" style="animation-delay:2.60s"/><rect x="11" y="11" width="1" height="1" style="animation-delay:2.62s"/><rect x="10" y="12" width="1" height="1" style="animation-delay:2.64s"/><rect x="9" y="12" width="1" height="1" style="animation-delay:2.66s"/><rect x="8" y="12" width="1" height="1" style="animation-delay:2.68s"/><rect x="8" y="13" width="1" height="1" style="animation-delay:2.70s"/><rect x="7" y="13" width="1" height="1" style="animation-delay:2.72s"/><rect x="6" y="14" width="1" height="1" style="animation-delay:2.74s"/><rect x="5" y="14" width="1" height="1" style="animation-delay:2.76s"/><rect x="4" y="14" width="1" height="1" style="animation-delay:2.78s"/><rect x="4" y="15" width="1" height="1" style="animation-delay:2.80s"/><rect x="3" y="15" width="1" height="1" style="animation-delay:2.82s"/><rect x="2" y="15" width="1" height="1" style="animation-delay:2.84s"/><rect x="1" y="15" width="1" height="1" style="animation-delay:2.86s"/><rect x="1" y="16" width="1" height="1" style="animation-delay:2.88s"/><rect x="0" y="16" width="1" height="1" style="animation-delay:2.90s"/></g></g>` };
+
+function endChipText(end) {
+  if (end === 'clear') return `${(S.over.day / 365).toFixed(1)}年で、すべての目標を達成した！`;
+  if (end === 'bankrupt') return '資金がマイナスになり、会社は倒産した';
+  return '5年が過ぎた。あと一歩、届かなかった';
+}
+
+// 社員(clap = 拍手 / plain = ふだんの四角い体 / box = 段ボールを抱える)。足元は街の社員と同じ高さ
+function endPerson(x, skill, pose, i) {
+  const col = skillColor(skill);
+  const delay = `animation-delay:${(-(i % 5) * 0.13).toFixed(2)}s`;
+  const body = '<rect x="2" y="77" width="4" height="3" fill="#f8cdbb"/><rect x="2" y="77" width="4" height="1" fill="#2e504a"/>'
+    + `<rect x="1" y="80" width="6" height="3" fill="${col}"/><rect x="2" y="83" width="1" height="2" fill="#2e504a"/><rect x="5" y="83" width="1" height="2" fill="#2e504a"/>`;
+  if (pose === 'clap') {
+    return `<g transform="translate(${x} 0)"><g class="bounce" style="${delay}">${body}
+      <g class="clap-a" style="${delay}"><rect x="-0.5" y="78" width="1.5" height="3" fill="${col}"/><rect x="7" y="78" width="1.5" height="3" fill="${col}"/></g>
+      <g class="clap-b" style="${delay}"><rect x="0" y="80" width="1" height="2" fill="${col}"/><rect x="7" y="80" width="1" height="2" fill="${col}"/><rect x="2.5" y="79.5" width="3" height="1.5" fill="#f8cdbb"/></g>
+    </g></g>`;
+  }
+  // 段ボールは体より小さくして、両手で抱えて見えるようにする
+  const box = pose === 'box' ? '<rect x="1.8" y="80.6" width="4.4" height="3.2" fill="#c8a06a" stroke="#2e504a" stroke-width=".4"/><rect x="3.4" y="80.6" width="1.2" height="1" fill="#e6c892"/><rect x="1" y="81.6" width="1" height="1.4" fill="#f8cdbb"/><rect x="6" y="81.6" width="1" height="1.4" fill="#f8cdbb"/>' : '';
+  return `<g transform="translate(${x} 0)" style="filter:saturate(.55) brightness(.95)">${body}${box}</g>`;
+}
+
+// 旗ひも(なめらかにたるむ曲線)
+function endGarland(x1, y1, x2, y2, sag) {
+  const flags = ['#ff8fb1', '#ffe08a', '#6dcfb2', '#9fd6f5', '#cbbcf3', '#ffb59e'];
+  let out = '', k = 0;
+  for (let x = x1; x < x2; x += 1.5, k++) {
+    const t = (x - x1) / (x2 - x1);
+    const y = Math.round((y1 + (y2 - y1) * t + Math.sin(t * Math.PI) * sag) * 2) / 2;
+    out += bgRect(x, y, 1.7, 1, '#2e504a');
+    if (k % 4 === 2) { const c = flags[(k / 4 | 0) % flags.length]; out += bgRect(x - .3, y + 1, 2.4, 2.4, c); }
+  }
+  return out;
+}
+
+function endBareTree(x, delay) {
+  const c = '#5b4a44';
+  return `<g class="e-sway" style="animation-delay:${delay}s">${bgRect(x + 3, 50, 2.4, 28, c)}${bgRect(x - 2, 57, 5.2, 1.2, c)}${bgRect(x - 2, 54, 1.2, 4, c)}${bgRect(x + 1, 52, 2.4, 1.2, c)}${bgRect(x + 1, 48, 1.2, 5, c)}${bgRect(x + 5, 53, 4.4, 1.2, c)}${bgRect(x + 8.2, 49, 1.2, 5, c)}${bgRect(x + 3.6, 46, 1.2, 5, c)}</g>`;
+}
+
+function endScene(end) {
+  const theme = END_THEME[end];
+  const rows = Math.min(4, Math.max(2, S.level + 1));
+  const bx = 70, bw = 60, bh = 12 + rows * 10.5, by = 72 - bh;
+  const rawName = S.companyName || companyName;
+  const nameSize = rawName.length > 8 ? 3.4 : 4.3;
+  const cloud = theme.cloud;
+  // 背景
+  let back, fore;
+  if (end === 'clear') {
+    const bd = townBackdrop(theme, 'spring', null, { bx, bw, by });
+    back = bd.back;
+    fore = bgLamp(48) + bgLamp(152) + bgFence() + bgTree(8, 52, theme, false, 1) + bgTree(176, 52, theme, false, 1) + bgFlowers(false) + bgRoadOne() + bgTrafficOne();
+  } else {
+    back = bgHills(theme.far2, 16, 4, 1) + bgSkyline(theme) + bgHills(theme.far1, 5, 2, 2.3)
+      + bgCloud(11, 1.2, 70, 0.1, cloud) + bgCloud(5, 1, 90, 0.45, cloud) + bgCloud(15, 1, 80, 0.8, cloud);
+    fore = bgLamp(48) + bgLamp(152) + endBareTree(6, 0) + endBareTree(176, -1.7) + bgFence() + bgRoadOne() + bgTrafficOne();
+  }
+  // 会社
+  const wall = end === 'clear' ? '#fff7ea' : end === 'bankrupt' ? '#d6d6d2' : '#cbc5d6';
+  const signFill = end === 'clear' ? '#fafffd' : '#b9bdc1';
+  const signInk = end === 'clear' ? '#2e504a' : '#6c767c';
+  const lit = (i) => end === 'clear' ? '#ffe08a' : end === 'timeout' && i === 2 ? '#ffe08a' : end === 'timeout' ? '#443f5e' : '#3b4248';
+  const windows = Array.from({ length: rows * 4 }, (_, i) => {
+    const row = Math.floor(i / 4), col = i % 4;
+    if (row === rows - 1 && (col === 1 || col === 2)) return '';
+    return `<rect x="${bx + 4 + col * 14}" y="${by + 6 + row * 10.5}" width="9" height="8" fill="#2e504a"/><rect x="${bx + 5 + col * 14}" y="${by + 7 + row * 10.5}" width="7" height="6" fill="${lit(i)}"/>`;
+  }).join('');
+  const door = end === 'clear' ? '#6dcfb2' : '#59615f';
+  const poster = end === 'bankrupt' ? `<rect x="${bx + 23}" y="59" width="14" height="9" fill="#fafffd" stroke="#2e504a" stroke-width=".4"/><text x="${bx + 30}" y="63" font-size="3" text-anchor="middle" fill="#c2453a">テナント</text><text x="${bx + 30}" y="66.6" font-size="3" text-anchor="middle" fill="#c2453a">募集</text>` : '';
+  const company = `<g class="company" data-go="company"><rect x="${bx}" y="${by}" width="${bw}" height="${bh}" fill="#2e504a"/><rect x="${bx + 1}" y="${by + 1}" width="${bw - 2}" height="${bh - 1}" fill="${wall}"/><rect class="roof" x="${bx - 3}" y="${by - 4}" width="${bw + 6}" height="5" fill="${theme.roof}"/><rect x="${bx + 8}" y="${by - 16}" width="${bw - 16}" height="11" fill="${signFill}" stroke="#2e504a" stroke-width=".8"/>${rawName ? `<text x="${bx + bw / 2}" y="${by - 8}" font-size="${nameSize}" text-anchor="middle" fill="${signInk}">${esc(rawName)}</text>` : ''}${windows}<rect x="${bx + 24}" y="58" width="12" height="14" fill="#2e504a"/><rect x="${bx + 25}" y="59" width="10" height="13" fill="${door}"/><rect x="${bx + 33}" y="65" width="1" height="1" fill="#2e504a"/>${poster}</g>`;
+  // 社員
+  const list = S.employees.filter((e) => !isAbsent(e)).slice(0, 10);
+  const n = Math.max(1, list.length);
+  const people = list.map((e, i) => {
+    const x = Math.round(8 + (i + 0.5) * (184 / n) - 4);
+    const pose = end === 'clear' ? 'clap' : end === 'bankrupt' && i % 2 === 0 ? 'box' : 'plain';
+    const shadow = end === 'timeout' ? `<rect x="${x + 1}" y="84.8" width="10" height="1" fill="#1d1a33" opacity=".25"/>` : '';
+    return shadow + `<g><title>${esc(e.name)} ${SKILLS[e.skill]}</title>${endPerson(x, e.skill, pose, i)}</g>`;
+  }).join('');
+  // 演出
+  let fx = '', extra = '', banner = '';
+  if (end === 'clear') {
+    extra = endGarland(4, 24, bx - 3, by - 2, 8) + endGarland(bx + bw + 3, by - 2, 196, 24, 8);
+    const cc = ['#ff8fb1', '#ffe08a', '#6dcfb2', '#9fd6f5', '#cbbcf3', '#ffb59e'];
+    fx = Array.from({ length: 34 }, (_, i) => `<rect class="e-conf" x="${(i * 47) % 200}" y="-12" width="1.6" height="1.6" fill="${cc[i % 6]}" style="--dx:${((i % 5) - 2) * 3}px;--d:${3.4 + (i % 4) * 0.6}s;animation-delay:${(-(i * 0.37) % 4).toFixed(2)}s"/>`).join('');
+    banner = `<g class="bg-bob"><rect x="38" y="-12" width="124" height="11" fill="#ffe08a" stroke="#2e504a" stroke-width="1.4"/><text x="100" y="-4" font-size="6.5" text-anchor="middle" fill="#2e504a">★ GAME CLEAR! ★</text></g>`;
+  } else if (end === 'bankrupt') {
+    fx = Array.from({ length: 18 }, (_, i) => `<rect class="e-rain" x="${Math.round(bgRnd(i * 7 + 3) * 200)}" y="${Math.round(bgRnd(i * 11 + 5) * 20) - 8}" width=".8" height="3" fill="#6f8fb0" style="--d:${1.1 + bgRnd(i + 40) * 0.5}s;animation-delay:${(-bgRnd(i * 13 + 9) * 1.6).toFixed(2)}s"/>`).join('');
+    banner = `<g><rect x="50" y="-12" width="100" height="11" fill="#c2453a" stroke="#2e504a" stroke-width="1.4"/><text x="100" y="-4" font-size="6.5" text-anchor="middle" fill="#fff">GAME OVER</text></g>`;
+  } else {
+    // 横なぐりの雪(右から左へ)+提案の風と枯れ葉
+    const snow = Array.from({ length: 44 }, (_, i) => `<rect class="e-snow" x="${110 + (i * 37) % 110}" y="${(i * 17) % 76}" width="1.1" height="1.1" fill="#fff" style="--d:${2.2 + (i % 4) * 0.5}s;animation-delay:${(-(i * 0.29) % 3).toFixed(2)}s"/>`).join('');
+    const leaves = Array.from({ length: 5 }, (_, i) => `<rect class="e-leaf" x="${120 + (i * 23) % 90}" y="${(i * 19) % 40}" width="1.6" height="1.6" fill="${['#b0793a', '#8a5a2a', '#c9923f'][i % 3]}" style="--d:${4.5 + (i % 3) * 0.8}s;animation-delay:${(-(i * 0.9) % 4).toFixed(2)}s"/>`).join('');
+    const gusts = END_WIND.gusts.replace(/<g transform="translate\(([\d.]+ [\d.]+)\)">/g, '<g transform="translate($1) scale(.55)">');   // 風のサイズ
+    fx = snow + gusts + leaves;
+    banner = `<g><rect x="55" y="-12" width="90" height="11" fill="#b9b2d3" stroke="#2e504a" stroke-width="1.4"/><text x="100" y="-4" font-size="6.5" text-anchor="middle" fill="#2e504a">TIME UP</text></g>`;
+  }
+  const sun = end === 'clear' ? '<rect x="150" y="8" width="12" height="12" fill="#fff3b0"/>' : end === 'timeout' ? '<rect x="150" y="34" width="12" height="12" fill="#d8a47e" opacity=".6"/>' : '';
+  return `<div class="end-scene end-scene-${end}"><svg class="town-scene" viewBox="0 -14 200 114" role="img" aria-label="${END_LABEL[end]}の街"><style>${BG_ANIM_CSS}</style>
+    <rect y="-14" width="200" height="14" fill="${theme.sky}"/><rect width="200" height="72" fill="${theme.sky}"/><rect y="40" width="200" height="32" fill="${theme.band}"/>${sun}
+    ${back}
+    <rect y="72" width="200" height="28" fill="${theme.grass}"/><rect y="72" width="200" height="1.5" fill="#2e504a"/><rect y="85" width="200" height="12" fill="${end === 'clear' ? '#d5d5d5' : '#b9bcc0'}"/>
+    ${fore}${extra}${company}${people}${fx}${banner}
+  </svg></div>`;
+}
+
+function judgementText() {
+  const t = S.tally;
+  if (t.incidents === 0) return 'まだ障害を経験していない。';
+  if (t.hide === 0) return `障害に${t.incidents}回対応して、一度も隠さなかった。誠実な社長。`;
+  if (t.hide >= t.honest) return `障害${t.incidents}回のうち、${t.hide}回は隠す選択をした。実際の会社では、信頼を失う原因になる。`;
+  return `障害${t.incidents}回のうち、${t.hide}回は隠す選択をした。隠した障害は、あとで見つかることが多い。`;
+}
+
+function endGoalBars(end) {
+  const rows = goalList().map((g) => {
+    const met = end === 'clear' || g.met;
+    const ratio = end === 'clear' ? 1 : g.ratio;
+    const pct = Math.round(ratio * 100);
+    let val;
+    if (end === 'clear') val = `${g.fmt(g.cur)} / ${g.fmt(g.target)} ✓`;
+    else if (end === 'timeout') val = met ? `${g.fmt(g.cur)} ✓ 達成` : `あと ${g.fmt(Math.max(0, g.target - g.cur))}`;
+    else val = `${g.fmt(g.cur)} / ${g.fmt(g.target)}`;
+    const cls = end === 'clear' ? '' : met ? '' : 'neg';
+    const fill = end === 'bankrupt' && !met ? 'background:#ffb59e;' : '';
+    return `<div class="end-goal"><div class="goal-row"><span>${g.label}</span><span class="${cls}">${val}</span></div><div class="bar"><div class="fill" style="width:${pct}%;${fill}"></div></div></div>`;
+  }).join('');
+  return rows;
+}
+
+function endStatsTable(title) {
+  const t = S.tally;
+  return `<table class="stats"><tr><td>完成させた案件</td><td>${S.done}件</td></tr>
+    <tr><td>対応した障害</td><td>${t.incidents}回(隠した: ${t.hide}回)</td></tr>
+    <tr><td>会社Lv</td><td>Lv.${S.level}</td></tr></table>`;
+}
+
+function endPanels(end) {
+  const o = S.over;
+  const years = (o.day / 365).toFixed(1);
+  let left, right;
+  if (end === 'clear') {
+    const rank = getClearRank();
+    const tags = ['S', 'A', 'B', 'C', 'D'].map((r) => `<span class="stag ${r === rank ? 'ok' : ''}">${r}</span>`).join('');
+    left = `<div class="panel panel-hl"><div class="panel-title">クリア評価</div>
+      <div class="medal-wrap"><div class="medal medal-${rank}"><b>${rank}</b></div><div class="medal-lead">${years}年で、すべての目標を達成した。<br>会社は大きく成長した。</div></div>
+      <div class="chips" style="justify-content:center">${tags}</div>
+      <div class="small muted" style="text-align:center;margin-top:4px">S:1年以内 / A:2年 / B:3年 / C:4年 / D:5年</div></div>
+      <div class="lesson"><div class="small muted">あなたの判断</div>${judgementText()}</div>`;
+    right = `<div class="panel"><div class="panel-title">達成した目標</div>${endGoalBars(end)}</div>
+      <div class="panel"><div class="panel-title">会社の記録</div>${endStatsTable()}</div>`;
+  } else if (end === 'bankrupt') {
+    const events = S.log.slice(0, 4).reverse().map((l) => `<div class="end-log"><span class="small muted">${dateLabel(l.day)}</span> ${esc(l.text)}</div>`).join('') || '<div class="small muted">記録はない。</div>';
+    left = `<div class="panel"><div class="panel-title">結果</div>
+      <div class="medal-wrap"><div class="medal medal-E medal-word"><b>倒産</b></div><div class="medal-lead">${dateLabel(o.day)}、資金が尽きて、<br>会社を続けられなくなった。</div></div></div>
+      <div class="panel"><div class="panel-title">倒産までのできごと</div>${events}</div>
+      <div class="hint">次にためすこと: 給料日(毎月${CONFIG.paydayOfMonth}日)の前に、資金に余裕があるか確認しよう。人を増やす前に、お金を貯めておくと安心。</div>`;
+    right = `<div class="panel"><div class="panel-title">目標の進み具合</div>${endGoalBars(end)}</div>
+      <div class="panel"><div class="panel-title">会社の記録</div>${endStatsTable()}</div>`;
+  } else {
+    left = `<div class="panel"><div class="panel-title">結果</div>
+      <div class="medal-wrap"><div class="medal medal-E medal-word"><b>終</b></div><div class="medal-lead">5年以内に、すべての目標を<br>達成できなかった。</div></div></div>
+      <div class="hint">次にためすこと: 大規模案件は、会社Lv.3まで育て、中規模案件を3件成功させると受けられるようになる。早めに会社を大きくしよう。</div>`;
+    right = `<div class="panel"><div class="panel-title">目標の進み具合</div>${endGoalBars(end)}</div>
+      <div class="panel"><div class="panel-title">5年の記録</div>${endStatsTable()}</div>`;
+  }
+  const dbg = debugPreviewMode ? '<button class="btn-small" data-act="debug-preview-back">デバッグ画面へ戻る</button>' : '';
+  const again = `<button class="btn-main" data-act="restart" ${debugPreviewMode ? 'disabled' : ''}>もう一度あそぶ</button>`;
+  const review = `<button class="btn-main btn-sub" data-act="end-town">街の画面で${end === 'clear' ? '余韻にひたる' : '振り返る'}</button>`;
+  return `<div class="town-grid end-grid"><div>${left}</div><div>${right}</div></div><div class="end-btns">${again}${review}</div>${dbg}`;
+}
+
+function renderEndTown() {
+  const end = S.over.type;
+  document.documentElement.style.setProperty('--page', END_THEME[end].page);
+  document.body.dataset.end = end;
+  let below;
+  if (endView === 'town') {
+    below = `<div class="panel end-mini"><div class="small">${endChipText(end)}</div><div class="end-btns"><button class="btn-main btn-sub" data-act="end-result">結果を見る</button><button class="btn-main" data-act="restart" ${debugPreviewMode ? 'disabled' : ''}>もう一度あそぶ</button></div></div>
+      <div class="small muted" style="text-align:center;margin-top:4px">▲ 会社をクリックすると、中が見られる</div>`;
+  } else {
+    below = `<div class="end-chip end-chip-${end}">${endChipText(end)}</div>` + endPanels(end);
+  }
+  $('town-body').innerHTML = endScene(end) + below;
 }
 
 function renderHome() {
@@ -602,13 +988,15 @@ function missionPanel() {
     const missions = MISSIONS.filter((mission) => mission.tier === tier);
     return `<li class="mission-tier"><div class="mission-tier-title">${tier}</div><ul>${missions.map((mission) => {
       const done = mission.met(S);
-      return `<li class="${done ? 'done' : ''}">${mission.label}<span class="mission-exp">${mission.rewardType === 'money' ? `+${yen(mission.rewardAmount)}` : mission.rewardType === 'reputation' ? `+${mission.rewardAmount}評判` : `+${mission.rewardAmount}EXP`}</span></li>`;
+      return `<li class="${done ? 'done' : ''}">${mission.label}<span class="mission-exp">${mission.rewardType === 'money' ? `+${yen(mission.rewardAmount)}` : 
+        mission.rewardType === 'reputation' ? `+${mission.rewardAmount}評判` : `+${mission.rewardAmount}EXP`}</span></li>`;
     }).join('')}</ul></li>`;
   }).join('');
   if (challengeMissions.length) {
     lists += `<li class="mission-tier">チャレンジ<ul>${challengeMissions.map((mission) => {
       const done = mission.met(S);
-      return `<li class="${done ? 'done' : ''}">${mission.label}<span class="mission-exp">${mission.rewardType === 'money' ? `+${yen(mission.rewardAmount)}` : mission.rewardType === 'reputation' ? `+${mission.rewardAmount}評判` : `+${mission.rewardAmount}EXP`}</span></li>`;
+      return `<li class="${done ? 'done' : ''}">${mission.label}<span class="mission-exp">${mission.rewardType === 'money' ? `+${yen(mission.rewardAmount)}` :
+        mission.rewardType === 'reputation' ? `+${mission.rewardAmount}評判` : `+${mission.rewardAmount}EXP`}</span></li>`;
     }).join('')}</ul></li>`;
   }
   if (!lists) return '<div class="panel panel-hl"><div class="panel-title">ミッション</div><div class="small">すべてのミッションを達成しました。</div></div>';
@@ -807,6 +1195,25 @@ function renderInvestEvent() {
             </div>
           </div>`;
       }
+      if (k === 'trainingProgram') {
+        const disabled =
+          S.trainingProgramCount >= inv.maxCount;
+        const btn = disabled
+          ? '<span class="small">利用不可</span>'
+          : `<button class="act" data-act="training-program">研修する</button>`;
+        return `<div class="card job">
+          <div class="row">
+            <div>
+              <strong>${inv.name}</strong>
+            </div>
+            ${btn}
+          </div>
+          <div class="small">${inv.help}</div>
+          <div class="small muted">
+            ${inv.now(S.trainingProgramCount)}
+          </div>
+        </div>`;
+      }
     const lv = S.invest[k];
     const max = inv.costs.length;
     const btn = lv >= max
@@ -836,9 +1243,9 @@ function updateLive() {
   $('h-date').textContent = dateLabel(S.day);
   $('track-fill').style.width = (S.day / CONFIG.totalDays * 100) + '%';
   const eventActive = S.pending || S.recruiting ;
-  $('play-btn').textContent = eventActive ? 'イベント中' : S.playing && !S.pending ? '❚❚ 一時停止' : '▶ 再生';
-  $('play-btn').disabled = eventActive;
-  $('speed-btn').disabled = eventActive;
+  $('play-btn').textContent = S.over ? END_LABEL[S.over.type] : eventActive ? 'イベント中' : S.playing && !S.pending ? '❚❚ 一時停止' : '▶ 再生';
+  $('play-btn').disabled = eventActive || !!S.over;
+  $('speed-btn').disabled = eventActive || !!S.over;
   $('speed-btn').textContent = CONFIG.speeds[S.speedIdx].label;
 
   S.jobs.forEach((job) => {
@@ -1102,8 +1509,34 @@ function renderModal() {
     $('modal').classList.remove('hidden');
     return;
   }
+  if (S.trainingSelecting) {
+    body.innerHTML = `
+      <div class="modal-head">
+        <span class="badge badge-low">特別研修プログラム</span>
+      </div>
+      <h3>研修規模選択</h3>
+      <p class="small muted">
+        評判を消費して社員全員の経験値を向上させます。
+      </p>
+      <div class="choices">
+        <button class="choice" data-act="training-level" data-level="1">
+          小規模研修（評判20）
+        </button>
+        <button class="choice" data-act="training-level" data-level="2">
+          中規模研修（評判40）
+        </button>
+        <button class="choice" data-act="training-level" data-level="3">
+          大規模研修（評判60）
+        </button>
+      </div>
+      <button class="btn-small" data-act="cancel-training">
+        キャンセル
+      </button>
+    `;
+    $('modal').classList.remove('hidden');
+    return;
+  }
   if (!p || screenMode !== null) return;
-
 
   if (stage === 2 && lastResult) {
     body.innerHTML = `<div class="modal-head"><span class="badge badge-low">結果</span></div><h3>${lastResult.title}</h3>
@@ -1152,6 +1585,7 @@ function nextPending() {
 // ----- 開始画面と終了画面 -----
 function showTitle() {
   screenMode = 'title';
+  showPage('town', true);   // タイトル画面の裏では、下のメニューや「会社の歩み」を出さない
   const g = CONFIG.goals;
   $('screen-body').innerHTML = `<h1 class="big-title end-title">IT会社経営シミュレーター（仮）</h1>
     <p>設立したばかりのIT会社の社長として、5年間で会社を成長させましょう。</p>
@@ -1196,64 +1630,16 @@ function updateDifficultyPreview() {
 }
 
 function showEnd() {
+  // 終了画面は、街の画面を使って表示する(上: 街の様子 / 下: 結果のパネル)
   screenMode = 'end';
-  const o = S.over;
-  const goals = goalList();
-  const elapsedDate = dateOf(S.day);
-  const elapsedMonths =
-    (elapsedDate.getFullYear() - CONFIG.startYear) * 12
-    + elapsedDate.getMonth() - CONFIG.startMonth;
-  const elapsedYears = Math.floor(elapsedMonths / 12);
-  const elapsedMonthCount = elapsedMonths % 12;
-  const elapsedLabel = `${elapsedYears}年${elapsedMonthCount}ヵ月`;
-  let title, lead;
-  let rank = o.type === 'timeout' ? 'E' : 'C';
-  if (o.type === 'clear') {
-    rank = getClearRank();
-    title = `ゲームクリア！ 評価 ${rank}`;
-    lead = `${elapsedLabel}で、すべての目標を達成しました。会社は大きく成長しました。`;
-  }
-  else if (o.type === 'bankrupt') { title = 'ゲームオーバー'; lead = `${dateLabel(o.day)}、資金が尽きたため、会社を続けられなくなりました。`; }
-  else if (o.type === 'timeout') {
-    title = '5年経過';
-    lead = '5年以内にすべての目標を達成できませんでした。評価は最低ランクです。';
-  }
-  const t = S.tally;
-  const totalEvents = t.incidents + t.managementEvents;
-  let style;
-  if (totalEvents === 0) style = 'インシデントや会社イベントは発生しませんでした。';
-  else {
-    const signed = (value, suffix = '') => `${value >= 0 ? '+' : ''}${value}${suffix}`;
-    const changes = [];
-    if (t.money !== 0) changes.push(`資金の累計変化 ${t.money >= 0 ? '+' : ''}${yen(t.money)}`);
-    if (t.rep !== 0) changes.push(`評判の累計変化 ${signed(t.rep)}`);
-    if (t.employees !== 0) changes.push(`社員数の累計変化 ${signed(t.employees, '人')}`);
-    if (t.morale !== 0) changes.push(`社員の士気合計の累計変化 ${signed(t.morale)}`);
-    if (Math.abs(t.jobProgress) >= 0.05) changes.push(`案件進捗合計の累計変化 ${signed(Math.round(t.jobProgress * 10) / 10)}`);
-    if (t.workload !== 0) changes.push(`案件の作業量の累計変化 ${signed(t.workload)}`);
-    const changesText = changes.length
-      ? `選択による累計変化は、${changes.join('、')}です。`
-      : '選択によってもたらされた直接的な数値変化はありませんでした。';
-    style = `インシデント${t.incidents}件、会社イベント${t.managementEvents}件に対応しました。${changesText}`;
-  }
-
-  const rows = goals.map((g) => `<tr class="${g.met ? 'met' : ''}">
-    <td>${g.met ? '■' : '□'} ${g.label}</td><td>${g.fmt(g.cur)} / ${g.fmt(g.target)}</td></tr>`).join('');
-  $('screen-body').innerHTML = `<div class="modal-head">
-    <span class="badge badge-${o.type === 'clear' ? 'low' : o.type === 'bankrupt' ? 'high' : 'mid'}">結果</span></div>
-    <h1 class="big-title end-title">${title}</h1>${o.type === 'bankrupt' ? `<p>${lead}</p>` : `
-    <div class="medal-wrap"><div class="medal medal-${rank}"><b>${rank}</b></div><div class="medal-lead">${lead}</div></div>`}
-    <table class="stats">${rows}
-      <tr><td>完了した案件</td><td>${S.done}件</td></tr>
-      <tr><td>成功した案件</td><td>${S.successes}件</td></tr>
-      <tr><td>対応したインシデント</td><td>${t.incidents}件</td></tr>
-      <tr><td>対応した会社イベント</td><td>${t.managementEvents}件</td></tr>
-      <tr><td>会社レベル</td><td>Lv.${S.level}</td></tr></table>
-    <div class="lesson"><div class="small muted"></div>${style}</div>
-    <button class="btn-main" data-act="restart" ${debugPreviewMode ? 'disabled' : ''}>もう一度プレイ</button>
-    ${debugPreviewMode ? '<button class="btn-small" data-act="debug-preview-back">デバッグ画面へ戻る</button>' : ''}`;
-  $('screen').classList.remove('hidden');
+  endView = 'result';
+  S.pending = null;
+  S.recruiting = false;
+  $('screen').classList.add('hidden');
   $('modal').classList.add('hidden');
+  showPage('town', true);
+  render();
+  window.scrollTo(0, 0);
 }
 
 function startGame() {
@@ -1271,6 +1657,8 @@ function startGame() {
 
 function restart() {
   clearTimeout(timer);
+  delete document.body.dataset.end;
+  endView = 'result';
   newGame(S.employeeDatabase, S.eventDatabase, S.projectDatabase, S.missionDatabase, companyName, S.difficulty);
   showPage('town');
   render();
@@ -1321,6 +1709,8 @@ function showDebugScreen(type) {
   };
   if (pageTypes[type]) {
     debugPreviewMode = false;
+    S.over = null;
+    delete document.body.dataset.end;
     screenMode = null;
     $('screen').classList.add('hidden');
     if (type === 'recruit') {
@@ -1451,13 +1841,10 @@ document.addEventListener('click', (ev) => {
     setTimeout(() => { resetArmed = false; el.textContent = '最初から'; }, 3000);
     return;
   }
-  if (a === 'timeline-latest') {
-    $('event-timeline').scrollTop = 0;
-    return;
-  }
   if (a === 'debug-preview-back') {
     debugPreviewMode = false;
     S.over = null;
+    delete document.body.dataset.end;
     screenMode = null;
     S.pending = null;
     stage = 1;
@@ -1468,6 +1855,12 @@ document.addEventListener('click', (ev) => {
     renderModal();
     return;
   }
+  if (a === 'timeline-latest') {
+    $('event-timeline').scrollTop = 0;
+    return;
+  }
+  if (a === 'end-town') { endView = 'town'; renderTown(); return; }
+  if (a === 'end-result') { endView = 'result'; renderTown(); return; }
   if (screenMode !== null) return;
 
   if (a === 'play') {
@@ -1667,15 +2060,15 @@ document.addEventListener('click', (ev) => {
       S.recruitContractCount >=
       INVEST.recruitContract.maxCount
     ) {
-      notify('利用回数の上限です', 'warn');
+      toast('利用回数の上限です', 'bad');
       return;
     }
     if (S.recruitContractActive) {
-      notify('契約実行待ちです', 'warn');
+      toast('契約実行待ちです', 'bad');
       return;
     }
     if (S.rep < INVEST.recruitContract.repCost) {
-      notify('評判が足りません', 'warn');
+      toast('評判が足りません', 'bad');
       return;
     }
     S.recruitSelectingJob = true;
@@ -1687,15 +2080,15 @@ document.addEventListener('click', (ev) => {
     const contract = INVEST.recruitContract;
     const hasJobType = S.employeeDatabase.some((candidate) => candidate.skill === jobType);
     if (!hasJobType) {
-      notify('その職種の候補者データがありません', 'warn');
+      toast('その職種の候補者データがありません', 'bad');
       return;
     }
     if (S.recruitContractCount >= contract.maxCount || S.recruitContractActive) {
-      notify('この契約は利用できません', 'warn');
+      toast('この契約は利用できません', 'bad');
       return;
     }
     if (S.rep < contract.repCost) {
-      notify('評判が足りません', 'warn');
+      toast('評判が足りません', 'bad');
       return;
     }
     S.rep -= contract.repCost;
@@ -1711,6 +2104,37 @@ document.addEventListener('click', (ev) => {
   else if (a === 'cancel-recruit-contract') {
     S.recruitSelectingJob = false;
     $('modal').classList.add('hidden');
+    return;
+  }
+  else if (a === 'training-program') {
+    S.trainingSelecting = true;
+    renderModal();
+    return;
+  }
+  else if (a === 'cancel-training') {
+    S.trainingSelecting = false;
+    $('modal').classList.add('hidden');
+    return;
+  }
+  else if (a === 'training-level') {
+    const level = Number(el.dataset.level);
+    const cost = level * 20;
+    if (S.rep < cost) {
+      toast('評判が足りません', 'bad');
+      return;
+    }
+    S.rep -= cost;
+    S.employees.forEach((emp) => {
+      emp.exp += level;
+    });
+    S.trainingProgramCount += 1;
+    S.trainingSelecting = false;
+    $('modal').classList.add('hidden');
+    toast(
+      `全社員の経験値が${level}上昇しました`,
+      'good'
+    );
+    render();
     return;
   }
 });
@@ -1758,6 +2182,7 @@ document.addEventListener('keydown', (ev) => {
     if (debugPreviewMode) {
       debugPreviewMode = false;
       S.over = null;
+      delete document.body.dataset.end;
       screenMode = null;
       S.pending = null;
       stage = 1;
